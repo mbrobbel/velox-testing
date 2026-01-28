@@ -41,6 +41,8 @@ OPTIONS:
                             stored inside a directory under the --output-dir path with a name matching the tag name.
                             Tags must contain only alphanumeric and underscore characters.
     -p, --profile           Enable profiling of benchmark queries.
+    -m, --metrics           Collect detailed metrics from Presto REST API after each query.
+                            Metrics are stored as parquet files in query-specific directories.
 
 EXAMPLES:
     $0 -b tpch -s bench_sf100
@@ -53,7 +55,7 @@ EXAMPLES:
 EOF
 }
 
-parse_args() { 
+parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
       -h|--help)
@@ -154,6 +156,10 @@ parse_args() {
         PROFILE=true
         shift
         ;;
+      -m|--metrics)
+        METRICS=true
+        shift
+        ;;
       *)
         echo "Error: Unknown argument $1"
         print_help
@@ -218,6 +224,10 @@ fi
 
 if [[ "${PROFILE}" == "true" ]]; then
   PYTEST_ARGS+=("--profile --profile-script-path $(readlink -f ./profiler_functions.sh)")
+fi
+
+if [[ "${METRICS}" == "true" ]]; then
+  PYTEST_ARGS+=("--metrics")
 fi
 
 source ../../scripts/py_env_functions.sh
