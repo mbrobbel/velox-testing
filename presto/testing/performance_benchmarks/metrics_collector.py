@@ -49,7 +49,8 @@ def collect_metrics(query_id: str, hostname: str, port: int, output_dir: str) ->
     if query_info:
         _save_as_json_and_parquet(query_info, output_path / "query")
         _collect_stages(query_info, output_path)
-        _collect_worker_data(query_info, output_path)
+        worker_tasks = _collect_worker_data(query_info, output_path)
+        _generate_summary(query_info, worker_tasks, output_path)
 
 
 def _fetch_json(url: str, timeout: int = 30) -> dict | None:
@@ -104,8 +105,8 @@ def _extract_stages(stage_info: dict, stages: list) -> None:
         _extract_stages(sub_stage, stages)
 
 
-def _collect_worker_data(query_info: dict, output_path: Path) -> None:
-    """Collect task details and metrics from each worker."""
+def _collect_worker_data(query_info: dict, output_path: Path) -> dict:
+    """Collect task details and metrics from each worker. Returns worker_tasks dict."""
     # Group tasks by worker
     tasks_by_worker = defaultdict(list)
     _group_tasks_by_worker(query_info.get("outputStage"), tasks_by_worker)
@@ -122,6 +123,7 @@ def _collect_worker_data(query_info: dict, output_path: Path) -> None:
             task_data = _fetch_json(f"{worker_uri}/v1/task/{task_id}")
             if task_data:
                 task_data["_worker_uri"] = worker_uri
+                task_data["_worker_id"] = worker_id
                 worker_tasks.append(task_data)
 
         if worker_tasks:
@@ -136,6 +138,8 @@ def _collect_worker_data(query_info: dict, output_path: Path) -> None:
         _save_as_json_and_parquet(all_worker_tasks, output_path / "tasks")
     if all_worker_metrics:
         _save_as_json_and_parquet(all_worker_metrics, output_path / "metrics")
+
+    return all_worker_tasks
 
 
 def _group_tasks_by_worker(stage_info: dict, tasks_by_worker: dict) -> None:
@@ -154,6 +158,89 @@ def _group_tasks_by_worker(stage_info: dict, tasks_by_worker: dict) -> None:
 
     for sub_stage in stage_info.get("subStages", []):
         _group_tasks_by_worker(sub_stage, tasks_by_worker)
+
+
+def _generate_summary(query_info: dict, worker_tasks: dict, output_path: Path) -> None:
+    """Generate a summary JSON with query -> stages -> workers -> tasks -> pipelines -> operators hierarchy."""
+    # Build task lookup by task_id
+    task_lookup = {}
+    for worker_id, tasks in worker_tasks.items():
+        for task in tasks:
+            task_lookup[task.get("taskId")] = task
+
+    # Extract stages with workers and tasks
+    stages = []
+    _extract_stage_summary(query_info.get("outputStage"), task_lookup, stages)
+
+    summary = {
+        "queryId": query_info.get("queryId"),
+        "query": query_info.get("query"),
+        "state": query_info.get("state"),
+        "stages": stages,
+    }
+
+    # Save summary (JSON only, no parquet needed for this hierarchical view)
+    summary_file = output_path / "summary.json"
+    with open(summary_file, "w") as f:
+        json.dump(summary, f, indent=2)
+
+
+def _extract_stage_summary(stage_info: dict, task_lookup: dict, stages: list) -> None:
+    """Recursively extract stage summary with workers, tasks, pipelines, and operators."""
+    if stage_info is None:
+        return
+
+    stage_id = stage_info.get("stageId")
+    latest_attempt = stage_info.get("latestAttemptExecutionInfo", {})
+
+    # Group tasks by worker
+    tasks_by_worker = defaultdict(list)
+    for task in latest_attempt.get("tasks", []):
+        task_id = task.get("taskId")
+        task_detail = task_lookup.get(task_id, {})
+        worker_id = task_detail.get("_worker_id", "unknown")
+        worker_uri = task_detail.get("_worker_uri", "unknown")
+
+        # Extract pipelines and operators from task stats
+        pipelines = []
+        stats = task_detail.get("stats", {})
+        for pipeline in stats.get("pipelines", []):
+            operators = []
+            for op in pipeline.get("operatorSummaries", []):
+                operators.append({
+                    "operatorId": op.get("operatorId"),
+                    "operatorType": op.get("operatorType"),
+                    "planNodeId": op.get("planNodeId"),
+                })
+            pipelines.append({
+                "pipelineId": pipeline.get("pipelineId"),
+                "operators": operators,
+            })
+
+        tasks_by_worker[(worker_id, worker_uri)].append({
+            "taskId": task_id,
+            "state": task.get("taskStatus", {}).get("state"),
+            "pipelines": pipelines,
+        })
+
+    # Build workers list
+    workers = []
+    for (worker_id, worker_uri), tasks in tasks_by_worker.items():
+        workers.append({
+            "workerId": worker_id,
+            "workerUri": worker_uri,
+            "tasks": tasks,
+        })
+
+    stages.append({
+        "stageId": stage_id,
+        "state": latest_attempt.get("state"),
+        "workers": workers,
+    })
+
+    # Recurse into sub-stages
+    for sub_stage in stage_info.get("subStages", []):
+        _extract_stage_summary(sub_stage, task_lookup, stages)
 
 
 def _fetch_worker_metrics(worker_uri: str) -> list | None:
