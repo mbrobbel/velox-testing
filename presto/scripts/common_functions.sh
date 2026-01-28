@@ -17,21 +17,25 @@
 function wait_for_worker_node_registration() {
   trap "rm -rf node_response.json" RETURN
 
-  echo "Waiting for a worker node to be registered..."
   HOSTNAME=${1:-localhost}
   PORT=${2:-8080}
+  EXPECTED_WORKERS=${3:-1}
+
+  echo "Waiting for ${EXPECTED_WORKERS} worker node(s) to be registered..."
   COORDINATOR_URL=http://${HOSTNAME}:${PORT}
   echo "Coordinator URL: $COORDINATOR_URL"
-  local -r MAX_RETRIES=12
+  local -r MAX_RETRIES=24
   local retry_count=0
   until curl -s -f -o node_response.json ${COORDINATOR_URL}/v1/node && \
-        (( $(jq length node_response.json) > 0 )); do
+        (( $(jq length node_response.json) >= ${EXPECTED_WORKERS} )); do
     if (( $retry_count >= $MAX_RETRIES )); then
-      echo "Error: Worker node not registered after 60s. Exiting."
+      local registered=$(jq length node_response.json 2>/dev/null || echo 0)
+      echo "Error: Only ${registered}/${EXPECTED_WORKERS} worker node(s) registered after 120s. Exiting."
       exit 1
     fi
     sleep 5
     retry_count=$(( retry_count + 1 ))
   done
-  echo "Worker node registered"
+  local registered=$(jq length node_response.json)
+  echo "${registered} worker node(s) registered"
 }

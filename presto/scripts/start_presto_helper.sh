@@ -85,7 +85,22 @@ fi
 
 ./stop_presto.sh
 
+# Check if NUM_WORKERS changed from existing config - if so, force regenerate
+CONFIG_JSON="../docker/config/generated/${VARIANT_TYPE}/config.json"
+if [[ -f "$CONFIG_JSON" ]]; then
+  EXISTING_WORKERS=$(grep -o '"number_of_workers": [0-9]*' "$CONFIG_JSON" | grep -o '[0-9]*' || echo "0")
+  if [[ "$EXISTING_WORKERS" != "$NUM_WORKERS" ]]; then
+    echo "Number of workers changed from $EXISTING_WORKERS to $NUM_WORKERS - regenerating config"
+    export OVERWRITE_CONFIG=true
+  fi
+fi
+
 ./generate_presto_config.sh
+
+# Generate multi-worker compose file if needed
+if (( NUM_WORKERS > 1 )) && [[ "$VARIANT_TYPE" == "gpu" ]]; then
+  ./generate_multi_worker_compose.sh
+fi
 
 # must determine CUDA_ARCHITECTURES here as nvidia-smi is not available in the docker build context
 CUDA_ARCHITECTURES=""
@@ -130,4 +145,12 @@ if (( ${#BUILD_TARGET_ARG[@]} )); then
   ${BUILD_TARGET_ARG[@]}
 fi
 
-docker compose -f $DOCKER_COMPOSE_FILE_PATH up -d
+# Launch containers with appropriate compose files
+if (( NUM_WORKERS > 1 )) && [[ "$VARIANT_TYPE" == "gpu" ]]; then
+  MULTI_WORKER_COMPOSE_FILE=../docker/docker-compose.workers.yml
+  echo "Starting Presto with ${NUM_WORKERS} GPU workers..."
+  docker compose -f $DOCKER_COMPOSE_FILE_PATH -f $MULTI_WORKER_COMPOSE_FILE up -d
+else
+  # Single worker mode - use the default service
+  NVIDIA_VISIBLE_DEVICES=0 docker compose -f $DOCKER_COMPOSE_FILE_PATH --profile single-worker up -d
+fi

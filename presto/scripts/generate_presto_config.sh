@@ -54,6 +54,9 @@ else
   VCPU_PER_WORKER=${NPROC}
 fi
 
+# Number of workers (default to 1 if not set)
+NUM_WORKERS=${NUM_WORKERS:-1}
+
 # move to config directory
 pushd ../docker/config > /dev/null
 
@@ -64,7 +67,7 @@ CONFIG_DIR=generated/${VARIANT_TYPE}
 
 # generate only if no existing config or overwrite flag is set
 if [[ ! -d ${CONFIG_DIR} || "${OVERWRITE_CONFIG}" == "true" ]]; then
-  echo "Generating Presto Config files for '${VARIANT_TYPE}' for host with ${NPROC} CPU cores and ${RAM_GB}GB RAM"
+  echo "Generating Presto Config files for '${VARIANT_TYPE}' for host with ${NPROC} CPU cores and ${RAM_GB}GB RAM (${NUM_WORKERS} worker(s))"
 
   # (re-)generate the config.json file
   rm -rf ${CONFIG_DIR}
@@ -76,7 +79,7 @@ if [[ ! -d ${CONFIG_DIR} || "${OVERWRITE_CONFIG}" == "true" ]]; then
     "coordinator_instance_ebs_size": 50,
     "worker_instance_type": "${NPROC}-core CPU and ${RAM_GB}GB RAM",
     "worker_instance_ebs_size": 50,
-    "number_of_workers": 1,
+    "number_of_workers": ${NUM_WORKERS},
     "memory_per_node_gb": ${RAM_GB},
     "vcpu_per_worker": ${VCPU_PER_WORKER},
     "fragment_result_cache_enabled": true,
@@ -97,10 +100,18 @@ EOF
     # optimizer.default-filter-factor-enabled=true
     COORD_CONFIG="${CONFIG_DIR}/etc_coordinator/config_native.properties"
     sed -i 's/\#optimizer/optimizer/g' ${COORD_CONFIG}
-    
+
     # Adds a cluster tag for gpu variant
     WORKER_CONFIG="${CONFIG_DIR}/etc_coordinator/config_native.properties"
     echo "cluster-tag=native-gpu" >> ${WORKER_CONFIG}
+
+    # For GPU variant, limit to 1 driver per task and 1 concurrent task to avoid cuDF memory pool race condition
+    # The cudf-expr-precompile memory pool can only be created once per process
+    WORKER_NATIVE_CONFIG="${CONFIG_DIR}/etc_worker/config_native.properties"
+    sed -i 's/^task.max-drivers-per-task=.*/task.max-drivers-per-task=1/' ${WORKER_NATIVE_CONFIG}
+    echo "" >> ${WORKER_NATIVE_CONFIG}
+    echo "# Limit concurrent tasks to avoid cuDF memory pool race condition" >> ${WORKER_NATIVE_CONFIG}
+    echo "task.concurrency=1" >> ${WORKER_NATIVE_CONFIG}
   fi
 
   # now perform other variant-specific modifications to the generated configs
@@ -117,9 +128,32 @@ EOF
     sed -i 's/parquet\.reader\.pass-read-limit/#parquet\.reader\.pass-read-limit/' ${HIVE_CONFIG}
   fi
 
+  # Generate worker-specific node.properties for multi-worker setups
+  if (( NUM_WORKERS > 1 )); then
+    for i in $(seq 0 $((NUM_WORKERS - 1))); do
+      WORKER_NODE_CONFIG="${CONFIG_DIR}/etc_worker/node_worker${i}.properties"
+      cp "${CONFIG_DIR}/etc_worker/node.properties" "${WORKER_NODE_CONFIG}"
+      # Update node.id to be unique per worker
+      sed -i "s/^node.id=.*/node.id=worker${i}/" "${WORKER_NODE_CONFIG}"
+    done
+  fi
+
   # success message
   echo_success "Configs were generated successfully"
 else
   # otherwise, reuse existing config
   echo_success "Reusing existing Presto Config files for '${VARIANT_TYPE}'"
+
+  # But still generate worker-specific node.properties if they don't exist (for multi-worker setups)
+  if (( NUM_WORKERS > 1 )); then
+    for i in $(seq 0 $((NUM_WORKERS - 1))); do
+      WORKER_NODE_CONFIG="${CONFIG_DIR}/etc_worker/node_worker${i}.properties"
+      if [[ ! -f "${WORKER_NODE_CONFIG}" ]]; then
+        echo "Generating missing ${WORKER_NODE_CONFIG}"
+        cp "${CONFIG_DIR}/etc_worker/node.properties" "${WORKER_NODE_CONFIG}"
+        # Update node.id to be unique per worker
+        sed -i "s/^node.id=.*/node.id=worker${i}/" "${WORKER_NODE_CONFIG}"
+      fi
+    done
+  fi
 fi

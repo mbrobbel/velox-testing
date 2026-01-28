@@ -17,10 +17,10 @@
 set -e
 
 function get_worker_container_id() {
-  # Try GPU worker first, then CPU worker
-  local container_id=$(docker ps -q --filter "ancestor=presto-native-worker-gpu:latest")
+  # Try GPU worker first, then CPU worker (returns first worker found)
+  local container_id=$(docker ps -q --filter "ancestor=presto-native-worker-gpu:latest" | head -1)
   if [[ -z $container_id ]]; then
-    container_id=$(docker ps -q --filter "ancestor=presto-native-worker-cpu:latest")
+    container_id=$(docker ps -q --filter "ancestor=presto-native-worker-cpu:latest" | head -1)
   fi
   if [[ -z $container_id ]]; then
     # Fallback: find any container with "native-worker" in the name
@@ -31,6 +31,24 @@ function get_worker_container_id() {
     exit 1
   fi
   echo $container_id
+}
+
+function get_all_worker_container_ids() {
+  # Get all GPU worker containers
+  local container_ids=$(docker ps -q --filter "ancestor=presto-native-worker-gpu:latest")
+  if [[ -z $container_ids ]]; then
+    # Try CPU workers
+    container_ids=$(docker ps -q --filter "ancestor=presto-native-worker-cpu:latest")
+  fi
+  if [[ -z $container_ids ]]; then
+    # Fallback: find all containers with "native-worker" in the name
+    container_ids=$(docker ps -q --filter "name=native-worker")
+  fi
+  if [[ -z $container_ids ]]; then
+    echo "Error: no presto-native worker containers found" >&2
+    exit 1
+  fi
+  echo $container_ids
 }
 
 function get_coordinator_container_id() {
@@ -96,16 +114,36 @@ function collect_metrics() {
   local -r coordinator_port=$3
   local -r query_id=$4
 
-  local -r worker_container_id=$(get_worker_container_id)
+  local -r worker_container_ids=$(get_all_worker_container_ids)
   local -r coordinator_container_id=$(get_coordinator_container_id)
 
   # Create a temporary directory for individual metric files
   local -r temp_dir=$(mktemp -d)
   trap "rm -rf $temp_dir" EXIT
 
-  # Collect worker metrics (Prometheus format) and convert to JSON
-  docker exec $worker_container_id curl -s \
-    "http://localhost:8080/v1/info/metrics" 2>/dev/null | prometheus_to_json > "$temp_dir/worker_metrics.json" || echo "{}" > "$temp_dir/worker_metrics.json"
+  # Collect worker metrics from all workers (Prometheus format) and convert to JSON
+  # Also collect worker status to get nodeId and IP mapping
+  echo "[" > "$temp_dir/worker_metrics.json"
+  local first_worker=true
+  for worker_container_id in $worker_container_ids; do
+    if [[ "$first_worker" == "true" ]]; then
+      first_worker=false
+    else
+      echo "," >> "$temp_dir/worker_metrics.json"
+    fi
+    local worker_name=$(docker inspect --format '{{.Name}}' "$worker_container_id" | sed 's/^\///')
+
+    # Get worker status to extract nodeId and IP address
+    local worker_status=$(docker exec $worker_container_id curl -s "http://localhost:8080/v1/status" 2>/dev/null || echo "{}")
+    local node_id=$(echo "$worker_status" | jq -r '.nodeId // "unknown"')
+    local internal_address=$(echo "$worker_status" | jq -r '.internalAddress // "unknown"')
+
+    echo "{\"worker\": \"${worker_name}\", \"nodeId\": \"${node_id}\", \"internalAddress\": \"${internal_address}\", \"metrics\": " >> "$temp_dir/worker_metrics.json"
+    docker exec $worker_container_id curl -s \
+      "http://localhost:8080/v1/info/metrics" 2>/dev/null | prometheus_to_json >> "$temp_dir/worker_metrics.json" || echo "{}" >> "$temp_dir/worker_metrics.json"
+    echo "}" >> "$temp_dir/worker_metrics.json"
+  done
+  echo "]" >> "$temp_dir/worker_metrics.json"
 
   # Collect query info from coordinator (includes stages and tasks)
   fetch_json "$coordinator_container_id" "http://localhost:${coordinator_port}/v1/query/${query_id}" > "$temp_dir/query_info.json"
@@ -113,7 +151,7 @@ function collect_metrics() {
   # Extract task IDs from query info and fetch detailed task info from workers
   local task_ids=$(jq -r '.. | .taskId? // empty' "$temp_dir/query_info.json" 2>/dev/null | sort -u)
 
-  # Collect task info for each task
+  # Collect task info for each task - try all workers since tasks may be distributed
   echo "[" > "$temp_dir/tasks_info.json"
   local first=true
   for task_id in $task_ids; do
@@ -123,7 +161,15 @@ function collect_metrics() {
       else
         echo "," >> "$temp_dir/tasks_info.json"
       fi
-      local task_info=$(fetch_json "$worker_container_id" "http://localhost:8080/v1/task/${task_id}")
+      # Try each worker until we find the task
+      local task_info="{}"
+      for worker_container_id in $worker_container_ids; do
+        local result=$(fetch_json "$worker_container_id" "http://localhost:8080/v1/task/${task_id}")
+        if [[ "$result" != "{}" ]]; then
+          task_info="$result"
+          break
+        fi
+      done
       echo "$task_info" >> "$temp_dir/tasks_info.json"
     fi
   done

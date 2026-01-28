@@ -21,16 +21,18 @@ print_help() {
 
 Usage: $SCRIPT_NAME [OPTIONS]
 
-This script deploys a Presto server cluster (one coordinator node and one $VARIANT_TYPE worker node).
+This script deploys a Presto server cluster (one coordinator node and $VARIANT_TYPE worker node(s)).
 
 OPTIONS:
     -h, --help           Show this help message.
     -n, --no-cache       Do not use the builder cache when building the image.
-    -b, --build          Service type to build from source. Possible values are 
+    -b, --build          Service type to build from source. Possible values are
                          "coordinator" or "c", "worker" or "w", and "all" or "a".
-                         By default, services will be lazily built i.e. a build 
+                         By default, services will be lazily built i.e. a build
                          will only occur if there is no local image for the service.
     -j, --num-threads    Number of threads to use when building the image (default is `nproc` / 2).
+    -w, --num-workers    Number of worker nodes to deploy (default: 1). For GPU variant, each worker
+                         will be assigned a different GPU (0, 1, 2, ...).
     --build-type         Build type for native CPU and GPU image builds. Possible values are "release",
                          "relwithdebinfo", or "debug". Values are case insensitive. The default value
                          is "release".
@@ -56,6 +58,7 @@ BUILD_TYPE=release
 ALL_CUDA_ARCHS=false
 export OVERWRITE_CONFIG=false
 export PROFILE=OFF
+export NUM_WORKERS=1
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
@@ -82,6 +85,15 @@ parse_args() {
           shift 2
         else
           echo "Error: --num-threads requires a value"
+          exit 1
+        fi
+        ;;
+      -w|--num-workers)
+        if [[ -n $2 ]]; then
+          NUM_WORKERS=$2
+          shift 2
+        else
+          echo "Error: --num-workers requires a value"
           exit 1
         fi
         ;;
@@ -135,6 +147,12 @@ fi
 
 if (( NUM_THREADS <= 0 )); then
   echo "Error: --num-threads must be a positive integer."
+  print_help
+  exit 1
+fi
+
+if (( NUM_WORKERS <= 0 )); then
+  echo "Error: --num-workers must be a positive integer."
   print_help
   exit 1
 fi

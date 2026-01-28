@@ -15,6 +15,7 @@
 import prestodb
 import pytest
 
+from datetime import datetime
 from pathlib import Path
 from .benchmark_keys import BenchmarkKeys
 from .profiler_utils import start_profiler, stop_profiler
@@ -108,7 +109,8 @@ def benchmark_query(request, presto_cursor, benchmark_queries, benchmark_result_
             if profile:
                 stop_profiler(profile_script_path, profile_output_file_path)
             if metrics and last_presto_query_id:
-                metrics_output_file_path = f"{metrics_output_dir_path.absolute()}/{query_id}.json"
+                # Use Presto query ID in filename for easy identification
+                metrics_output_file_path = f"{metrics_output_dir_path.absolute()}/{query_id}_{last_presto_query_id}.json"
                 try:
                     collect_metrics(metrics_script_path, metrics_output_file_path,
                                     hostname, port, last_presto_query_id)

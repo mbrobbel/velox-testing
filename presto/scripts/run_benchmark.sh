@@ -42,6 +42,7 @@ OPTIONS:
                             Tags must contain only alphanumeric and underscore characters.
     -p, --profile           Enable profiling of benchmark queries.
     -m, --metrics           Enable collection of presto-native worker metrics after each query.
+    -w, --num-workers       Number of worker nodes expected to be registered (default: 1).
 
 EXAMPLES:
     $0 -b tpch -s bench_sf100
@@ -159,6 +160,15 @@ parse_args() {
         METRICS=true
         shift
         ;;
+      -w|--num-workers)
+        if [[ -n $2 ]]; then
+          NUM_WORKERS=$2
+          shift 2
+        else
+          echo "Error: --num-workers requires a value"
+          exit 1
+        fi
+        ;;
       *)
         echo "Error: Unknown argument $1"
         print_help
@@ -240,7 +250,7 @@ pip install -q -r ${TEST_DIR}/requirements.txt
 
 source ./common_functions.sh
 
-wait_for_worker_node_registration "$HOST_NAME" "$PORT"
+wait_for_worker_node_registration "$HOST_NAME" "$PORT" "${NUM_WORKERS:-1}"
 
 BENCHMARK_TEST_DIR=${TEST_DIR}/performance_benchmarks
 pytest -q ${BENCHMARK_TEST_DIR}/${BENCHMARK_TYPE}_test.py ${PYTEST_ARGS[*]}

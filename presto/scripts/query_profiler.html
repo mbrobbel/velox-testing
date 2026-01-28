@@ -10,6 +10,56 @@
       href="https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@2.10.1/dist/css/themes.css"
     />
     <style>
+      :root {
+        /* Dark mode colors (default) */
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2a2a2a;
+        --bg-tertiary: #333;
+        --bg-header: #000000;
+        --bg-panel-dark: #0d0d0d;
+        --text-primary: #eee;
+        --text-secondary: #aaa;
+        --text-tertiary: #888;
+        --text-muted: #555;
+        --text-inactive: #444;
+        --accent-primary: #76b900;
+        --accent-hover: #8fd400;
+        --accent-secondary: #0d9488;
+        --accent-link: #0891b2;
+        --accent-link-hover: #06b6d4;
+        --border-primary: #333;
+        --border-accent: #76b900;
+        --border-subtle: rgba(255, 255, 255, 0.2);
+        --tooltip-bg: #2a2a2a;
+        --dag-legend-bg: rgba(0, 0, 0, 0.8);
+        --highlight-bg: rgba(8, 145, 178, 0.3);
+      }
+
+      body.light-mode {
+        /* Light mode colors */
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-tertiary: #e0e0e0;
+        --bg-header: #f9f9f9;
+        --bg-panel-dark: #fafafa;
+        --text-primary: #1a1a1a;
+        --text-secondary: #555555;
+        --text-tertiary: #666666;
+        --text-muted: #999999;
+        --text-inactive: #bbbbbb;
+        --accent-primary: #76b900;
+        --accent-hover: #609600;
+        --accent-secondary: #0f766e;
+        --accent-link: #0e7490;
+        --accent-link-hover: #0284c7;
+        --border-primary: #d0d0d0;
+        --border-accent: #76b900;
+        --border-subtle: rgba(0, 0, 0, 0.15);
+        --tooltip-bg: #ffffff;
+        --dag-legend-bg: rgba(255, 255, 255, 0.95);
+        --highlight-bg: rgba(8, 145, 178, 0.2);
+      }
+
       * {
         box-sizing: border-box;
         margin: 0;
@@ -19,14 +69,15 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
           sans-serif;
-        background: #1a1a1a;
-        color: #eee;
+        background: var(--bg-primary);
+        color: var(--text-primary);
         min-height: 100vh;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
       .header {
-        background: #000000;
+        background: var(--bg-header);
         padding: 15px 20px;
-        border-bottom: 1px solid #333;
+        border-bottom: 1px solid var(--border-primary);
         display: flex;
         align-items: center;
         gap: 20px;
@@ -34,37 +85,88 @@
       }
       .header h1 {
         font-size: 1.4em;
-        color: #76b900;
+        color: var(--accent-primary);
       }
       .header input[type="file"] {
-        background: #2a2a2a;
-        border: 1px solid #76b900;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-accent);
         border-radius: 4px;
         padding: 8px 12px;
-        color: #eee;
+        color: var(--text-primary);
         cursor: pointer;
       }
       .header select {
-        background: #2a2a2a;
-        border: 1px solid #76b900;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-accent);
         border-radius: 4px;
         padding: 8px 12px;
-        color: #eee;
+        color: var(--text-primary);
         cursor: pointer;
         min-width: 200px;
       }
+      /* Theme Toggle Switch */
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+      }
+      .theme-toggle-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .theme-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+      }
+      .theme-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .theme-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--bg-tertiary);
+        transition: 0.3s;
+        border-radius: 24px;
+        border: 1px solid var(--border-primary);
+      }
+      .theme-slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 2px;
+        bottom: 2px;
+        background-color: var(--accent-primary);
+        transition: 0.3s;
+        border-radius: 50%;
+      }
+      input:checked + .theme-slider:before {
+        transform: translateX(26px);
+      }
+      .theme-slider:hover {
+        border-color: var(--accent-primary);
+      }
       .query-info {
-        background: #000000;
+        background: var(--bg-header);
         padding: 10px 20px;
-        border-bottom: 1px solid #333;
+        border-bottom: 1px solid var(--border-primary);
         font-size: 0.9em;
       }
       .query-info span {
         margin-right: 20px;
-        color: #aaa;
+        color: var(--text-secondary);
       }
       .query-info span strong {
-        color: #76b900;
+        color: var(--accent-primary);
       }
       .container {
         display: grid;
@@ -75,18 +177,18 @@
         height: calc(100vh - 120px);
       }
       .panel {
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
         border-radius: 8px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
       }
       .panel-header {
-        background: #2a2a2a;
+        background: var(--bg-secondary);
         padding: 10px 15px;
         font-weight: 600;
-        color: #76b900;
+        color: var(--accent-primary);
         font-size: 0.9em;
       }
       .panel-content {
@@ -125,7 +227,7 @@
       }
       .pipeline-label {
         font-size: 12px;
-        fill: #76b900;
+        fill: var(--accent-primary);
         font-weight: bold;
       }
       .operator-bar {
@@ -137,40 +239,41 @@
       }
       .operator-label {
         font-size: 10px;
-        fill: #eee;
+        fill: var(--text-primary);
         pointer-events: none;
       }
       .axis text {
-        fill: #aaa;
+        fill: var(--text-secondary);
         font-size: 10px;
       }
       .axis line,
       .axis path {
-        stroke: #444;
+        stroke: var(--text-inactive);
       }
       .grid line {
-        stroke: #333;
+        stroke: var(--border-primary);
         stroke-dasharray: 2, 2;
       }
       .tooltip {
         position: absolute;
-        background: #2a2a2a;
-        border: 1px solid #76b900;
+        background: var(--tooltip-bg);
+        border: 1px solid var(--border-accent);
         border-radius: 4px;
         padding: 10px;
         font-size: 12px;
         pointer-events: none;
         z-index: 1000;
         max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       }
       .tooltip strong {
-        color: #76b900;
+        color: var(--accent-primary);
       }
       .legend {
         display: flex;
         gap: 15px;
         padding: 10px 15px;
-        background: #2a2a2a;
+        background: var(--bg-secondary);
         flex-wrap: wrap;
       }
       .legend-item {
@@ -191,7 +294,7 @@
         height: 100%;
         overflow: auto;
         padding: 20px;
-        background: #0d0d0d;
+        background: var(--bg-panel-dark);
       }
       .dag-svg {
         display: block;
@@ -202,45 +305,31 @@
       }
       .dag-node rect {
         transition: all 0.2s;
-        stroke: rgba(255, 255, 255, 0.2);
+        stroke: var(--border-subtle);
         stroke-width: 1;
       }
       .dag-node:hover rect {
         filter: brightness(1.2);
-        stroke: #76b900;
+        stroke: var(--accent-primary);
         stroke-width: 2;
       }
       .dag-node text {
-        fill: #fff;
+        fill: var(--text-primary);
         font-size: 11px;
         pointer-events: none;
       }
       .dag-edge {
         fill: none;
-        stroke: #555;
+        stroke: var(--text-muted);
         stroke-width: 2;
         marker-end: url(#arrowhead);
       }
       .dag-edge-label {
-        fill: #aaa;
+        fill: var(--text-secondary);
         font-size: 10px;
       }
-      .dag-fullscreen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 100;
-        background: #1a1a1a;
-      }
-      .dag-fullscreen .panel-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
       .dag-close-btn {
-        background: #76b900;
+        background: var(--accent-primary);
         border: none;
         color: #000;
         padding: 5px 15px;
@@ -250,7 +339,7 @@
         font-weight: 600;
       }
       .dag-close-btn:hover {
-        background: #8fd400;
+        background: var(--accent-hover);
       }
       .dag-header-controls {
         display: flex;
@@ -258,23 +347,23 @@
         align-items: center;
       }
       .dag-color-label {
-        color: #aaa;
+        color: var(--text-secondary);
         font-size: 12px;
         font-weight: normal;
       }
       #dagColorMode {
-        background: #2a2a2a;
-        border: 1px solid #76b900;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-accent);
         border-radius: 4px;
         padding: 5px 10px;
-        color: #eee;
+        color: var(--text-primary);
         cursor: pointer;
         font-size: 12px;
       }
       .dag-toggle-btn {
-        background: #2a2a2a;
-        border: 1px solid #76b900;
-        color: #76b900;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-accent);
+        color: var(--accent-primary);
         padding: 5px 15px;
         border-radius: 4px;
         cursor: pointer;
@@ -282,10 +371,10 @@
         font-weight: 600;
       }
       .dag-toggle-btn:hover {
-        background: #333;
+        background: var(--bg-tertiary);
       }
       .dag-toggle-btn.active {
-        background: #76b900;
+        background: var(--accent-primary);
         color: #000;
       }
       .text-plan-container {
@@ -293,46 +382,46 @@
         height: 100%;
         overflow: auto;
         padding: 20px;
-        background: #0d0d0d;
+        background: var(--bg-panel-dark);
       }
       .text-plan-container pre {
         font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
         font-size: 12px;
         line-height: 1.5;
-        color: #eee;
+        color: var(--text-primary);
         white-space: pre;
         margin: 0;
       }
       .plan-node {
-        color: #76b900;
+        color: var(--accent-primary);
         font-weight: bold;
       }
       .plan-id {
-        color: #888;
+        color: var(--text-tertiary);
       }
       .plan-detail {
-        color: #aaa;
+        color: var(--text-secondary);
       }
       .plan-stats {
-        color: #0d9488;
+        color: var(--accent-secondary);
       }
       .plan-operator {
-        color: #888;
+        color: var(--text-tertiary);
         font-family: monospace;
         font-size: 0.9em;
       }
       .plan-source-ref {
-        color: #0891b2;
+        color: var(--accent-link);
         cursor: pointer;
         font-size: 10px;
         text-decoration: none;
       }
       .plan-source-ref:hover {
         text-decoration: underline;
-        color: #06b6d4;
+        color: var(--accent-link-hover);
       }
       .query-highlight {
-        background: rgba(8, 145, 178, 0.3);
+        background: var(--highlight-bg);
         border-radius: 4px;
         transition: background 0.3s ease;
       }
@@ -345,18 +434,19 @@
         position: absolute;
         bottom: 20px;
         left: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        border: 1px solid #333;
+        background: var(--dag-legend-bg);
+        border: 1px solid var(--border-primary);
         border-radius: 8px;
         padding: 12px 16px;
         font-size: 11px;
-        color: #eee;
+        color: var(--text-primary);
         z-index: 10;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       }
       .dag-legend-title {
         font-weight: bold;
         margin-bottom: 8px;
-        color: #76b900;
+        color: var(--accent-primary);
       }
       .dag-legend-gradient {
         display: flex;
@@ -374,7 +464,7 @@
         justify-content: space-between;
         width: 120px;
         font-size: 10px;
-        color: #888;
+        color: var(--text-tertiary);
       }
       .dag-legend-items {
         display: flex;
@@ -391,6 +481,118 @@
         height: 12px;
         border-radius: 2px;
       }
+      /* Worker Metrics Styles */
+      .worker-metrics-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 20px;
+        overflow-y: auto;
+        height: 100%;
+      }
+      .worker-summary {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .worker-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        padding: 15px;
+        min-width: 280px;
+        flex: 1;
+      }
+      .worker-card h3 {
+        color: var(--accent-primary);
+        margin-bottom: 10px;
+        font-size: 1.1em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .worker-card .worker-status {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+      }
+      .worker-metric {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border-primary);
+      }
+      .worker-metric:last-child {
+        border-bottom: none;
+      }
+      .worker-metric-label {
+        color: var(--text-secondary);
+      }
+      .worker-metric-value {
+        color: var(--text-primary);
+        font-weight: 500;
+      }
+      .worker-comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-secondary);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .worker-comparison-table th {
+        background: var(--bg-tertiary);
+        padding: 12px;
+        text-align: left;
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .worker-comparison-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-primary);
+      }
+      .worker-comparison-table tr:last-child td {
+        border-bottom: none;
+      }
+      .worker-comparison-table tr:hover {
+        background: var(--bg-tertiary);
+      }
+      .metric-bar {
+        height: 8px;
+        background: var(--accent-primary);
+        border-radius: 4px;
+        margin-top: 4px;
+      }
+      .metric-diff {
+        font-size: 0.85em;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .metric-diff.higher {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+      }
+      .metric-diff.lower {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+      }
+      .worker-section-title {
+        color: var(--text-primary);
+        font-size: 1.2em;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--accent-primary);
+      }
+      .no-worker-data {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+      }
+      .driver-info {
+        font-size: 0.85em;
+        color: var(--text-secondary);
+        margin-left: 8px;
+      }
     </style>
   </head>
   <body>
@@ -399,6 +601,7 @@
       <input type="file" id="fileInput" accept=".json" />
       <select id="viewSelect">
         <option value="dag">Query Plan DAG</option>
+        <option value="textplan">Query Plan (Text)</option>
         <option value="timeline">Pipeline Timeline</option>
         <option value="operators">Operator Time Breakdown</option>
         <option value="timePhases">
@@ -409,14 +612,22 @@
         <option value="memory">Memory Usage</option>
         <option value="pipeline">Pipeline View</option>
         <option value="runtime">Runtime Stats</option>
+        <option value="workers">Worker Metrics</option>
       </select>
+      <div class="theme-toggle">
+        <span class="theme-toggle-label">Light</span>
+        <label class="theme-switch">
+          <input type="checkbox" id="themeToggle" />
+          <span class="theme-slider"></span>
+        </label>
+      </div>
     </div>
     <div class="query-info" id="queryInfo">
       <span>Load a JSON file to see query execution details</span>
     </div>
     <div class="container" id="mainContainer">
       <div
-        class="panel full-width dag-fullscreen"
+        class="panel full-width full-height"
         id="dagPanel"
         style="display: none"
       >
@@ -431,32 +642,21 @@
               <option value="memory">Memory Usage</option>
               <option value="selectivity">Selectivity</option>
             </select>
-            <button
-              class="dag-toggle-btn"
-              id="dagToggleBtn"
-              onclick="togglePlanView()"
-            >
-              Show Text Plan
-            </button>
-            <button
-              class="dag-close-btn"
-              onclick="
-                document.getElementById('viewSelect').value = 'operators';
-                switchView('operators');
-              "
-            >
-              Close Fullscreen
-            </button>
           </div>
         </div>
-        <div class="panel-content" style="height: calc(100vh - 50px)">
+        <div class="panel-content" style="flex: 1; overflow: hidden;">
           <div class="dag-container" id="dagContainer"></div>
           <div class="dag-legend" id="dagLegend"></div>
-          <div
-            class="text-plan-container"
-            id="textPlanContainer"
-            style="display: none"
-          >
+        </div>
+      </div>
+      <div
+        class="panel full-width full-height"
+        id="textPlanPanel"
+        style="display: none"
+      >
+        <div class="panel-header">Query Plan (Text)</div>
+        <div class="panel-content" style="flex: 1; overflow: auto;">
+          <div class="text-plan-container" id="textPlanContainer">
             <pre id="textPlanContent"></pre>
           </div>
         </div>
@@ -513,6 +713,18 @@
           ></perspective-viewer>
         </div>
       </div>
+      <div
+        class="panel full-width full-height"
+        id="workersPanel"
+        style="display: none"
+      >
+        <div class="panel-header">Worker Metrics Comparison</div>
+        <div class="panel-content">
+          <div class="worker-metrics-container" id="workerMetricsContainer">
+            <div class="no-worker-data">Load a metrics file to see worker information</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="tooltip" id="tooltip" style="display: none"></div>
 
@@ -521,6 +733,39 @@
       import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@2.10.1/dist/cdn/perspective-viewer.js";
       import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid@2.10.1/dist/cdn/perspective-viewer-datagrid.js";
       import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc@2.10.1/dist/cdn/perspective-viewer-d3fc.js";
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        const themeToggle = document.getElementById('themeToggle');
+
+        // Default to dark mode
+        if (savedTheme === 'light') {
+          document.body.classList.add('light-mode');
+          themeToggle.checked = true;
+        } else {
+          // Ensure dark mode is default
+          document.body.classList.remove('light-mode');
+          themeToggle.checked = false;
+        }
+      }
+
+      function toggleTheme() {
+        const body = document.body;
+        const themeToggle = document.getElementById('themeToggle');
+
+        if (themeToggle.checked) {
+          body.classList.add('light-mode');
+          localStorage.setItem('theme', 'light');
+        } else {
+          body.classList.remove('light-mode');
+          localStorage.setItem('theme', 'dark');
+        }
+      }
+
+      // Initialize theme on page load
+      initTheme();
+      document.getElementById('themeToggle').addEventListener('change', toggleTheme);
 
       let currentData = null;
       let worker = null;
@@ -750,38 +995,592 @@
         return stats;
       }
 
+      function extractWorkerMetrics(data) {
+        const workers = [];
+        if (!data.worker_metrics || !Array.isArray(data.worker_metrics)) {
+          return workers;
+        }
+
+        data.worker_metrics.forEach((workerData) => {
+          const metrics = workerData.metrics || {};
+          const workerName = workerData.worker || "Unknown Worker";
+          const nodeId = workerData.nodeId || "unknown";
+          const internalAddress = workerData.internalAddress || "unknown";
+
+          // Extract key metrics from Prometheus format
+          const worker = {
+            name: workerName,
+            shortName: nodeId !== "unknown" ? nodeId : workerName.replace("presto-native-worker-", ""),
+            nodeId: nodeId,
+            internalAddress: internalAddress,
+            metrics: {},
+          };
+
+          // Key metrics to extract
+          const keyMetrics = [
+            { key: "presto_cpp_driver_cpu_executor_latency_ms", label: "Driver CPU Latency (ms)" },
+            { key: "presto_cpp_driver_cpu_executor_num_threads", label: "CPU Executor Threads" },
+            { key: "presto_cpp_memory_cache_num_entries", label: "Memory Cache Entries" },
+            { key: "presto_cpp_memory_cache_total_tiny", label: "Cache Tiny Entries" },
+            { key: "presto_cpp_memory_cache_total_large", label: "Cache Large Entries" },
+            { key: "presto_cpp_memory_cache_total_age_secs", label: "Cache Age (secs)" },
+            { key: "presto_cpp_http_request_latency_ms", label: "HTTP Latency (ms)" },
+            { key: "presto_cpp_num_tasks_running", label: "Tasks Running" },
+            { key: "presto_cpp_num_drivers_on_cpu", label: "Drivers on CPU" },
+            { key: "presto_cpp_num_drivers_blocked", label: "Drivers Blocked" },
+          ];
+
+          keyMetrics.forEach(({ key, label }) => {
+            if (metrics[key] !== undefined) {
+              worker.metrics[label] = metrics[key];
+            }
+          });
+
+          // Also extract summary stats
+          Object.keys(metrics).forEach((key) => {
+            if (key.endsWith("_sum") && !key.includes("bucket")) {
+              const baseName = key.replace("_sum", "").replace("presto_cpp_", "");
+              const countKey = key.replace("_sum", "_count");
+              if (metrics[countKey]) {
+                const avg = metrics[key] / metrics[countKey];
+                worker.metrics[`${baseName} (avg)`] = avg.toFixed(2);
+              }
+            }
+          });
+
+          workers.push(worker);
+        });
+
+        return workers;
+      }
+
+      // Extract per-worker task distribution from query_info
+      function extractWorkerTaskDistribution(data) {
+        const workerTasks = {};
+
+        // Build IP to worker name/nodeId mapping from worker_metrics
+        const ipToWorker = {};
+        if (data.worker_metrics && Array.isArray(data.worker_metrics)) {
+          data.worker_metrics.forEach((w) => {
+            if (w.internalAddress) {
+              ipToWorker[w.internalAddress] = {
+                name: w.worker || w.nodeId || "unknown",
+                nodeId: w.nodeId || "unknown"
+              };
+            }
+          });
+        }
+
+        // Recursively extract tasks from stages
+        function extractTasksFromStage(stage) {
+          if (!stage) return;
+
+          const executionInfo = stage.latestAttemptExecutionInfo;
+          if (executionInfo?.tasks) {
+            executionInfo.tasks.forEach((task) => {
+              const selfUrl = task.taskStatus?.self || "";
+              // Extract IP from URL like "http://172.18.0.4:8080/v1/task/..."
+              const ipMatch = selfUrl.match(/\/\/([^:]+):/);
+              const workerIp = ipMatch ? ipMatch[1] : "unknown";
+
+              const workerInfo = ipToWorker[workerIp] || { name: workerIp, nodeId: workerIp };
+              const workerKey = workerInfo.nodeId;
+
+              if (!workerTasks[workerKey]) {
+                workerTasks[workerKey] = {
+                  nodeId: workerInfo.nodeId,
+                  workerName: workerInfo.name,
+                  workerIp: workerIp,
+                  tasks: [],
+                  totalDrivers: 0,
+                  totalCpuNanos: 0,
+                  totalRawInputBytes: 0,
+                  totalOutputBytes: 0,
+                  totalOutputPositions: 0
+                };
+              }
+
+              const stats = task.stats || {};
+              workerTasks[workerKey].tasks.push({
+                taskId: task.taskId,
+                stageId: task.taskId?.split('.')[0] + '.' + task.taskId?.split('.')[1],
+                totalDrivers: stats.totalDrivers || 0,
+                cpuNanos: stats.totalCpuTimeInNanos || 0,
+                rawInputBytes: stats.rawInputDataSizeInBytes || 0,
+                outputBytes: stats.outputDataSizeInBytes || 0,
+                outputPositions: stats.outputPositions || 0
+              });
+
+              workerTasks[workerKey].totalDrivers += stats.totalDrivers || 0;
+              workerTasks[workerKey].totalCpuNanos += stats.totalCpuTimeInNanos || 0;
+              workerTasks[workerKey].totalRawInputBytes += stats.rawInputDataSizeInBytes || 0;
+              workerTasks[workerKey].totalOutputBytes += stats.outputDataSizeInBytes || 0;
+              workerTasks[workerKey].totalOutputPositions += stats.outputPositions || 0;
+            });
+          }
+
+          // Recurse into substages
+          if (stage.subStages) {
+            stage.subStages.forEach(extractTasksFromStage);
+          }
+        }
+
+        if (data.query_info?.outputStage) {
+          extractTasksFromStage(data.query_info.outputStage);
+        }
+
+        return workerTasks;
+      }
+
+      function displayWorkerMetrics(data) {
+        const container = document.getElementById("workerMetricsContainer");
+        const workers = extractWorkerMetrics(data);
+        const workerTasks = extractWorkerTaskDistribution(data);
+        const queryStats = extractQueryStats(data);
+
+        if (workers.length === 0 && Object.keys(workerTasks).length === 0) {
+          container.innerHTML = '<div class="no-worker-data">No worker metrics available in this file</div>';
+          return;
+        }
+
+        let html = '';
+
+        // Query Stats Overview section
+        html += '<div class="worker-section-title">Query Execution Summary</div>';
+        html += '<div class="worker-summary">';
+
+        // Timing card
+        html += `
+          <div class="worker-card">
+            <h3>Timing</h3>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Elapsed Time</span>
+              <span class="worker-metric-value">${queryStats.elapsedTime}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">CPU Time</span>
+              <span class="worker-metric-value">${queryStats.totalCpuTime}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Scheduled Time</span>
+              <span class="worker-metric-value">${queryStats.totalScheduledTime}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Execution Time</span>
+              <span class="worker-metric-value">${queryStats.executionTime}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Planning Time</span>
+              <span class="worker-metric-value">${queryStats.totalPlanningTime}</span>
+            </div>
+          </div>
+        `;
+
+        // Data Volumes card
+        html += `
+          <div class="worker-card">
+            <h3>Data Volumes</h3>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Raw Input</span>
+              <span class="worker-metric-value">${queryStats.rawInputDataSize} (${queryStats.rawInputPositions.toLocaleString()} rows)</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Processed Input</span>
+              <span class="worker-metric-value">${queryStats.processedInputDataSize} (${queryStats.processedInputPositions.toLocaleString()} rows)</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Shuffle (Exchange)</span>
+              <span class="worker-metric-value">${queryStats.shuffledDataSize} (${queryStats.shuffledPositions.toLocaleString()} rows)</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Output</span>
+              <span class="worker-metric-value">${queryStats.outputDataSize} (${queryStats.outputPositions.toLocaleString()} rows)</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Spilled</span>
+              <span class="worker-metric-value" style="${queryStats.spilledDataSize !== '0B' ? 'color: #ef4444;' : ''}">${queryStats.spilledDataSize}</span>
+            </div>
+          </div>
+        `;
+
+        // Memory & Parallelism card
+        html += `
+          <div class="worker-card">
+            <h3>Resources</h3>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Peak User Memory</span>
+              <span class="worker-metric-value">${queryStats.peakUserMemoryReservation}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Peak Total Memory</span>
+              <span class="worker-metric-value">${queryStats.peakTotalMemoryReservation}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Peak Node Memory</span>
+              <span class="worker-metric-value">${queryStats.peakNodeTotalMemory}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Total Tasks</span>
+              <span class="worker-metric-value">${queryStats.totalTasks}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Total Drivers</span>
+              <span class="worker-metric-value">${queryStats.totalDrivers}</span>
+            </div>
+            <div class="worker-metric">
+              <span class="worker-metric-label">Total Splits</span>
+              <span class="worker-metric-value">${queryStats.totalSplits}</span>
+            </div>
+          </div>
+        `;
+
+        html += '</div>';
+
+        // Work Distribution section - show how tasks/data were distributed
+        const workerTaskList = Object.values(workerTasks);
+        if (workerTaskList.length > 0) {
+          html += '<div class="worker-section-title">Work Distribution Across Workers</div>';
+          html += '<div class="worker-summary">';
+
+          // Calculate totals for percentage bars
+          const totalCpu = workerTaskList.reduce((sum, w) => sum + w.totalCpuNanos, 0);
+          const totalInput = workerTaskList.reduce((sum, w) => sum + w.totalRawInputBytes, 0);
+          const totalTasks = workerTaskList.reduce((sum, w) => sum + w.tasks.length, 0);
+          const totalDrivers = workerTaskList.reduce((sum, w) => sum + w.totalDrivers, 0);
+
+          workerTaskList.forEach((worker) => {
+            const cpuPct = totalCpu > 0 ? (worker.totalCpuNanos / totalCpu * 100) : 0;
+            const inputPct = totalInput > 0 ? (worker.totalRawInputBytes / totalInput * 100) : 0;
+
+            html += `
+              <div class="worker-card">
+                <h3><span class="worker-status"></span>${worker.nodeId}</h3>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">Container</span>
+                  <span class="worker-metric-value">${worker.workerName}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">IP Address</span>
+                  <span class="worker-metric-value">${worker.workerIp}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">Tasks</span>
+                  <span class="worker-metric-value">${worker.tasks.length}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">Total Drivers</span>
+                  <span class="worker-metric-value">${worker.totalDrivers}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">CPU Time</span>
+                  <span class="worker-metric-value">${formatDuration(worker.totalCpuNanos / 1000000)}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">CPU Share</span>
+                  <span class="worker-metric-value">${cpuPct.toFixed(1)}%</span>
+                  <div class="metric-bar" style="width: ${cpuPct}%; max-width: 100%;"></div>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">Input Data</span>
+                  <span class="worker-metric-value">${formatBytes(worker.totalRawInputBytes)}</span>
+                </div>
+                <div class="worker-metric">
+                  <span class="worker-metric-label">Input Share</span>
+                  <span class="worker-metric-value">${inputPct.toFixed(1)}%</span>
+                  <div class="metric-bar" style="width: ${inputPct}%; max-width: 100%;"></div>
+                </div>
+              </div>
+            `;
+          });
+
+          html += '</div>';
+
+          // Summary stats
+          html += `
+            <div class="worker-card" style="max-width: 500px; margin-top: 15px;">
+              <h3>Distribution Summary</h3>
+              <div class="worker-metric">
+                <span class="worker-metric-label">Total Workers</span>
+                <span class="worker-metric-value">${workerTaskList.length}</span>
+              </div>
+              <div class="worker-metric">
+                <span class="worker-metric-label">Total Tasks</span>
+                <span class="worker-metric-value">${totalTasks}</span>
+              </div>
+              <div class="worker-metric">
+                <span class="worker-metric-label">Total Drivers</span>
+                <span class="worker-metric-value">${totalDrivers}</span>
+              </div>
+              <div class="worker-metric">
+                <span class="worker-metric-label">Total CPU Time</span>
+                <span class="worker-metric-value">${formatDuration(totalCpu / 1000000)}</span>
+              </div>
+              <div class="worker-metric">
+                <span class="worker-metric-label">Total Input Data</span>
+                <span class="worker-metric-value">${formatBytes(totalInput)}</span>
+              </div>
+            </div>
+          `;
+
+          // Per-stage task distribution table
+          html += '<div class="worker-section-title" style="margin-top: 20px;">Per-Stage Task Distribution</div>';
+
+          // Group tasks by stage across all workers
+          const stageData = {};
+          workerTaskList.forEach((worker) => {
+            worker.tasks.forEach((task) => {
+              const stageId = task.stageId || "unknown";
+              if (!stageData[stageId]) {
+                stageData[stageId] = { workers: {} };
+              }
+              if (!stageData[stageId].workers[worker.nodeId]) {
+                stageData[stageId].workers[worker.nodeId] = {
+                  tasks: 0,
+                  drivers: 0,
+                  cpuNanos: 0,
+                  inputBytes: 0
+                };
+              }
+              stageData[stageId].workers[worker.nodeId].tasks++;
+              stageData[stageId].workers[worker.nodeId].drivers += task.totalDrivers;
+              stageData[stageId].workers[worker.nodeId].cpuNanos += task.cpuNanos;
+              stageData[stageId].workers[worker.nodeId].inputBytes += task.rawInputBytes;
+            });
+          });
+
+          const workerIds = workerTaskList.map(w => w.nodeId).sort();
+          const stageIds = Object.keys(stageData).sort((a, b) => {
+            const aNum = parseInt(a.split('.')[1]) || 0;
+            const bNum = parseInt(b.split('.')[1]) || 0;
+            return aNum - bNum;
+          });
+
+          if (stageIds.length > 0) {
+            html += '<table class="worker-comparison-table">';
+            html += '<thead><tr><th>Stage</th>';
+            workerIds.forEach(wid => {
+              html += `<th>${wid}<br><small>Tasks / Drivers / CPU</small></th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            stageIds.forEach((stageId) => {
+              html += `<tr><td><strong>${stageId}</strong></td>`;
+              workerIds.forEach((wid) => {
+                const ws = stageData[stageId].workers[wid];
+                if (ws) {
+                  const cpuMs = ws.cpuNanos / 1000000;
+                  html += `<td>${ws.tasks} / ${ws.drivers} / ${formatDuration(cpuMs)}</td>`;
+                } else {
+                  html += '<td>-</td>';
+                }
+              });
+              html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+          }
+        }
+
+        // Prometheus Metrics Comparison section
+        if (workers.length > 0) {
+          html += '<div class="worker-section-title" style="margin-top: 20px;">Worker Prometheus Metrics</div>';
+
+          // Collect key metrics to compare
+          const keyMetricsToShow = [
+            "presto_cpp_num_tasks",
+            "presto_cpp_num_tasks_bytes_processed",
+            "velox_table_scan_batch_bytes",
+            "velox_exchange_data_bytes",
+            "velox_driver_exec_time_ms_sum",
+            "presto_cpp_os_user_cpu_time_micros",
+            "velox_task_splits_count"
+          ];
+
+          html += '<table class="worker-comparison-table">';
+          html += '<thead><tr><th>Metric</th>';
+          workers.forEach((w) => {
+            html += `<th>${w.shortName}</th>`;
+          });
+          if (workers.length > 1) html += '<th>Diff</th>';
+          html += '</tr></thead><tbody>';
+
+          keyMetricsToShow.forEach((metric) => {
+            const values = workers.map((w) => w.metrics[metric]);
+            const hasData = values.some(v => v !== undefined);
+            if (!hasData) return;
+
+            const numericValues = values.filter((v) => typeof v === "number" && !isNaN(v));
+
+            let diffHtml = "";
+            if (numericValues.length > 1) {
+              const max = Math.max(...numericValues);
+              const min = Math.min(...numericValues);
+              if (max > 0 && min > 0) {
+                const diffPct = ((max - min) / min * 100).toFixed(1);
+                const diffClass = parseFloat(diffPct) > 10 ? "higher" : "";
+                diffHtml = `<span class="metric-diff ${diffClass}">${diffPct}%</span>`;
+              }
+            }
+
+            // Format metric name nicely
+            const displayName = metric
+              .replace("presto_cpp_", "")
+              .replace("velox_", "")
+              .replace(/_/g, " ");
+
+            html += '<tr>';
+            html += `<td>${displayName}</td>`;
+            workers.forEach((w) => {
+              const val = w.metrics[metric];
+              let displayVal = "-";
+              if (val !== undefined) {
+                if (metric.includes("bytes") || metric.includes("Bytes")) {
+                  displayVal = formatBytes(val);
+                } else if (metric.includes("time") || metric.includes("Time")) {
+                  displayVal = formatDuration(val / 1000); // micros to ms
+                } else {
+                  displayVal = formatMetricValue(val);
+                }
+              }
+              html += `<td>${displayVal}</td>`;
+            });
+            if (workers.length > 1) html += `<td>${diffHtml}</td>`;
+            html += '</tr>';
+          });
+
+          html += '</tbody></table>';
+        }
+
+        container.innerHTML = html;
+      }
+
+      function formatMetricValue(value) {
+        if (typeof value === "number") {
+          if (Number.isInteger(value)) {
+            return value.toLocaleString();
+          }
+          return value.toFixed(2);
+        }
+        return value;
+      }
+
       function updateQueryInfo(data) {
         const queryInfo = document.getElementById("queryInfo");
+        const qs = data.query_info?.queryStats || {};
+
         let queryId = data.query_info?.queryId || "Unknown";
         let state = data.query_info?.state || "Unknown";
-        let totalCpuTime = data.query_info?.queryStats?.totalCpuTime || "0.00s";
-        let elapsedTime = data.query_info?.queryStats?.elapsedTime || "0.00s";
-        let rawInputPositions =
-          data.query_info?.queryStats?.rawInputPositions || 0;
-        let rawInputDataSize =
-          data.query_info?.queryStats?.rawInputDataSize || "0B";
-        let peakMemory =
-          data.query_info?.queryStats?.peakNodeTotalMemory || "0B";
+        let totalCpuTime = qs.totalCpuTime || "0.00s";
+        let elapsedTime = qs.elapsedTime || "0.00s";
+        let rawInputPositions = qs.rawInputPositions || 0;
+        let rawInputDataSize = qs.rawInputDataSize || "0B";
+        let peakMemory = qs.peakNodeTotalMemory || "0B";
+        let shuffledDataSize = qs.shuffledDataSize || "0B";
+        let spilledDataSize = qs.spilledDataSize || "0B";
+
+        // Get worker count
+        let workerCount = 0;
+        if (data.worker_metrics && Array.isArray(data.worker_metrics)) {
+          workerCount = data.worker_metrics.length;
+        }
+
+        // Get total drivers and tasks
+        let totalDrivers = qs.totalDrivers || 0;
+        let totalTasks = qs.totalTasks || 0;
+
+        let workerInfo = "";
+        if (workerCount > 0) {
+          workerInfo = `<span><strong>Workers:</strong> ${workerCount}</span>`;
+          workerInfo += `<span class="driver-info">(${totalTasks} tasks, ${totalDrivers} drivers)</span>`;
+        }
+
+        // Show shuffle info if present
+        let shuffleInfo = "";
+        if (shuffledDataSize && shuffledDataSize !== "0B") {
+          shuffleInfo = `<span><strong>Shuffle:</strong> ${shuffledDataSize}</span>`;
+        }
+
+        // Show spill info if present
+        let spillInfo = "";
+        if (spilledDataSize && spilledDataSize !== "0B") {
+          spillInfo = `<span style="color: #ef4444;"><strong>Spilled:</strong> ${spilledDataSize}</span>`;
+        }
 
         queryInfo.innerHTML = `
           <span><strong>Query ID:</strong> ${queryId}</span>
           <span><strong>State:</strong> ${state}</span>
           <span><strong>Elapsed:</strong> ${elapsedTime}</span>
           <span><strong>CPU Time:</strong> ${totalCpuTime}</span>
-          <span><strong>Input Rows:</strong> ${rawInputPositions.toLocaleString()}</span>
-          <span><strong>Input Size:</strong> ${rawInputDataSize}</span>
+          ${workerInfo}
+          <span><strong>Input:</strong> ${rawInputDataSize} (${rawInputPositions.toLocaleString()} rows)</span>
+          ${shuffleInfo}
+          ${spillInfo}
           <span><strong>Peak Memory:</strong> ${peakMemory}</span>
         `;
       }
 
+      // Extract query-level stats for display
+      function extractQueryStats(data) {
+        const qs = data.query_info?.queryStats || {};
+        return {
+          // Timing
+          elapsedTime: qs.elapsedTime || "0s",
+          totalCpuTime: qs.totalCpuTime || "0s",
+          totalScheduledTime: qs.totalScheduledTime || "0s",
+          analysisTime: qs.analysisTime || "0s",
+          totalPlanningTime: qs.totalPlanningTime || "0s",
+          executionTime: qs.executionTime || "0s",
+          queuedTime: qs.queuedTime || "0s",
+
+          // Data volumes
+          rawInputDataSize: qs.rawInputDataSize || "0B",
+          rawInputPositions: qs.rawInputPositions || 0,
+          processedInputDataSize: qs.processedInputDataSize || "0B",
+          processedInputPositions: qs.processedInputPositions || 0,
+          shuffledDataSize: qs.shuffledDataSize || "0B",
+          shuffledPositions: qs.shuffledPositions || 0,
+          outputDataSize: qs.outputDataSize || "0B",
+          outputPositions: qs.outputPositions || 0,
+          spilledDataSize: qs.spilledDataSize || "0B",
+
+          // Memory
+          peakUserMemoryReservation: qs.peakUserMemoryReservation || "0B",
+          peakTotalMemoryReservation: qs.peakTotalMemoryReservation || "0B",
+          peakNodeTotalMemory: qs.peakNodeTotalMemory || "0B",
+          peakTaskTotalMemory: qs.peakTaskTotalMemory || "0B",
+
+          // Parallelism
+          totalTasks: qs.totalTasks || 0,
+          totalDrivers: qs.totalDrivers || 0,
+          totalSplits: qs.totalSplits || 0,
+        };
+      }
+
       // Extract plan DAG from query_info
       function extractPlanDAG(data) {
-        const plan = data?.query_info?.outputStage?.plan;
-        if (!plan || !plan.root) return { nodes: [], edges: [] };
+        const outputStage = data?.query_info?.outputStage;
+        if (!outputStage?.plan?.root) return { nodes: [], edges: [] };
 
         const nodes = [];
         const edges = [];
         const operatorStats = {};
+
+        // Build a map of stages by fragmentId for RemoteSourceNode linking
+        const stagesByFragmentId = {};
+        function buildStageMap(stage) {
+          if (!stage) return;
+          // Extract fragment ID from stageId (e.g., "20260128_094212_00005_5qr2m.1" -> "1")
+          const stageId = stage.stageId || "";
+          const fragmentId = stageId.split(".").pop();
+          if (fragmentId && stage.plan?.root) {
+            stagesByFragmentId[fragmentId] = stage;
+          }
+          // Recurse into subStages
+          if (stage.subStages) {
+            stage.subStages.forEach(buildStageMap);
+          }
+        }
+        buildStageMap(outputStage);
 
         // Build a map of operator stats by planNodeId
         // For joins, we track build and probe separately since build rows
@@ -873,6 +1672,7 @@
             operatorType: op.operatorType,
             pipelineId: op.pipelineId,
             operatorId: op.operatorId,
+            totalDrivers: op.totalDrivers || 0,
             inputPositions: op.inputPositions || 0,
             outputPositions: op.outputPositions || 0,
             wallMs: nsToMs(opWallNs),
@@ -882,6 +1682,12 @@
             outputRowsPerSec: outputRowsPerSec,
             inputMBPerSec: inputBytesPerSec / (1024 * 1024),
           });
+
+          // Track max drivers for the node
+          operatorStats[key].totalDrivers = Math.max(
+            operatorStats[key].totalDrivers || 0,
+            op.totalDrivers || 0
+          );
         });
 
         // Get color mode
@@ -968,6 +1774,7 @@
           SemiJoinNode: "#dc2626",
           AggregationNode: "#d97706",
           ExchangeNode: "#0891b2",
+          RemoteSourceNode: "#0891b2", // Same as ExchangeNode
           SortNode: "#4f46e5",
           TopNNode: "#4f46e5",
           LimitNode: "#6366f1",
@@ -1071,6 +1878,13 @@
             }
           }
 
+          // RemoteSourceNode - represents data exchange between stages
+          if (nodeType === "RemoteSourceNode") {
+            details.exchangeType = node.exchangeType; // GATHER, REPARTITION, REPLICATE
+            details.sourceFragmentIds = node.sourceFragmentIds;
+            details.encoding = node.encoding; // COLUMNAR
+          }
+
           // JoinNode
           if (nodeType === "JoinNode") {
             details.joinType = node.type; // INNER, LEFT, RIGHT, FULL
@@ -1160,7 +1974,7 @@
           return details;
         }
 
-        function extractNodes(node, parentId = null) {
+        function extractNodes(node, parentId = null, visitedStages = new Set(), currentStageId = "0") {
           if (!node || typeof node !== "object") return;
 
           const nodeId = node.id || "?";
@@ -1173,44 +1987,76 @@
             type: nodeType,
             details: details,
             stats: stats,
+            stageId: currentStageId,
           });
 
           if (parentId !== null) {
             edges.push({ from: nodeId, to: parentId });
           }
 
+          // Handle RemoteSourceNode - link to subStage plans
+          if (nodeType === "RemoteSourceNode" && node.sourceFragmentIds) {
+            node.sourceFragmentIds.forEach((fragmentId) => {
+              const subStage = stagesByFragmentId[fragmentId];
+              if (subStage?.plan?.root && !visitedStages.has(fragmentId)) {
+                visitedStages.add(fragmentId);
+                // Add exchange type info to details
+                details.exchangeType = node.exchangeType;
+                details.sourceFragmentIds = node.sourceFragmentIds;
+                // Recurse into the subStage's plan with new stageId
+                extractNodes(subStage.plan.root, nodeId, visitedStages, fragmentId);
+              }
+            });
+            return; // RemoteSourceNode has no local children
+          }
+
           // Recurse into children
           if (node.source) {
-            extractNodes(node.source, nodeId);
+            extractNodes(node.source, nodeId, visitedStages, currentStageId);
           }
           if (node.sources) {
-            node.sources.forEach((src) => extractNodes(src, nodeId));
+            node.sources.forEach((src) => extractNodes(src, nodeId, visitedStages, currentStageId));
           }
           // JoinNode uses left/right instead of source/sources
           if (node.left) {
-            extractNodes(node.left, nodeId);
+            extractNodes(node.left, nodeId, visitedStages, currentStageId);
           }
           if (node.right) {
-            extractNodes(node.right, nodeId);
+            extractNodes(node.right, nodeId, visitedStages, currentStageId);
           }
           // SemiJoinNode has filteringSource in addition to source
           if (node.filteringSource) {
-            extractNodes(node.filteringSource, nodeId);
+            extractNodes(node.filteringSource, nodeId, visitedStages, currentStageId);
           }
         }
 
-        extractNodes(plan.root);
+        extractNodes(outputStage.plan.root);
         return { nodes, edges };
       }
 
       // Generate text representation of the plan
       function generateTextPlan(data) {
-        const plan = data?.query_info?.outputStage?.plan;
-        if (!plan || !plan.root) return "No plan data available";
+        const outputStage = data?.query_info?.outputStage;
+        if (!outputStage?.plan?.root) return "No plan data available";
 
         // Get the query string
         const queryString = data?.query_info?.query || "";
         const queryLines = queryString.split("\n");
+
+        // Build a map of stages by fragmentId for RemoteSourceNode linking
+        const stagesByFragmentId = {};
+        function buildStageMap(stage) {
+          if (!stage) return;
+          const stageId = stage.stageId || "";
+          const fragmentId = stageId.split(".").pop();
+          if (fragmentId && stage.plan?.root) {
+            stagesByFragmentId[fragmentId] = stage;
+          }
+          if (stage.subStages) {
+            stage.subStages.forEach(buildStageMap);
+          }
+        }
+        buildStageMap(outputStage);
 
         // Build operator stats map
         // For joins, we track build and probe separately.
@@ -1300,6 +2146,7 @@
             operatorType: op.operatorType,
             pipelineId: op.pipelineId,
             operatorId: op.operatorId,
+            totalDrivers: op.totalDrivers || 0,
             inputPositions: op.inputPositions || 0,
             outputPositions: op.outputPositions || 0,
             wallMs: nsToMs(opWallNs),
@@ -1309,6 +2156,12 @@
             outputRowsPerSec: outputRowsPerSec,
             inputMBPerSec: inputBytesPerSec / (1024 * 1024),
           });
+
+          // Track max drivers for the node
+          operatorStats[key].totalDrivers = Math.max(
+            operatorStats[key].totalDrivers || 0,
+            op.totalDrivers || 0
+          );
         });
 
         // Get color mode
@@ -1395,6 +2248,7 @@
           SemiJoinNode: "#dc2626",
           AggregationNode: "#d97706",
           ExchangeNode: "#0891b2",
+          RemoteSourceNode: "#0891b2",
           SortNode: "#4f46e5",
           TopNNode: "#4f46e5",
           LimitNode: "#6366f1",
@@ -1466,7 +2320,7 @@
           if (node.sourceLocation) {
             const line = node.sourceLocation.line;
             const col = node.sourceLocation.column;
-            sourceRef = ` <span class="plan-source-ref" title="Click to highlight in query" data-line="${line}" data-col="${col}" style="color:#0891b2;cursor:pointer;font-size:10px;">@${line}:${col}</span>`;
+            sourceRef = ` <span class="plan-source-ref" title="Click to highlight in query" data-line="${line}" data-col="${col}">@${line}:${col}</span>`;
           }
 
           let header = `${colorIndicator}<span class="plan-node" style="color: ${nodeColor}">${nodeType}</span> <span class="plan-id">[${nodeId}]</span>${sourceRef}`;
@@ -1508,6 +2362,14 @@
                 node.partitioningScheme.partitioning.handle.connectorHandle;
               if (ph.partitioning)
                 details.push(`partitioning: ${ph.partitioning}`);
+            }
+          }
+
+          // RemoteSourceNode
+          if (nodeType === "RemoteSourceNode") {
+            details.push(`${node.exchangeType || "EXCHANGE"}`);
+            if (node.sourceFragmentIds) {
+              details.push(`from stages: ${node.sourceFragmentIds.join(", ")}`);
             }
           }
 
@@ -1584,6 +2446,8 @@
           if (stats && (stats.totalWallMs > 0 || stats.inputPositions > 0)) {
             // Summary line
             let statsStr = [];
+            if (stats.totalDrivers > 0)
+              statsStr.push(`drivers: ${stats.totalDrivers}`);
             if (stats.totalWallMs > 0)
               statsStr.push(`time: ${formatDuration(stats.totalWallMs)}`);
 
@@ -1646,12 +2510,30 @@
 
                 const isLast = idx === sortedOps.length - 1;
                 const connector = isLast ? "└" : "├";
-                header += `\n${prefix}     <span class="plan-operator">${connector}─ P${op.pipelineId}.${op.operatorId} ${opName}: ${rowStr}${timeStr}${statsStr}</span>`;
+                const driverStr = op.totalDrivers > 0 ? ` [${op.totalDrivers}d]` : "";
+                header += `\n${prefix}     <span class="plan-operator">${connector}─ P${op.pipelineId}.${op.operatorId} ${opName}${driverStr}: ${rowStr}${timeStr}${statsStr}</span>`;
               });
             }
           }
 
           lines.push(prefix + header);
+
+          // Handle RemoteSourceNode - link to subStage plans
+          if (nodeType === "RemoteSourceNode" && node.sourceFragmentIds) {
+            node.sourceFragmentIds.forEach((fragmentId, i) => {
+              const subStage = stagesByFragmentId[fragmentId];
+              if (subStage?.plan?.root) {
+                if (node.sourceFragmentIds.length > 1) {
+                  lines.push(
+                    prefix +
+                      `  <span class="plan-detail">── stage ${fragmentId} ──</span>`,
+                  );
+                }
+                lines.push(formatNode(subStage.plan.root, indent + 1));
+              }
+            });
+            return lines.join("\n"); // RemoteSourceNode has no local children
+          }
 
           // Recurse into children
           if (node.source) {
@@ -1695,20 +2577,20 @@
         // Build the query display with line numbers
         let queryDisplay = "";
         if (queryString) {
-          queryDisplay = `<div class="query-section" style="margin-bottom:20px;padding:15px;background:#1a1a1a;border:1px solid #333;border-radius:8px;">
-<div style="color:#76b900;font-weight:bold;margin-bottom:10px;">SQL Query:</div>
-<div id="queryTextDisplay" style="font-family:monospace;white-space:pre-wrap;line-height:1.6;color:#ccc;">`;
+          queryDisplay = `<div class="query-section" style="margin-bottom:20px;padding:15px;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:8px;">
+<div style="color:var(--accent-primary);font-weight:bold;margin-bottom:10px;">SQL Query:</div>
+<div id="queryTextDisplay" style="font-family:monospace;white-space:pre-wrap;line-height:1.6;color:var(--text-secondary);">`;
 
           queryLines.forEach((line, idx) => {
             const lineNum = idx + 1;
-            queryDisplay += `<span class="query-line" data-line="${lineNum}" style="display:block;"><span style="color:#555;user-select:none;display:inline-block;width:30px;text-align:right;margin-right:10px;">${lineNum}</span><span class="query-line-content">${escapeHtml(line)}</span></span>`;
+            queryDisplay += `<span class="query-line" data-line="${lineNum}" style="display:block;"><span style="color:var(--text-muted);user-select:none;display:inline-block;width:30px;text-align:right;margin-right:10px;">${lineNum}</span><span class="query-line-content">${escapeHtml(line)}</span></span>`;
           });
 
           queryDisplay += `</div></div>
-<div style="color:#76b900;font-weight:bold;margin-bottom:10px;">Query Plan:</div>`;
+<div style="color:var(--accent-primary);font-weight:bold;margin-bottom:10px;">Query Plan:</div>`;
         }
 
-        return queryDisplay + formatNode(plan.root);
+        return queryDisplay + formatNode(outputStage.plan.root);
       }
 
       // Helper to escape HTML
@@ -1717,35 +2599,6 @@
         div.textContent = text;
         return div.innerHTML;
       }
-
-      // Toggle between DAG and text plan view
-      function togglePlanView() {
-        const dagContainer = document.getElementById("dagContainer");
-        const textContainer = document.getElementById("textPlanContainer");
-        const toggleBtn = document.getElementById("dagToggleBtn");
-
-        if (dagContainer.style.display !== "none") {
-          dagContainer.style.display = "none";
-          textContainer.style.display = "block";
-          toggleBtn.textContent = "Show DAG View";
-          toggleBtn.classList.add("active");
-
-          // Generate text plan if we have data
-          if (currentData) {
-            document.getElementById("textPlanContent").innerHTML =
-              generateTextPlan(currentData);
-            setupSourceRefHandlers();
-          }
-        } else {
-          dagContainer.style.display = "block";
-          textContainer.style.display = "none";
-          toggleBtn.textContent = "Show Text Plan";
-          toggleBtn.classList.remove("active");
-        }
-      }
-
-      // Expose togglePlanView to window
-      window.togglePlanView = togglePlanView;
 
       // Update DAG colors when color mode changes
       function updateDAGColors() {
@@ -1815,7 +2668,7 @@
               // Highlight the word at the column position
               const highlightedText =
                 beforeCol +
-                `<span style="background:#0891b2;color:#fff;padding:0 2px;border-radius:2px;">${escapeHtml(word)}</span>` +
+                `<span style="background:var(--accent-link);color:#fff;padding:0 2px;border-radius:2px;">${escapeHtml(word)}</span>` +
                 escapeHtml(afterCol.substring(word.length));
               lineContent.innerHTML = highlightedText;
             }
@@ -1846,7 +2699,7 @@
         const { nodes, edges } = extractPlanDAG(data);
         if (nodes.length === 0) {
           container.innerHTML =
-            '<p style="color:#888;padding:20px;">No plan data available</p>';
+            '<p style="color:var(--text-tertiary);padding:20px;">No plan data available</p>';
           return;
         }
 
@@ -2172,6 +3025,92 @@
           }
         }
 
+        // Stage colors for visual grouping
+        const stageColors = [
+          "rgba(118, 185, 0, 0.08)",   // NVIDIA green
+          "rgba(0, 150, 136, 0.08)",   // Teal
+          "rgba(33, 150, 243, 0.08)",  // Blue
+          "rgba(156, 39, 176, 0.08)",  // Purple
+          "rgba(255, 152, 0, 0.08)",   // Orange
+          "rgba(233, 30, 99, 0.08)",   // Pink
+          "rgba(0, 188, 212, 0.08)",   // Cyan
+          "rgba(139, 195, 74, 0.08)",  // Light green
+        ];
+        const stageBorderColors = [
+          "rgba(118, 185, 0, 0.5)",
+          "rgba(0, 150, 136, 0.5)",
+          "rgba(33, 150, 243, 0.5)",
+          "rgba(156, 39, 176, 0.5)",
+          "rgba(255, 152, 0, 0.5)",
+          "rgba(233, 30, 99, 0.5)",
+          "rgba(0, 188, 212, 0.5)",
+          "rgba(139, 195, 74, 0.5)",
+        ];
+
+        // Group nodes by stage and calculate bounding boxes
+        const stageGroups = {};
+        nodes.forEach((node) => {
+          const stageId = node.stageId || "0";
+          if (!stageGroups[stageId]) {
+            stageGroups[stageId] = [];
+          }
+          stageGroups[stageId].push(node);
+        });
+
+        // Draw stage boxes (behind edges and nodes)
+        const stagePadding = 15;
+        const stageIds = Object.keys(stageGroups).sort((a, b) => parseInt(a) - parseInt(b));
+        stageIds.forEach((stageId, stageIndex) => {
+          const stageNodes = stageGroups[stageId];
+          if (stageNodes.length === 0) return;
+
+          // Calculate bounding box for this stage
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          stageNodes.forEach((node) => {
+            const pos = positions[node.id];
+            if (!pos) return;
+            const h = pos.height || baseNodeHeight;
+            const nodeLeft = pos.x + offsetX - nodeWidth / 2;
+            const nodeRight = pos.x + offsetX + nodeWidth / 2;
+            const nodeTop = pos.y + offsetY - h / 2;
+            const nodeBottom = pos.y + offsetY + h / 2;
+            minX = Math.min(minX, nodeLeft);
+            maxX = Math.max(maxX, nodeRight);
+            minY = Math.min(minY, nodeTop);
+            maxY = Math.max(maxY, nodeBottom);
+          });
+
+          if (minX === Infinity) return;
+
+          // Add padding
+          minX -= stagePadding;
+          maxX += stagePadding;
+          minY -= stagePadding + 20; // Extra space for label
+          maxY += stagePadding;
+
+          const stageBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          stageBox.setAttribute("x", minX);
+          stageBox.setAttribute("y", minY);
+          stageBox.setAttribute("width", maxX - minX);
+          stageBox.setAttribute("height", maxY - minY);
+          stageBox.setAttribute("rx", "12");
+          stageBox.setAttribute("fill", stageColors[stageIndex % stageColors.length]);
+          stageBox.setAttribute("stroke", stageBorderColors[stageIndex % stageBorderColors.length]);
+          stageBox.setAttribute("stroke-width", "2");
+          stageBox.setAttribute("stroke-dasharray", "5,5");
+          svg.appendChild(stageBox);
+
+          // Add stage label
+          const stageLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          stageLabel.setAttribute("x", minX + 10);
+          stageLabel.setAttribute("y", minY + 16);
+          stageLabel.setAttribute("fill", stageBorderColors[stageIndex % stageBorderColors.length]);
+          stageLabel.setAttribute("font-size", "12");
+          stageLabel.setAttribute("font-weight", "bold");
+          stageLabel.textContent = `Stage ${stageId}`;
+          svg.appendChild(stageLabel);
+        });
+
         // Draw nodes with more details
         nodes.forEach((node) => {
           const pos = positions[node.id];
@@ -2389,7 +3328,8 @@
                     ? `${inRows}`
                     : `${inRows}→${outRows}`;
 
-                opText.textContent = `P${pipelineId}.${op.operatorId} ${opName}`;
+                const driverStr = op.totalDrivers > 0 ? ` [${op.totalDrivers}d]` : "";
+                opText.textContent = `P${pipelineId}.${op.operatorId} ${opName}${driverStr}`;
                 g.appendChild(opText);
 
                 // Row counts on the right
@@ -2508,7 +3448,12 @@
           g.addEventListener("mouseenter", (e) => {
             const tooltip = document.getElementById("tooltip");
             let html = `<strong style="font-size:14px">${node.type}</strong><br>`;
-            html += `<span style="color:#888">Plan Node ID: ${node.id}</span><br>`;
+            html += `<span style="color:var(--text-tertiary)">Plan Node ID: ${node.id}</span><br>`;
+
+            // Show worker/driver info if available
+            if (node.stats && node.stats.totalDrivers > 0) {
+              html += `<span style="color:var(--accent-primary)">Drivers: ${node.stats.totalDrivers}</span><br>`;
+            }
 
             // TableScan details
             if (node.details.table) {
@@ -2587,7 +3532,7 @@
               node.stats &&
               (node.stats.totalWallMs > 0 || node.stats.inputPositions > 0)
             ) {
-              html += `<hr style="border-color:#444;margin:8px 0">`;
+              html += `<hr style="border-color:var(--text-inactive);margin:8px 0">`;
               html += `<strong>Execution Stats:</strong><br>`;
               if (node.stats.totalWallMs > 0)
                 html += `Wall Time: ${formatDuration(node.stats.totalWallMs)}<br>`;
@@ -2750,209 +3695,164 @@
       }
 
       // Create timeline visualization with estimated start/end times
-      function createTimeline(operatorData) {
+      // Create timeline visualization showing operators with per-worker timing
+      function createTimeline(data) {
         const container = document.getElementById("timelineContainer");
         const legendContainer = document.getElementById("timelineLegend");
         container.innerHTML = "";
         legendContainer.innerHTML = "";
 
-        if (operatorData.length === 0) return;
+        if (!data?.query_info?.outputStage) {
+          container.innerHTML = '<p style="color:var(--text-tertiary);padding:20px;">No stage data available</p>';
+          return;
+        }
 
-        // Group by pipeline
-        const pipelines = {};
-        operatorData.forEach((op) => {
+        // Extract operator data per worker from all stages
+        const operatorsByKey = {}; // key = stageId-pipelineId-operatorId
+        let globalMinTime = Infinity;
+        let globalMaxTime = 0;
+
+        function traverseStages(stage) {
+          if (!stage) return;
+          const stageId = stage.stageId || "";
+          const stageNum = stageId.split(".").pop() || "0";
+
+          if (stage.latestAttemptExecutionInfo?.tasks) {
+            stage.latestAttemptExecutionInfo.tasks.forEach((task) => {
+              const taskStats = task.stats;
+              if (!taskStats) return;
+
+              const nodeId = task.nodeId || "unknown";
+
+              if (taskStats.pipelines) {
+                taskStats.pipelines.forEach((pipeline) => {
+                  const pipelineStart = pipeline.firstStartTimeInMillis;
+                  const pipelineEnd = pipeline.lastEndTimeInMillis;
+
+                  if (pipelineStart) globalMinTime = Math.min(globalMinTime, pipelineStart);
+                  if (pipelineEnd) globalMaxTime = Math.max(globalMaxTime, pipelineEnd);
+
+                  // Get operators for this pipeline on this worker
+                  const opSummaries = pipeline.operatorSummaries || [];
+                  
+                  opSummaries.forEach((op) => {
+                    const key = `${stageNum}-${pipeline.pipelineId}-${op.operatorId}`;
+                    
+                    if (!operatorsByKey[key]) {
+                      operatorsByKey[key] = {
+                        stageId: stageNum,
+                        pipelineId: pipeline.pipelineId,
+                        operatorId: op.operatorId,
+                        operatorType: op.operatorType,
+                        workers: {},
+                      };
+                    }
+
+                    // Parse durations
+                    const addInputNs = parseDuration(op.addInputWall);
+                    const getOutputNs = parseDuration(op.getOutputWall);
+                    const blockedNs = parseDuration(op.blockedWall);
+                    const finishNs = parseDuration(op.finishWall);
+                    const totalWallMs = (addInputNs + getOutputNs + blockedNs + finishNs) / 1000000;
+                    const activeWallMs = (addInputNs + getOutputNs + finishNs) / 1000000;
+                    const blockedMs = blockedNs / 1000000;
+
+                    // Store worker-specific data
+                    operatorsByKey[key].workers[nodeId] = {
+                      nodeId: nodeId,
+                      pipelineStart: pipelineStart,
+                      pipelineEnd: pipelineEnd,
+                      totalWallMs: totalWallMs,
+                      activeWallMs: activeWallMs,
+                      blockedMs: blockedMs,
+                      inputPositions: op.inputPositions || 0,
+                      outputPositions: op.outputPositions || 0,
+                      totalDrivers: op.totalDrivers || 1,
+                    };
+                  });
+                });
+              }
+            });
+          }
+
+          if (stage.subStages) {
+            stage.subStages.forEach(traverseStages);
+          }
+        }
+
+        traverseStages(data.query_info.outputStage);
+
+        const operators = Object.values(operatorsByKey);
+        if (operators.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-tertiary);padding:20px;">No operator timing data available</p>';
+          return;
+        }
+
+        // Sort operators by stage, pipeline, operatorId
+        operators.sort((a, b) => {
+          if (a.stageId !== b.stageId) return parseInt(a.stageId) - parseInt(b.stageId);
+          if (a.pipelineId !== b.pipelineId) return a.pipelineId - b.pipelineId;
+          return a.operatorId - b.operatorId;
+        });
+
+        // Get unique workers and assign colors
+        const allWorkers = new Set();
+        operators.forEach(op => {
+          Object.keys(op.workers).forEach(w => allWorkers.add(w));
+        });
+        const workerList = Array.from(allWorkers).sort();
+        const workerColors = ["#76b900", "#0891b2", "#d97706", "#7c3aed", "#dc2626", "#059669", "#ec4899", "#8b5cf6"];
+        const workerColorMap = {};
+        workerList.forEach((w, i) => {
+          workerColorMap[w] = workerColors[i % workerColors.length];
+        });
+
+        // Normalize times
+        const queryStartTime = globalMinTime;
+        const queryDuration = globalMaxTime - globalMinTime;
+
+        // SVG dimensions
+        const margin = { top: 50, right: 30, bottom: 50, left: 200 };
+        const width = Math.max(1000, container.clientWidth - 20);
+        const operatorHeight = 8 + workerList.length * 14; // Height per operator = label + worker bars
+        const operatorGap = 6;
+        const groupGap = 20;
+
+        // Group operators by stage-pipeline
+        const groups = {};
+        operators.forEach(op => {
           const key = `${op.stageId}-${op.pipelineId}`;
-          if (!pipelines[key]) {
-            pipelines[key] = {
+          if (!groups[key]) {
+            groups[key] = {
               stageId: op.stageId,
               pipelineId: op.pipelineId,
-              label: op.pipelineLabel,
               operators: [],
-              totalWallMs: 0,
-              maxBlockedMs: 0,
             };
           }
-          pipelines[key].operators.push(op);
+          groups[key].operators.push(op);
         });
+        const groupList = Object.values(groups);
 
-        // Sort operators within each pipeline by operatorId
-        Object.values(pipelines).forEach((p) => {
-          p.operators.sort((a, b) => a.operatorId - b.operatorId);
-          // Calculate pipeline totals
-          p.operators.forEach((op) => {
-            p.totalWallMs += op.totalWallMs;
-            p.maxBlockedMs = Math.max(p.maxBlockedMs, op.blockedWallMs);
-          });
-        });
+        // Calculate height
+        let totalOperators = operators.length;
+        const height = margin.top + margin.bottom + 
+                       totalOperators * (operatorHeight + operatorGap) + 
+                       groupList.length * groupGap;
 
-        // Classify pipelines by type
-        Object.values(pipelines).forEach((p) => {
-          const hasTableScan = p.operators.some(
-            (op) => op.operatorType === "TableScanOperator",
-          );
-          const hasBuild = p.operators.some((op) =>
-            op.operatorType.includes("Build"),
-          );
-          const hasProbe = p.operators.some((op) =>
-            op.operatorType.includes("Probe"),
-          );
-          const hasOutput = p.operators.some(
-            (op) =>
-              op.operatorType === "PartitionedOutput" ||
-              op.operatorType === "CallbackSink",
-          );
-
-          if (hasOutput) {
-            p.type = "output";
-            p.phase = 3;
-          } else if (hasBuild) {
-            p.type = "build";
-            p.phase = 1;
-          } else if (hasTableScan) {
-            p.type = "source";
-            p.phase = 0;
-          } else {
-            p.type = "intermediate";
-            p.phase = 2;
-          }
-        });
-
-        // Sort pipelines: source -> build -> intermediate -> output
-        const pipelineList = Object.values(pipelines).sort((a, b) => {
-          if (a.phase !== b.phase) return a.phase - b.phase;
-          if (a.stageId !== b.stageId) return a.stageId - b.stageId;
-          return a.pipelineId - b.pipelineId;
-        });
-
-        // Calculate timing for each pipeline and its operators
-        // Key insight: blockedWall on an operator indicates waiting for upstream dependency
-        // Within a pipeline, operators process data in sequence
-        pipelineList.forEach((pipeline) => {
-          // Find the operator with max blocked time - this indicates when the pipeline's
-          // critical dependency becomes available
-          const maxBlockedOp = pipeline.operators.reduce(
-            (max, op) => (op.blockedWallMs > max.blockedWallMs ? op : max),
-            pipeline.operators[0],
-          );
-
-          // Pipeline starts when its data source is ready
-          // For source pipelines (TableScan), they can start immediately
-          // For build/probe pipelines, they may wait for upstream
-          let pipelineStartMs = 0;
-
-          if (pipeline.type === "source") {
-            // Source pipelines start at 0
-            pipelineStartMs = 0;
-          } else {
-            // Other pipelines start based on their blocked time
-            // This represents waiting for upstream data/build completion
-            pipelineStartMs = pipeline.maxBlockedMs;
-          }
-
-          pipeline.startMs = pipelineStartMs;
-
-          // Calculate cumulative timing within the pipeline
-          let cumulativeTime = pipelineStartMs;
-          pipeline.operators.forEach((op, idx) => {
-            // Each operator's active time follows the previous operator
-            // But operators can overlap due to pipelining, so we use individual blocked time
-            if (idx === 0) {
-              op.estimatedStartMs = pipelineStartMs;
-            } else {
-              // For non-first operators, they start after their own blocked wait
-              // or after previous operator started (whichever is later)
-              const prevOp = pipeline.operators[idx - 1];
-              op.estimatedStartMs = Math.max(
-                prevOp.estimatedStartMs + prevOp.totalWallMs * 0.1, // Some overlap due to pipelining
-                op.blockedWallMs, // But respect blocked time
-              );
-            }
-            op.estimatedEndMs = op.estimatedStartMs + op.totalWallMs;
-            cumulativeTime = Math.max(cumulativeTime, op.estimatedEndMs);
-          });
-
-          pipeline.endMs = cumulativeTime;
-        });
-
-        // Find global max end time
-        let maxEndTime = 0;
-        pipelineList.forEach((p) => {
-          p.operators.forEach((op) => {
-            maxEndTime = Math.max(maxEndTime, op.estimatedEndMs);
-          });
-        });
-
-        // SVG dimensions - fit to container
-        const margin = { top: 50, right: 30, bottom: 50, left: 200 };
-        const width = Math.max(800, container.clientWidth - 20);
-        const availableHeight = Math.max(400, container.clientHeight - 20);
-
-        // Calculate total rows to determine dynamic sizing
-        let totalRows = 0;
-        pipelineList.forEach((p) => {
-          totalRows += p.operators.length;
-        });
-        const numPipelines = pipelineList.length;
-
-        // Calculate bar height to fit everything in available space
-        const availableContentHeight =
-          availableHeight - margin.top - margin.bottom;
-        const minBarHeight = 16;
-        const maxBarHeight = 30;
-
-        // Each pipeline needs: pipelineLabelHeight + (operators * (barHeight + operatorGap)) + pipelineGap
-        // Solve for barHeight given available space
-        const pipelineOverhead = 25; // label height
-        const pipelineGapSize = 15;
-        const operatorGapSize = 4;
-
-        // availableContentHeight = numPipelines * pipelineOverhead + numPipelines * pipelineGapSize + totalRows * (barHeight + operatorGapSize)
-        // barHeight = (availableContentHeight - numPipelines * (pipelineOverhead + pipelineGapSize)) / totalRows - operatorGapSize
-        const spaceForBars =
-          availableContentHeight -
-          numPipelines * (pipelineOverhead + pipelineGapSize);
-        const calculatedBarHeight =
-          totalRows > 0 ? spaceForBars / totalRows - operatorGapSize : 20;
-        const barHeight = Math.max(
-          minBarHeight,
-          Math.min(maxBarHeight, calculatedBarHeight),
-        );
-        const operatorGap = operatorGapSize;
-        const pipelineGap = pipelineGapSize;
-        const pipelineLabelHeight = pipelineOverhead;
-
-        // Use available height or calculated height (whichever fits)
-        const calculatedHeight =
-          margin.top +
-          margin.bottom +
-          totalRows * (barHeight + operatorGap) +
-          numPipelines * (pipelineLabelHeight + pipelineGap);
-        const height = Math.max(availableHeight, calculatedHeight);
-
-        const svg = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "svg",
-        );
+        // Create SVG
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.setAttribute("class", "timeline-svg");
         svg.setAttribute("width", width);
         svg.setAttribute("height", height);
 
-        // Scale based on max end time
-        const timeScale =
-          maxEndTime > 0
-            ? (width - margin.left - margin.right) / maxEndTime
-            : 1;
+        // Time scale
+        const timeScale = queryDuration > 0 ? (width - margin.left - margin.right) / queryDuration : 1;
 
         // Draw grid lines
         const numGridLines = 10;
         for (let i = 0; i <= numGridLines; i++) {
-          const x =
-            margin.left +
-            (i / numGridLines) * (width - margin.left - margin.right);
-          const line = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "line",
-          );
+          const x = margin.left + (i / numGridLines) * (width - margin.left - margin.right);
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
           line.setAttribute("x1", x);
           line.setAttribute("y1", margin.top - 10);
           line.setAttribute("x2", x);
@@ -2961,268 +3861,194 @@
           line.setAttribute("stroke-dasharray", "2,2");
           svg.appendChild(line);
 
-          // Time label at top
-          const timeLabelTop = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "text",
-          );
-          timeLabelTop.setAttribute("x", x);
-          timeLabelTop.setAttribute("y", margin.top - 15);
-          timeLabelTop.setAttribute("text-anchor", "middle");
-          timeLabelTop.setAttribute("fill", "#aaa");
-          timeLabelTop.setAttribute("font-size", "10px");
-          timeLabelTop.textContent = formatDuration(
-            (i / numGridLines) * maxEndTime,
-          );
-          svg.appendChild(timeLabelTop);
-
-          // Time label at bottom
-          const timeLabel = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "text",
-          );
+          const timeMs = (i / numGridLines) * queryDuration;
+          const timeLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
           timeLabel.setAttribute("x", x);
-          timeLabel.setAttribute("y", height - margin.bottom + 15);
+          timeLabel.setAttribute("y", margin.top - 15);
           timeLabel.setAttribute("text-anchor", "middle");
           timeLabel.setAttribute("fill", "#aaa");
           timeLabel.setAttribute("font-size", "10px");
-          timeLabel.textContent = formatDuration(
-            (i / numGridLines) * maxEndTime,
-          );
+          timeLabel.textContent = formatDuration(timeMs);
           svg.appendChild(timeLabel);
+
+          const bottomLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          bottomLabel.setAttribute("x", x);
+          bottomLabel.setAttribute("y", height - margin.bottom + 15);
+          bottomLabel.setAttribute("text-anchor", "middle");
+          bottomLabel.setAttribute("fill", "#aaa");
+          bottomLabel.setAttribute("font-size", "10px");
+          bottomLabel.textContent = formatDuration(timeMs);
+          svg.appendChild(bottomLabel);
         }
 
-        // Track unique operator types for legend
-        const usedTypes = new Set();
-
-        // Draw pipelines with bars positioned by start/end time
+        // Draw operators with worker bars
         let currentY = margin.top;
 
-        // Phase colors
-        const phaseColors = {
-          source: "#2563eb", // Blue
-          build: "#d97706", // Orange
-          intermediate: "#7c3aed", // Purple
-          output: "#76b900", // Green
-        };
+        groupList.forEach((group) => {
+          // Group header
+          const headerText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          headerText.setAttribute("x", 5);
+          headerText.setAttribute("y", currentY + 12);
+          headerText.setAttribute("fill", "#e94560");
+          headerText.setAttribute("font-size", "11px");
+          headerText.setAttribute("font-weight", "bold");
+          headerText.textContent = `Stage ${group.stageId} - Pipeline ${group.pipelineId}`;
+          svg.appendChild(headerText);
 
-        pipelineList.forEach((pipeline, pIdx) => {
-          // Pipeline type indicator (colored dot)
-          const typeIndicator = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "circle",
-          );
-          typeIndicator.setAttribute("cx", 10);
-          typeIndicator.setAttribute("cy", currentY + 10);
-          typeIndicator.setAttribute("r", 5);
-          typeIndicator.setAttribute(
-            "fill",
-            phaseColors[pipeline.type] || "#666",
-          );
-          svg.appendChild(typeIndicator);
+          currentY += 18;
 
-          // Pipeline header/label with type
-          const pipelineLabel = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "text",
-          );
-          pipelineLabel.setAttribute("x", 22);
-          pipelineLabel.setAttribute("y", currentY + 14);
-          pipelineLabel.setAttribute("fill", "#e94560");
-          pipelineLabel.setAttribute("font-size", "11px");
-          pipelineLabel.setAttribute("font-weight", "bold");
-          pipelineLabel.textContent = `${pipeline.label} [${pipeline.type}]`;
-          svg.appendChild(pipelineLabel);
+          // Draw each operator
+          group.operators.forEach((op) => {
+            // Operator label
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", margin.left - 8);
+            label.setAttribute("y", currentY + 10);
+            label.setAttribute("text-anchor", "end");
+            label.setAttribute("fill", getOperatorColor(op.operatorType));
+            label.setAttribute("font-size", "10px");
+            label.setAttribute("font-weight", "bold");
+            label.textContent = op.operatorType.replace("Operator", "");
+            svg.appendChild(label);
 
-          // Pipeline timing info
-          const timingLabel = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "text",
-          );
-          timingLabel.setAttribute("x", margin.left);
-          timingLabel.setAttribute("y", currentY + 14);
-          timingLabel.setAttribute("fill", "#888");
-          timingLabel.setAttribute("font-size", "9px");
-          timingLabel.textContent = `${formatDuration(pipeline.startMs)} → ${formatDuration(pipeline.endMs)}`;
-          svg.appendChild(timingLabel);
+            // Draw a bar for each worker
+            const barHeight = 12;
+            const barGap = 2;
+            let workerY = currentY;
 
-          // Pipeline separator line
-          const sepLine = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "line",
-          );
-          sepLine.setAttribute("x1", 10);
-          sepLine.setAttribute("y1", currentY + pipelineLabelHeight - 5);
-          sepLine.setAttribute("x2", width - margin.right);
-          sepLine.setAttribute("y2", currentY + pipelineLabelHeight - 5);
-          sepLine.setAttribute("stroke", "#333");
-          sepLine.setAttribute("stroke-width", "1");
-          svg.appendChild(sepLine);
+            workerList.forEach((workerId, wIdx) => {
+              const workerData = op.workers[workerId];
+              const color = workerColorMap[workerId];
 
-          currentY += pipelineLabelHeight;
+              if (workerData) {
+                // Calculate bar position based on pipeline timing
+                const pipelineStartMs = (workerData.pipelineStart - queryStartTime);
+                const pipelineEndMs = (workerData.pipelineEnd - queryStartTime);
+                const pipelineDuration = pipelineEndMs - pipelineStartMs;
 
-          // Draw each operator positioned by its estimated start/end time
-          pipeline.operators.forEach((op, opIdx) => {
-            const y = currentY;
-            const startX = margin.left + op.estimatedStartMs * timeScale;
-            const barWidth = Math.max(3, op.totalWallMs * timeScale);
-            const color = getOperatorColor(op.operatorType);
-            usedTypes.add(op.operatorType);
+                // The operator's active time within the pipeline
+                // Use activeWallMs (excluding blocked time) for the bar width
+                const activeMs = workerData.activeWallMs;
+                
+                // Position: start at pipeline start + blocked time (waiting)
+                // This is an approximation since we don't have exact operator start times
+                const startMs = pipelineStartMs + Math.min(workerData.blockedMs, pipelineDuration * 0.9);
+                const barWidth = Math.max(2, activeMs * timeScale);
 
-            // Operator label on the left
-            const opLabel = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "text",
-            );
-            opLabel.setAttribute("x", margin.left - 8);
-            opLabel.setAttribute("y", y + barHeight / 2 + 3);
-            opLabel.setAttribute("text-anchor", "end");
-            opLabel.setAttribute("fill", "#aaa");
-            opLabel.setAttribute("font-size", "9px");
-            opLabel.textContent = op.operatorType.replace("Operator", "");
-            svg.appendChild(opLabel);
+                const barX = margin.left + startMs * timeScale;
 
-            // Blocked/waiting time indicator (thin bar from 0 to start)
-            if (op.estimatedStartMs > 0) {
-              const waitRect = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "rect",
-              );
-              waitRect.setAttribute("x", margin.left);
-              waitRect.setAttribute("y", y + barHeight * 0.35);
-              waitRect.setAttribute("width", op.estimatedStartMs * timeScale);
-              waitRect.setAttribute("height", barHeight * 0.3);
-              waitRect.setAttribute("fill", "#444");
-              waitRect.setAttribute("rx", "2");
-              svg.appendChild(waitRect);
-            }
+                // Draw blocked/waiting portion (thin line)
+                if (workerData.blockedMs > 0 && startMs > pipelineStartMs) {
+                  const waitLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                  waitLine.setAttribute("x1", margin.left + pipelineStartMs * timeScale);
+                  waitLine.setAttribute("y1", workerY + barHeight / 2);
+                  waitLine.setAttribute("x2", barX);
+                  waitLine.setAttribute("y2", workerY + barHeight / 2);
+                  waitLine.setAttribute("stroke", "#444");
+                  waitLine.setAttribute("stroke-width", "2");
+                  waitLine.setAttribute("stroke-dasharray", "3,2");
+                  svg.appendChild(waitLine);
+                }
 
-            // Main bar positioned at start time
-            const rect = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "rect",
-            );
-            rect.setAttribute("x", startX);
-            rect.setAttribute("y", y);
-            rect.setAttribute("width", barWidth);
-            rect.setAttribute("height", barHeight);
-            rect.setAttribute("fill", color);
-            rect.setAttribute("class", "operator-bar");
-            rect.setAttribute("rx", "2");
+                // Active time bar
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", barX);
+                rect.setAttribute("y", workerY);
+                rect.setAttribute("width", barWidth);
+                rect.setAttribute("height", barHeight);
+                rect.setAttribute("fill", color);
+                rect.setAttribute("rx", "2");
+                rect.setAttribute("class", "operator-bar");
 
-            // Tooltip on hover
-            rect.addEventListener("mouseenter", (e) => {
-              const tooltip = document.getElementById("tooltip");
-              tooltip.innerHTML = `
-                <strong>${op.operatorType}</strong><br>
-                Pipeline: ${pipeline.label}<br>
-                Plan Node: ${op.planNodeId}<br>
-                <hr style="border-color:#444;margin:5px 0">
-                <strong>Timeline:</strong><br>
-                Start: ${formatDuration(op.estimatedStartMs)}<br>
-                End: ${formatDuration(op.estimatedEndMs)}<br>
-                Active Duration: ${formatDuration(op.totalWallMs)}<br>
-                Blocked/Waiting: ${formatDuration(op.blockedWallMs)}<br>
-                <hr style="border-color:#444;margin:5px 0">
-                <strong>Data:</strong><br>
-                Input: ${op.inputPositions.toLocaleString()} rows<br>
-                Output: ${op.outputPositions.toLocaleString()} rows<br>
-                Peak Memory: ${formatBytes(op.peakTotalMemoryBytes)}
-              `;
-              tooltip.style.display = "block";
-              tooltip.style.left = e.pageX + 10 + "px";
-              tooltip.style.top = e.pageY + 10 + "px";
-            });
-            rect.addEventListener("mousemove", (e) => {
-              const tooltip = document.getElementById("tooltip");
-              tooltip.style.left = e.pageX + 10 + "px";
-              tooltip.style.top = e.pageY + 10 + "px";
-            });
-            rect.addEventListener("mouseleave", () => {
-              document.getElementById("tooltip").style.display = "none";
+                // Tooltip
+                const selectivity = workerData.inputPositions > 0 
+                  ? (workerData.outputPositions / workerData.inputPositions * 100).toFixed(1) + '%'
+                  : 'N/A';
+                rect.innerHTML = `<title>${op.operatorType} @ ${workerId}
+Active: ${formatDuration(activeMs)}
+Blocked: ${formatDuration(workerData.blockedMs)}
+Total: ${formatDuration(workerData.totalWallMs)}
+Rows: ${formatNumber(workerData.inputPositions)} → ${formatNumber(workerData.outputPositions)} (${selectivity})
+Drivers: ${workerData.totalDrivers}</title>`;
+                svg.appendChild(rect);
+
+                // Duration text if bar is wide enough
+                if (barWidth > 40) {
+                  const durText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                  durText.setAttribute("x", barX + barWidth / 2);
+                  durText.setAttribute("y", workerY + barHeight / 2 + 3);
+                  durText.setAttribute("text-anchor", "middle");
+                  durText.setAttribute("fill", "#000");
+                  durText.setAttribute("font-size", "8px");
+                  durText.setAttribute("font-weight", "bold");
+                  durText.textContent = formatDuration(activeMs);
+                  durText.style.pointerEvents = "none";
+                  svg.appendChild(durText);
+                }
+              } else {
+                // No data for this worker - draw empty placeholder
+                const emptyRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                emptyRect.setAttribute("x", margin.left);
+                emptyRect.setAttribute("y", workerY);
+                emptyRect.setAttribute("width", width - margin.left - margin.right);
+                emptyRect.setAttribute("height", barHeight);
+                emptyRect.setAttribute("fill", "none");
+                emptyRect.setAttribute("stroke", "#333");
+                emptyRect.setAttribute("stroke-dasharray", "2,4");
+                emptyRect.setAttribute("rx", "2");
+                svg.appendChild(emptyRect);
+              }
+
+              workerY += barHeight + barGap;
             });
 
-            svg.appendChild(rect);
-
-            // Add duration label inside the bar if it's wide enough
-            if (barWidth > 45) {
-              const durationText = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "text",
-              );
-              durationText.setAttribute("x", startX + barWidth / 2);
-              durationText.setAttribute("y", y + barHeight / 2 + 3);
-              durationText.setAttribute("text-anchor", "middle");
-              durationText.setAttribute("fill", "#fff");
-              durationText.setAttribute("font-size", "8px");
-              durationText.setAttribute("font-weight", "bold");
-              durationText.textContent = formatDuration(op.totalWallMs);
-              durationText.style.pointerEvents = "none";
-              svg.appendChild(durationText);
-            }
-
-            currentY += barHeight + operatorGap;
+            currentY += operatorHeight + operatorGap;
           });
 
-          currentY += pipelineGap - operatorGap;
+          currentY += groupGap;
         });
 
         // X-axis label
-        const xLabel = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "text",
-        );
+        const xLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
         xLabel.setAttribute("x", (margin.left + width - margin.right) / 2);
         xLabel.setAttribute("y", height - 10);
         xLabel.setAttribute("text-anchor", "middle");
         xLabel.setAttribute("fill", "#aaa");
         xLabel.setAttribute("font-size", "11px");
-        xLabel.textContent =
-          "Query Execution Timeline (estimated timing based on blocked/wall time)";
+        xLabel.textContent = `Query Execution Timeline - Total Duration: ${formatDuration(queryDuration)}`;
         svg.appendChild(xLabel);
 
         container.appendChild(svg);
 
-        // Create phase legend first
-        const phaseSection = document.createElement("div");
-        phaseSection.style.marginBottom = "10px";
-        phaseSection.innerHTML = `<div style="font-weight:bold;margin-bottom:5px;color:#76b900;">Pipeline Phases:</div>`;
-        const phases = [
-          { type: "source", label: "Source (TableScan)" },
-          { type: "build", label: "Build (Hash Build)" },
-          { type: "intermediate", label: "Intermediate" },
-          { type: "output", label: "Output" },
-        ];
-        phases.forEach((phase) => {
+        // Build legend
+        legendContainer.innerHTML = "";
+
+        // Worker legend
+        const workerSection = document.createElement("div");
+        workerSection.innerHTML = `<div style="font-weight:bold;margin-bottom:5px;color:var(--accent-primary);">Workers:</div>`;
+        workerList.forEach((workerId) => {
           const item = document.createElement("div");
           item.className = "legend-item";
-          item.innerHTML = `<div class="legend-color" style="background: ${phaseColors[phase.type]}"></div><span>${phase.label}</span>`;
-          phaseSection.appendChild(item);
+          item.innerHTML = `<div class="legend-color" style="background: ${workerColorMap[workerId]}"></div><span>${workerId}</span>`;
+          workerSection.appendChild(item);
         });
-        legendContainer.appendChild(phaseSection);
+        legendContainer.appendChild(workerSection);
 
         // Separator
         const sep = document.createElement("hr");
-        sep.style.borderColor = "#333";
+        sep.style.borderColor = "var(--border-primary)";
         sep.style.margin = "10px 0";
         legendContainer.appendChild(sep);
 
-        // Operator type legend
-        const opSection = document.createElement("div");
-        opSection.innerHTML = `<div style="font-weight:bold;margin-bottom:5px;color:#76b900;">Operators:</div>`;
-        usedTypes.forEach((type) => {
-          const item = document.createElement("div");
-          item.className = "legend-item";
-          item.innerHTML = `<div class="legend-color" style="background: ${getOperatorColor(type)}"></div><span>${type}</span>`;
-          opSection.appendChild(item);
-        });
-        legendContainer.appendChild(opSection);
-
-        // Add blocked time indicator to legend
-        const blockedItem = document.createElement("div");
-        blockedItem.className = "legend-item";
-        blockedItem.innerHTML = `<div class="legend-color" style="background: #444;"></div><span>Blocked/Waiting</span>`;
-        legendContainer.appendChild(blockedItem);
+        // Timing explanation
+        const explainSection = document.createElement("div");
+        explainSection.innerHTML = `
+          <div style="font-size:10px;color:var(--text-secondary);">
+            <div><strong>Solid bar:</strong> Active time (addInput + getOutput + finish)</div>
+            <div><strong>Dashed line:</strong> Blocked/waiting time</div>
+            <div style="margin-top:5px;">Hover over bars for details</div>
+          </div>
+        `;
+        legendContainer.appendChild(explainSection);
       }
 
       async function loadDataIntoViewers(data) {
@@ -3250,10 +4076,14 @@
         const ioViewer = document.getElementById("ioViewer");
 
         const dagPanel = document.getElementById("dagPanel");
+        const textPlanPanel = document.getElementById("textPlanPanel");
+        const workersPanel = document.getElementById("workersPanel");
 
         // Reset panel visibility
         dagPanel.style.display = "none";
+        textPlanPanel.style.display = "none";
         timelinePanel.style.display = "none";
+        workersPanel.style.display = "none";
         mainPanel.style.display = "flex";
         mainPanel.classList.remove("full-width");
         secondaryPanel1.style.display = "flex";
@@ -3268,12 +4098,29 @@
             createDAG(currentData);
             break;
 
+          case "textplan":
+            textPlanPanel.style.display = "flex";
+            mainPanel.style.display = "none";
+            secondaryPanel1.style.display = "none";
+            secondaryPanel2.style.display = "none";
+            document.getElementById("textPlanContent").innerHTML =
+              generateTextPlan(currentData);
+            break;
+
+          case "workers":
+            workersPanel.style.display = "flex";
+            mainPanel.style.display = "none";
+            secondaryPanel1.style.display = "none";
+            secondaryPanel2.style.display = "none";
+            displayWorkerMetrics(currentData);
+            break;
+
           case "timeline":
             timelinePanel.style.display = "flex";
             mainPanel.style.display = "none";
             secondaryPanel1.style.display = "none";
             secondaryPanel2.style.display = "none";
-            createTimeline(operatorData);
+            createTimeline(currentData);
             break;
 
           case "operators":
