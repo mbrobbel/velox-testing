@@ -16,11 +16,10 @@
 Metrics collector for Presto queries.
 
 Collects detailed metrics from Presto REST API endpoints after each query
-and stores them as parquet files using duckdb.
+and stores them as JSON files.
 """
 
 import json
-import subprocess
 import requests
 from collections import defaultdict
 from pathlib import Path
@@ -42,12 +41,12 @@ def collect_metrics(query_id: str, hostname: str, port: int, output_dir: str) ->
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Collect node information
-    _fetch_and_save(f"{base_url}/v1/node", output_path / "nodes")
+    _fetch_and_save(f"{base_url}/v1/node", output_path / "nodes.json")
 
     # Collect query details and extract stage/task information
     query_info = _fetch_json(f"{base_url}/v1/query/{query_id}")
     if query_info:
-        _save_as_json_and_parquet(query_info, output_path / "query")
+        _save_json(query_info, output_path / "query.json")
         _collect_stages(query_info, output_path)
         worker_tasks = _collect_worker_data(query_info, output_path)
         _generate_summary(query_info, worker_tasks, output_path)
@@ -65,19 +64,17 @@ def _fetch_json(url: str, timeout: int = 30) -> dict | None:
 
 
 def _fetch_and_save(url: str, output_path: Path) -> dict | None:
-    """Fetch JSON from URL and save as JSON and parquet."""
+    """Fetch JSON from URL and save to file."""
     data = _fetch_json(url)
     if data:
-        _save_as_json_and_parquet(data, output_path)
+        _save_json(data, output_path)
     return data
 
 
-def _save_as_json_and_parquet(data, output_path: Path) -> None:
-    """Save data as JSON and convert to parquet."""
-    json_file = output_path.with_suffix(".json")
-    with open(json_file, "w") as f:
+def _save_json(data, output_path: Path) -> None:
+    """Save data as JSON."""
+    with open(output_path, "w") as f:
         json.dump(data, f, indent=2)
-    _json_to_parquet(json_file, output_path.with_suffix(".parquet"))
 
 
 def _collect_stages(query_info: dict, output_path: Path) -> None:
@@ -86,7 +83,7 @@ def _collect_stages(query_info: dict, output_path: Path) -> None:
     _extract_stages(query_info.get("outputStage"), stages)
 
     if stages:
-        _save_as_json_and_parquet(stages, output_path / "stages")
+        _save_json(stages, output_path / "stages.json")
 
 
 def _extract_stages(stage_info: dict, stages: list) -> None:
@@ -135,9 +132,9 @@ def _collect_worker_data(query_info: dict, output_path: Path) -> dict:
             all_worker_metrics[worker_id] = metrics
 
     if all_worker_tasks:
-        _save_as_json_and_parquet(all_worker_tasks, output_path / "tasks")
+        _save_json(all_worker_tasks, output_path / "tasks.json")
     if all_worker_metrics:
-        _save_as_json_and_parquet(all_worker_metrics, output_path / "metrics")
+        _save_json(all_worker_metrics, output_path / "metrics.json")
 
     return all_worker_tasks
 
@@ -172,10 +169,17 @@ def _generate_summary(query_info: dict, worker_tasks: dict, output_path: Path) -
     stages = []
     _extract_stage_summary(query_info.get("outputStage"), task_lookup, stages)
 
+    # Query-level timing
+    query_stats = query_info.get("queryStats", {})
     summary = {
         "queryId": query_info.get("queryId"),
         "query": query_info.get("query"),
         "state": query_info.get("state"),
+        "createTime": query_stats.get("createTime"),
+        "endTime": query_stats.get("endTime"),
+        "elapsedTime": query_stats.get("elapsedTime"),
+        "executionTime": query_stats.get("executionTime"),
+        "queuedTime": query_stats.get("queuedTime"),
         "stages": stages,
     }
 
@@ -186,12 +190,17 @@ def _generate_summary(query_info: dict, worker_tasks: dict, output_path: Path) -
 
 
 def _extract_stage_summary(stage_info: dict, task_lookup: dict, stages: list) -> None:
-    """Recursively extract stage summary with workers, tasks, pipelines, and operators."""
+    """Recursively extract stage summary with plan, workers, tasks, pipelines, and operators."""
     if stage_info is None:
         return
 
     stage_id = stage_info.get("stageId")
     latest_attempt = stage_info.get("latestAttemptExecutionInfo", {})
+    stage_stats = latest_attempt.get("stats", {})
+
+    # Extract plan DAG for this stage
+    plan = stage_info.get("plan", {})
+    plan_dag = _extract_plan_dag(plan.get("root"))
 
     # Group tasks by worker
     tasks_by_worker = defaultdict(list)
@@ -201,31 +210,56 @@ def _extract_stage_summary(stage_info: dict, task_lookup: dict, stages: list) ->
         worker_id = task_detail.get("_worker_id", "unknown")
         worker_uri = task_detail.get("_worker_uri", "unknown")
 
+        # Task-level timing
+        task_stats = task_detail.get("stats", {})
+
         # Extract pipelines and operators from task stats
         pipelines = []
-        stats = task_detail.get("stats", {})
-        for pipeline in stats.get("pipelines", []):
+        for pipeline in task_stats.get("pipelines", []):
             operators = []
             for op in pipeline.get("operatorSummaries", []):
                 operators.append({
                     "operatorId": op.get("operatorId"),
                     "operatorType": op.get("operatorType"),
                     "planNodeId": op.get("planNodeId"),
+                    "addInputWall": op.get("addInputWall"),
+                    "getOutputWall": op.get("getOutputWall"),
+                    "finishWall": op.get("finishWall"),
+                    "blockedWall": op.get("blockedWall"),
                 })
             pipelines.append({
                 "pipelineId": pipeline.get("pipelineId"),
+                "firstStartTimeMs": pipeline.get("firstStartTimeInMillis"),
+                "lastEndTimeMs": pipeline.get("lastEndTimeInMillis"),
+                "totalCpuTimeNanos": pipeline.get("totalCpuTimeInNanos"),
+                "totalScheduledTimeNanos": pipeline.get("totalScheduledTimeInNanos"),
+                "totalBlockedTimeNanos": pipeline.get("totalBlockedTimeInNanos"),
                 "operators": operators,
             })
 
         tasks_by_worker[(worker_id, worker_uri)].append({
             "taskId": task_id,
             "state": task.get("taskStatus", {}).get("state"),
+            "createTimeMs": task_stats.get("createTimeInMillis"),
+            "firstStartTimeMs": task_stats.get("firstStartTimeInMillis"),
+            "endTimeMs": task_stats.get("endTimeInMillis"),
+            "elapsedTimeNanos": task_stats.get("elapsedTimeInNanos"),
+            "queuedTimeNanos": task_stats.get("queuedTimeInNanos"),
+            "totalCpuTimeNanos": task_stats.get("totalCpuTimeInNanos"),
+            "totalScheduledTimeNanos": task_stats.get("totalScheduledTimeInNanos"),
             "pipelines": pipelines,
         })
 
-    # Build workers list
+    # Build workers list and collect task times for stage-level aggregation
     workers = []
+    all_task_create_times = []
+    all_task_end_times = []
     for (worker_id, worker_uri), tasks in tasks_by_worker.items():
+        for t in tasks:
+            if t.get("createTimeMs"):
+                all_task_create_times.append(t["createTimeMs"])
+            if t.get("endTimeMs"):
+                all_task_end_times.append(t["endTimeMs"])
         workers.append({
             "workerId": worker_id,
             "workerUri": worker_uri,
@@ -235,12 +269,62 @@ def _extract_stage_summary(stage_info: dict, task_lookup: dict, stages: list) ->
     stages.append({
         "stageId": stage_id,
         "state": latest_attempt.get("state"),
+        "startTimeMs": min(all_task_create_times) if all_task_create_times else None,
+        "endTimeMs": max(all_task_end_times) if all_task_end_times else None,
+        "totalScheduledTime": stage_stats.get("totalScheduledTime"),
+        "totalCpuTime": stage_stats.get("totalCpuTime"),
+        "totalBlockedTime": stage_stats.get("totalBlockedTime"),
+        "plan": plan_dag,
         "workers": workers,
     })
 
     # Recurse into sub-stages
     for sub_stage in stage_info.get("subStages", []):
         _extract_stage_summary(sub_stage, task_lookup, stages)
+
+
+def _extract_plan_dag(node: dict) -> dict | None:
+    """Recursively extract plan DAG with node types, IDs, and children."""
+    if node is None:
+        return None
+
+    node_type = node.get("@type", "")
+    # Simplify type name (remove package prefix)
+    if "." in node_type:
+        node_type = node_type.split(".")[-1]
+
+    result = {
+        "id": node.get("id"),
+        "type": node_type,
+    }
+
+    # For RemoteSourceNode, include sourceFragmentIds to link to substages
+    if "RemoteSourceNode" in node.get("@type", ""):
+        result["sourceFragmentIds"] = node.get("sourceFragmentIds", [])
+
+    # Collect children from various possible fields
+    children = []
+    if node.get("source"):
+        child = _extract_plan_dag(node["source"])
+        if child:
+            children.append(child)
+    for source in node.get("sources", []):
+        child = _extract_plan_dag(source)
+        if child:
+            children.append(child)
+    if node.get("left"):
+        child = _extract_plan_dag(node["left"])
+        if child:
+            children.append(child)
+    if node.get("right"):
+        child = _extract_plan_dag(node["right"])
+        if child:
+            children.append(child)
+
+    if children:
+        result["children"] = children
+
+    return result
 
 
 def _fetch_worker_metrics(worker_uri: str) -> list | None:
@@ -283,21 +367,3 @@ def _parse_prometheus_metrics(text: str) -> list:
 def _worker_id_from_uri(uri: str) -> str:
     """Extract a filesystem-safe worker ID from a URI."""
     return urlparse(uri).netloc.replace(":", "_").replace(".", "_")
-
-
-def _json_to_parquet(json_file: Path, parquet_file: Path) -> None:
-    """Convert JSON file to parquet using duckdb."""
-    try:
-        result = subprocess.run(
-            ["pixi", "exec", "--spec", "duckdb-cli", "duckdb", "-c",
-             f"COPY (SELECT * FROM read_json_auto('{json_file}')) TO '{parquet_file}' (FORMAT PARQUET);"],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        if result.returncode != 0:
-            print(f"Warning: duckdb conversion failed for {json_file}: {result.stderr}")
-    except subprocess.TimeoutExpired:
-        print(f"Warning: duckdb conversion timed out for {json_file}")
-    except Exception as e:
-        print(f"Warning: Failed to convert {json_file} to parquet: {e}")
