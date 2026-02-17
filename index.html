@@ -7298,18 +7298,40 @@
           },
 
           resizeExplainDag() {
-            if (this.explainDagSelections && this.explainDagSelections.svg) {
+            const sel = this.explainDagSelections;
+            if (sel && sel.svg && sel.g) {
               const dagContainer = document.getElementById(
                 "explain-dag-container",
               );
               if (dagContainer) {
                 const newWidth = dagContainer.clientWidth;
                 const newHeight = dagContainer.clientHeight;
-                this.explainDagSelections.svg
-                  .attr("width", newWidth)
-                  .attr("height", newHeight);
-                this.explainDagSelections.width = newWidth;
-                this.explainDagSelections.height = newHeight;
+                sel.svg.attr("width", newWidth).attr("height", newHeight);
+                sel.width = newWidth;
+                sel.height = newHeight;
+
+                // Re-fit content to new dimensions
+                const bounds = sel.g.node().getBBox();
+                if (bounds.width > 0 && bounds.height > 0) {
+                  const midX = bounds.x + bounds.width / 2;
+                  const focusY = bounds.y + bounds.height * 0.3;
+                  const baseScale =
+                    0.85 /
+                    Math.max(
+                      bounds.width / newWidth,
+                      bounds.height / newHeight,
+                    );
+                  const scale = Math.min(2.2, Math.max(1.0, baseScale * 1.9));
+                  sel.svg.call(
+                    sel.zoom.transform,
+                    d3.zoomIdentity
+                      .translate(
+                        newWidth / 2 - scale * midX,
+                        newHeight / 2 - scale * focusY,
+                      )
+                      .scale(scale),
+                  );
+                }
               }
             }
           },
@@ -7902,6 +7924,7 @@
               edgeLabel,
               nodeById,
               svg,
+              g,
               zoom,
               width,
               height,
