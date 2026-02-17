@@ -4640,6 +4640,900 @@
         };
 
         // ==========================================================================
+        // Derived Data — model → view-ready data structures
+        // Each method transforms the normalized model into data consumed by Views.
+        // ==========================================================================
+
+        const Derived = {
+          /** Color palettes for stage identification */
+          STAGE_PALETTE_EXPLAIN: [
+            "#4a9eff",
+            "#22c55e",
+            "#f59e0b",
+            "#ef4444",
+            "#8b5cf6",
+            "#ec4899",
+            "#14b8a6",
+            "#f97316",
+            "#06b6d4",
+            "#84cc16",
+          ],
+          STAGE_PALETTE_RAPIDS: [
+            "#7400ff",
+            "#d216d2",
+            "#ffb500",
+            "#36c9dd",
+            "#8735fb",
+            "#984dfb",
+            "#a788e4",
+            "#4ade80",
+            "#f87171",
+            "#fb923c",
+          ],
+
+          /**
+           * Assign colors to stages.
+           * @param {Map} stages - model.stages
+           * @param {"explain"|"rapids"} palette - which palette to use
+           * @returns {Record<number, string>} stageId → CSS color
+           */
+          stageColors(stages, palette = "explain") {
+            const colors =
+              palette === "rapids"
+                ? this.STAGE_PALETTE_RAPIDS
+                : this.STAGE_PALETTE_EXPLAIN;
+            const ids = [...stages.keys()].sort((a, b) => a - b);
+            const result = {};
+            ids.forEach((id, i) => {
+              result[id] = colors[i % colors.length];
+            });
+            return result;
+          },
+
+          /**
+           * Derive explain view data from the normalized model.
+           *
+           * Aggregates operators by plan node, computes per-worker stats
+           * (min/max/avg), timeline positioning, and per-node timing.
+           *
+           * @param {Object} model - Normalized model from ModelBuilder
+           * @returns {{ operatorsByNode, operatorInfoByNode, workersByNode, pipelinesByNode, timingByNode, stageColors }}
+           */
+          deriveExplainData(model) {
+            const stageColors = this.stageColors(model.stages);
+
+            // ── Group operators by normalized plan node ID ──
+            const operatorsByNode = new Map();
+            model.operators.forEach((op) => {
+              const rawNodeId = op.planNodeId;
+              if (!rawNodeId) return;
+              const nodeId = Utils.normalizePlanNodeId(rawNodeId);
+              if (!operatorsByNode.has(nodeId)) {
+                operatorsByNode.set(nodeId, []);
+              }
+              operatorsByNode.get(nodeId).push(op);
+            });
+
+            // ── Worker set per plan node ──
+            const workersByNode = new Map();
+            operatorsByNode.forEach((ops, nodeId) => {
+              const workers = new Set();
+              ops.forEach((op) => {
+                const task = model.tasks.get(op.taskId);
+                if (task && task.workerHost) {
+                  workers.add(task.workerHost);
+                }
+              });
+              workersByNode.set(nodeId, [...workers]);
+            });
+
+            // ── Pipeline set per plan node ──
+            const pipelinesByNode = new Map();
+            operatorsByNode.forEach((ops, nodeId) => {
+              const pipelineSet = new Set();
+              ops.forEach((op) => {
+                pipelineSet.add(op.pipelineId);
+              });
+              pipelinesByNode.set(
+                nodeId,
+                [...pipelineSet].sort((a, b) => a - b),
+              );
+            });
+
+            // ── Aggregate operator stats across tasks ──
+            // Key: "stageId:pipelineId:operatorId:type" → aggregated operator info
+            const operatorInfoByNode = new Map();
+            const allOperators = new Map();
+            const workerWallTimesByOp = new Map();
+            const workerActiveTimesByOp = new Map();
+            const workerBlockedTimesByOp = new Map();
+            const workerStatsByOp = new Map();
+
+            operatorsByNode.forEach((ops, nodeId) => {
+              ops.forEach((op) => {
+                const key = `${op.stageId}:${op.pipelineId}:${op.operatorId}:${op.type}`;
+                if (!allOperators.has(key)) {
+                  allOperators.set(key, {
+                    nodeId: nodeId,
+                    stageId: op.stageId,
+                    pipelineId: op.pipelineId,
+                    operatorId: op.operatorId,
+                    type: op.type,
+                    isGpu: op.isGpu,
+                    inputRows: 0,
+                    inputBytes: 0,
+                    outputRows: 0,
+                    outputBytes: 0,
+                    outputBatches: 0,
+                    totalWallNanos: 0,
+                    totalActiveNanos: 0,
+                    totalBlockedNanos: 0,
+                  });
+                  workerWallTimesByOp.set(key, new Map());
+                  workerActiveTimesByOp.set(key, new Map());
+                  workerBlockedTimesByOp.set(key, new Map());
+                  workerStatsByOp.set(key, new Map());
+                }
+                const g = allOperators.get(key);
+                g.inputRows += op.metrics.inputPositions || 0;
+                g.inputBytes += op.metrics.inputBytes || 0;
+                g.outputRows += op.metrics.outputPositions || 0;
+                g.outputBytes += op.metrics.outputBytes || 0;
+                g.outputBatches += op.metrics.getOutputCalls || 0;
+
+                const task = model.tasks.get(op.taskId);
+                const workerId = task?.workerHost || op.taskId;
+                const workerStats = workerStatsByOp.get(key);
+                if (!workerStats.has(workerId)) {
+                  workerStats.set(workerId, {
+                    inputRows: 0,
+                    inputBytes: 0,
+                    outputRows: 0,
+                    outputBytes: 0,
+                    outputBatches: 0,
+                    rawInputBytes: 0,
+                    scanTimeNanos: 0,
+                    numSplits: 0,
+                    scanBatches: 0,
+                    getOutputWallNanos: 0,
+                    blockedWallNanos: 0,
+                  });
+                }
+                const ws = workerStats.get(workerId);
+                ws.inputRows += op.metrics.inputPositions || 0;
+                ws.inputBytes += op.metrics.inputBytes || 0;
+                ws.outputRows += op.metrics.outputPositions || 0;
+                ws.outputBytes += op.metrics.outputBytes || 0;
+                ws.outputBatches += op.metrics.getOutputCalls || 0;
+                ws.rawInputBytes += op.metrics.rawInputBytes || 0;
+                ws.getOutputWallNanos += op.metrics.getOutputWallNanos || 0;
+                ws.blockedWallNanos += op.metrics.blockedWallNanos || 0;
+
+                if (op.runtimeStats && op.type.includes("TableScan")) {
+                  const planNodeId = Utils.normalizePlanNodeId(op.planNodeId);
+                  const prefix = `TableScan.${planNodeId}`;
+                  const scanTime = op.runtimeStats[`${prefix}.totalScanTime`];
+                  const numSplits = op.runtimeStats[`${prefix}.numSplits`];
+                  const outputBatches =
+                    op.runtimeStats[`${prefix}.outputBatches`];
+                  if (scanTime) ws.scanTimeNanos += scanTime.sum || 0;
+                  if (numSplits) ws.numSplits += numSplits.sum || 0;
+                  if (outputBatches) ws.scanBatches += outputBatches.sum || 0;
+                }
+
+                const activeNanos =
+                  (op.metrics.addInputWallNanos || 0) +
+                  (op.metrics.getOutputWallNanos || 0) +
+                  (op.metrics.finishWallNanos || 0);
+                const blockedNanos = op.metrics.blockedWallNanos || 0;
+                const totalNanos = activeNanos + blockedNanos;
+
+                g.totalWallNanos += totalNanos;
+                g.totalActiveNanos += activeNanos;
+                g.totalBlockedNanos += blockedNanos;
+
+                const workerTimes = workerWallTimesByOp.get(key);
+                workerTimes.set(
+                  workerId,
+                  (workerTimes.get(workerId) || 0) + totalNanos,
+                );
+                const workerActive = workerActiveTimesByOp.get(key);
+                workerActive.set(
+                  workerId,
+                  (workerActive.get(workerId) || 0) + activeNanos,
+                );
+                const workerBlocked = workerBlockedTimesByOp.get(key);
+                workerBlocked.set(
+                  workerId,
+                  (workerBlocked.get(workerId) || 0) + blockedNanos,
+                );
+              });
+            });
+
+            // ── Per-operator cross-worker statistics ──
+            allOperators.forEach((g, key) => {
+              const workerTimes = workerWallTimesByOp.get(key);
+              const workerActive = workerActiveTimesByOp.get(key);
+              const workerBlocked = workerBlockedTimesByOp.get(key);
+              const workerStats = workerStatsByOp.get(key);
+
+              g.maxWorkerWallNanos = Math.max(...workerTimes.values(), 0);
+              g.maxWorkerActiveNanos = Math.max(...workerActive.values(), 0);
+
+              const blockedValues = [...workerBlocked.values()];
+              g.minWorkerBlockedNanos =
+                blockedValues.length > 0 ? Math.min(...blockedValues) : 0;
+              g.maxWorkerBlockedNanos =
+                blockedValues.length > 0 ? Math.max(...blockedValues) : 0;
+              g.avgWorkerBlockedNanos =
+                blockedValues.length > 0
+                  ? blockedValues.reduce((a, b) => a + b, 0) /
+                    blockedValues.length
+                  : 0;
+              g.workerCount = blockedValues.length;
+
+              const statsValues = [...workerStats.values()];
+              if (statsValues.length > 0) {
+                const inputRowValues = statsValues.map((s) => s.inputRows);
+                const inputByteValues = statsValues.map((s) => s.inputBytes);
+                const rowValues = statsValues.map((s) => s.outputRows);
+                const byteValues = statsValues.map((s) => s.outputBytes);
+                const batchValues = statsValues.map((s) => s.outputBatches);
+
+                g.inputRowsSum = inputRowValues.reduce((a, b) => a + b, 0);
+                g.inputBytesSum = inputByteValues.reduce((a, b) => a + b, 0);
+                g.rowsMin = Math.min(...rowValues);
+                g.rowsMax = Math.max(...rowValues);
+                g.rowsAvg =
+                  rowValues.reduce((a, b) => a + b, 0) / rowValues.length;
+                g.rowsSum = g.outputRows;
+                g.bytesMin = Math.min(...byteValues);
+                g.bytesMax = Math.max(...byteValues);
+                g.bytesAvg =
+                  byteValues.reduce((a, b) => a + b, 0) / byteValues.length;
+                g.bytesSum = g.outputBytes;
+                g.batchesMin = Math.min(...batchValues);
+                g.batchesMax = Math.max(...batchValues);
+                g.batchesAvg =
+                  batchValues.reduce((a, b) => a + b, 0) / batchValues.length;
+                g.batchesSum = g.outputBatches;
+
+                const scanTimeValues = statsValues.map((s) => s.scanTimeNanos);
+                const splitsValues = statsValues.map((s) => s.numSplits);
+                const scanBatchValues = statsValues.map((s) => s.scanBatches);
+                const rawInputValues = statsValues.map((s) => s.rawInputBytes);
+                const getOutputWallValues = statsValues.map(
+                  (s) => s.getOutputWallNanos,
+                );
+                const blockedWallValues = statsValues.map(
+                  (s) => s.blockedWallNanos,
+                );
+
+                g.scanTimeSum = scanTimeValues.reduce((a, b) => a + b, 0);
+                g.splitsSum = splitsValues.reduce((a, b) => a + b, 0);
+                g.scanBatchesSum = scanBatchValues.reduce((a, b) => a + b, 0);
+                g.rawInputBytesSum = rawInputValues.reduce((a, b) => a + b, 0);
+                g.getOutputWallMax = Math.max(...getOutputWallValues);
+                g.blockedWallMin = Math.min(...blockedWallValues);
+
+                g.workerDetails = statsValues.map((s, i) => {
+                  const workerIds = [...workerStats.keys()];
+                  return {
+                    workerId: workerIds[i],
+                    inputRows: s.inputRows,
+                    outputRows: s.outputRows,
+                    inputBytes: s.inputBytes,
+                    outputBytes: s.outputBytes,
+                    rawInputBytes: s.rawInputBytes,
+                    scanTimeNanos: s.scanTimeNanos,
+                    numSplits: s.numSplits,
+                    scanBatches: s.scanBatches,
+                    getOutputWallNanos: s.getOutputWallNanos,
+                    blockedWallNanos: s.blockedWallNanos,
+                  };
+                });
+              } else {
+                g.inputRowsSum = 0;
+                g.inputBytesSum = 0;
+                g.rowsMin = g.rowsMax = g.rowsAvg = g.rowsSum = 0;
+                g.bytesMin = g.bytesMax = g.bytesAvg = g.bytesSum = 0;
+                g.batchesMin = g.batchesMax = g.batchesAvg = g.batchesSum = 0;
+                g.scanTimeSum = g.splitsSum = g.scanBatchesSum = 0;
+                g.rawInputBytesSum = g.getOutputWallMax = g.blockedWallMin = 0;
+                g.workerDetails = [];
+              }
+
+              g.durationMs = g.maxWorkerActiveNanos / 1e6;
+              g.blockedMinMs = g.minWorkerBlockedNanos / 1e6;
+              g.blockedMaxMs = g.maxWorkerBlockedNanos / 1e6;
+              g.blockedAvgMs = g.avgWorkerBlockedNanos / 1e6;
+            });
+
+            // ── Timeline positioning within stage time windows ──
+            const operatorsByPipeline = new Map();
+            allOperators.forEach((op, key) => {
+              const pipelineKey = `${op.stageId}:${op.pipelineId}`;
+              if (!operatorsByPipeline.has(pipelineKey)) {
+                operatorsByPipeline.set(pipelineKey, []);
+              }
+              operatorsByPipeline.get(pipelineKey).push(op);
+            });
+
+            let queryStartMs = Infinity;
+            model.stages.forEach((stage) => {
+              if (
+                stage.timing.firstStartMs &&
+                stage.timing.firstStartMs < queryStartMs
+              ) {
+                queryStartMs = stage.timing.firstStartMs;
+              }
+            });
+            if (queryStartMs === Infinity) queryStartMs = 0;
+
+            const stageStartOffsets = new Map();
+            const stageEndOffsets = new Map();
+            model.stages.forEach((stage, stageId) => {
+              const startMs = stage.timing.firstStartMs
+                ? stage.timing.firstStartMs - queryStartMs
+                : 0;
+              const endMs = stage.timing.lastEndMs
+                ? stage.timing.lastEndMs - queryStartMs
+                : startMs;
+              stageStartOffsets.set(stageId, startMs);
+              stageEndOffsets.set(stageId, endMs);
+            });
+
+            operatorsByPipeline.forEach((ops) => {
+              ops.sort((a, b) => a.operatorId - b.operatorId);
+            });
+
+            allOperators.forEach((op) => {
+              const stageStart = stageStartOffsets.get(op.stageId) || 0;
+              const stageEnd = stageEndOffsets.get(op.stageId) || stageStart;
+              const stageDuration = stageEnd - stageStart;
+              const pipelineKey = `${op.stageId}:${op.pipelineId}`;
+              const pipelineOps = operatorsByPipeline.get(pipelineKey) || [];
+              const opIndex = pipelineOps.findIndex(
+                (o) => o.operatorId === op.operatorId && o.type === op.type,
+              );
+              const numOps = pipelineOps.length;
+
+              if (numOps > 1 && stageDuration > 0) {
+                const fraction = opIndex / (numOps - 1);
+                const opDurationFraction = 1 / numOps;
+                op.startOffsetMs =
+                  stageStart +
+                  fraction * stageDuration * (1 - opDurationFraction);
+                op.durationMs = stageDuration * opDurationFraction;
+              } else {
+                op.startOffsetMs = stageStart;
+                op.durationMs = stageDuration || op.durationMs;
+              }
+            });
+
+            // ── Group operators back by plan node ──
+            operatorsByNode.forEach((ops, nodeId) => {
+              const nodeOps = [];
+              const seenKeys = new Set();
+              ops.forEach((op) => {
+                const key = `${op.stageId}:${op.pipelineId}:${op.operatorId}:${op.type}`;
+                if (!seenKeys.has(key) && allOperators.has(key)) {
+                  seenKeys.add(key);
+                  nodeOps.push(allOperators.get(key));
+                }
+              });
+              nodeOps.sort((a, b) => {
+                if (a.pipelineId !== b.pipelineId)
+                  return a.pipelineId - b.pipelineId;
+                return a.operatorId - b.operatorId;
+              });
+              operatorInfoByNode.set(nodeId, nodeOps);
+            });
+
+            // ── Per-plan-node timing (active vs blocked) ──
+            //
+            // Per-operator wall time = addInputWall + getOutputWall + finishWall + blockedWall
+            // Active time = addInputWall + getOutputWall + finishWall (excludes blockedWall)
+            // Duration = max active time across workers (parallel execution)
+            const timingByNode = new Map();
+            operatorsByNode.forEach((ops, nodeId) => {
+              let totalActiveNanos = 0;
+              let totalBlockedNanos = 0;
+              const workerActiveTimes = new Map();
+              const workerBlockedTimes = new Map();
+
+              ops.forEach((op) => {
+                const activeNanos =
+                  (op.metrics.addInputWallNanos || 0) +
+                  (op.metrics.getOutputWallNanos || 0) +
+                  (op.metrics.finishWallNanos || 0);
+                const blockedNanos = op.metrics.blockedWallNanos || 0;
+                totalActiveNanos += activeNanos;
+                totalBlockedNanos += blockedNanos;
+
+                const task = model.tasks.get(op.taskId);
+                const workerId = task?.workerHost || op.taskId;
+                workerActiveTimes.set(
+                  workerId,
+                  (workerActiveTimes.get(workerId) || 0) + activeNanos,
+                );
+                workerBlockedTimes.set(
+                  workerId,
+                  (workerBlockedTimes.get(workerId) || 0) + blockedNanos,
+                );
+              });
+
+              const maxWorkerActiveNanos = Math.max(
+                ...workerActiveTimes.values(),
+                0,
+              );
+              const maxWorkerBlockedNanos = Math.max(
+                ...workerBlockedTimes.values(),
+                0,
+              );
+
+              timingByNode.set(nodeId, {
+                activeMs: maxWorkerActiveNanos / 1e6,
+                blockedMs: maxWorkerBlockedNanos / 1e6,
+                durationMs: maxWorkerActiveNanos / 1e6,
+                totalActiveNanos,
+                totalBlockedNanos,
+              });
+            });
+
+            return {
+              operatorsByNode,
+              operatorInfoByNode,
+              workersByNode,
+              pipelinesByNode,
+              timingByNode,
+              stageColors,
+            };
+          },
+
+          deriveStagesData(model) {
+            const stages = Array.from(model.stages.values()).sort(
+              (a, b) => a.id - b.id,
+            );
+            return { stages };
+          },
+
+          deriveOperatorsData(model) {
+            const operators = [...model.operators].sort((a, b) => {
+              if (a.stageId !== b.stageId) return a.stageId - b.stageId;
+              if (a.pipelineId !== b.pipelineId)
+                return a.pipelineId - b.pipelineId;
+              return a.operatorId - b.operatorId;
+            });
+
+            const typeCounts = new Map();
+            operators.forEach((op) => {
+              const count = typeCounts.get(op.type) || 0;
+              typeCounts.set(op.type, count + 1);
+            });
+
+            const gpuCount = operators.filter((o) => o.isGpu).length;
+
+            return { operators, typeCounts, gpuCount };
+          },
+
+          deriveWaterfallData(model) {
+            const queryDuration = model.queryTiming?.durationMs || 1;
+            const workers = Array.from(model.workers.values()).sort((a, b) =>
+              a.host.localeCompare(b.host),
+            );
+            const stageIds = Array.from(model.stages.keys()).sort(
+              (a, b) => a - b,
+            );
+            const stageColors = this.stageColors(model.stages, "rapids");
+
+            const waterfallRows = [];
+            workers.forEach((worker) => {
+              stageIds.forEach((stageId) => {
+                const stage = model.stages.get(stageId);
+                const workerTiming = stage.workerTiming.get(worker.host);
+                if (workerTiming) {
+                  const startPct =
+                    ((workerTiming.relativeStartMs || 0) / queryDuration) * 100;
+                  const endPct =
+                    ((workerTiming.relativeEndMs || queryDuration) /
+                      queryDuration) *
+                    100;
+                  const activeStartPct =
+                    ((workerTiming.relativeActiveStartMs ||
+                      workerTiming.relativeStartMs ||
+                      0) /
+                      queryDuration) *
+                    100;
+                  waterfallRows.push({
+                    worker: worker.host,
+                    stageId,
+                    startPct,
+                    endPct,
+                    activeStartPct,
+                    blockedPct: activeStartPct - startPct,
+                    activePct: endPct - activeStartPct,
+                    cpuTimeNanos: workerTiming.cpuTimeNanos || 0,
+                    color: stageColors[stageId],
+                  });
+                }
+              });
+            });
+
+            const workerGroups = new Map();
+            waterfallRows.forEach((row) => {
+              if (!workerGroups.has(row.worker)) {
+                workerGroups.set(row.worker, []);
+              }
+              workerGroups.get(row.worker).push(row);
+            });
+
+            const timeMarkers = [0, 0.25, 0.5, 0.75, 1].map((frac) => ({
+              pct: frac * 100,
+              label: Utils.formatDuration(frac * queryDuration * 1e6),
+            }));
+
+            return {
+              stageIds,
+              stageColors,
+              workerGroups,
+              timeMarkers,
+              queryDuration,
+            };
+          },
+
+          deriveHeatmapData(model) {
+            const workers = Array.from(model.workers.values()).sort((a, b) =>
+              a.host.localeCompare(b.host),
+            );
+            const stageIds = Array.from(model.stages.keys()).sort(
+              (a, b) => a - b,
+            );
+
+            const cellData = new Map();
+            let maxCpuTime = 0;
+            let maxBlockedTime = 0;
+
+            workers.forEach((worker) => {
+              stageIds.forEach((stageId) => {
+                const stage = model.stages.get(stageId);
+                const workerTiming = stage.workerTiming.get(worker.host);
+                if (workerTiming) {
+                  const key = `${worker.host}:${stageId}`;
+                  const cpuTime = workerTiming.cpuTimeNanos || 0;
+                  const duration = (workerTiming.durationMs || 0) * 1e6;
+                  const blockedTime = duration - cpuTime;
+                  cellData.set(key, {
+                    cpuTime,
+                    blockedTime: Math.max(0, blockedTime),
+                    duration,
+                    taskCount: workerTiming.taskCount || 0,
+                  });
+                  maxCpuTime = Math.max(maxCpuTime, cpuTime);
+                  maxBlockedTime = Math.max(maxBlockedTime, blockedTime);
+                }
+              });
+            });
+
+            return { workers, stageIds, cellData, maxCpuTime, maxBlockedTime };
+          },
+
+          deriveShuffleMatrixData(model) {
+            const stageIds = Array.from(model.stages.keys()).sort(
+              (a, b) => a - b,
+            );
+
+            const shuffleMatrix = new Map();
+            let maxShuffleBytes = 0;
+
+            model.stages.forEach((stage, fromStageId) => {
+              const shuffleOut = stage.metrics?.shuffleOut;
+              if (shuffleOut && shuffleOut.bytes > 0) {
+                model.stages.forEach((toStage, toStageId) => {
+                  if (
+                    toStage.childStageIds &&
+                    toStage.childStageIds.includes(fromStageId)
+                  ) {
+                    const key = `${fromStageId}:${toStageId}`;
+                    const consumers = stageIds.filter((id) => {
+                      const s = model.stages.get(id);
+                      return (
+                        s.childStageIds && s.childStageIds.includes(fromStageId)
+                      );
+                    }).length;
+                    const bytes =
+                      consumers > 0
+                        ? shuffleOut.bytes / consumers
+                        : shuffleOut.bytes;
+                    shuffleMatrix.set(key, {
+                      bytes,
+                      rows: shuffleOut.rows / (consumers || 1),
+                    });
+                    maxShuffleBytes = Math.max(maxShuffleBytes, bytes);
+                  }
+                });
+              }
+            });
+
+            let totalShuffleBytes = 0;
+            shuffleMatrix.forEach((data) => {
+              totalShuffleBytes += data.bytes;
+            });
+
+            return {
+              stageIds,
+              shuffleMatrix,
+              maxShuffleBytes,
+              totalShuffleBytes,
+            };
+          },
+
+          derivePipelineGraphData(model) {
+            const stageIds = Array.from(model.stages.keys()).sort(
+              (a, b) => a - b,
+            );
+            const stageColors = this.stageColors(model.stages, "rapids");
+
+            // Build pipeline data per stage (aggregate across all workers/tasks)
+            const stageData = new Map();
+
+            stageIds.forEach((stageId) => {
+              const stage = model.stages.get(stageId);
+              const pipelineMap = new Map();
+
+              stage.tasks.forEach((taskId) => {
+                const task = model.tasks.get(taskId);
+                if (!task) return;
+
+                task.pipelines.forEach((pipeline) => {
+                  const pipelineId = pipeline.id;
+                  if (!pipelineMap.has(pipelineId)) {
+                    pipelineMap.set(pipelineId, {
+                      id: pipelineId,
+                      operators: [],
+                      hasPartitionedOutput: false,
+                      hasExchange: false,
+                      hasLocalExchange: false,
+                      hasLocalPartition: false,
+                      inputRows: 0,
+                      inputBytes: 0,
+                      outputRows: 0,
+                      outputBytes: 0,
+                    });
+                  }
+                  const pData = pipelineMap.get(pipelineId);
+
+                  pipeline.operators.forEach((opKey) => {
+                    const op = model.operators.find((o) => o.key === opKey);
+                    if (op) {
+                      pData.inputRows += op.metrics.inputPositions || 0;
+                      pData.inputBytes += op.metrics.inputBytes || 0;
+                      pData.outputRows += op.metrics.outputPositions || 0;
+                      pData.outputBytes += op.metrics.outputBytes || 0;
+
+                      let opEntry = pData.operators.find(
+                        (o) => o.type === op.type,
+                      );
+                      if (!opEntry) {
+                        opEntry = {
+                          type: op.type,
+                          isGpu: !!op.isGpu,
+                          operatorId: op.operatorId,
+                          planNodeId: op.planNodeId,
+                          inputRows: 0,
+                          inputBytes: 0,
+                          outputRows: 0,
+                          outputBytes: 0,
+                          spilledBytes: 0,
+                          blockedWallNanos: 0,
+                          totalDrivers: 0,
+                          addInputWallNanos: 0,
+                          getOutputWallNanos: 0,
+                          finishWallNanos: 0,
+                          peakTotalMemoryBytes: 0,
+                          peakUserMemoryBytes: 0,
+                          workerCount: 0,
+                        };
+                        pData.operators.push(opEntry);
+                        if (op.type === "PartitionedOutput")
+                          pData.hasPartitionedOutput = true;
+                        if (op.type === "ExchangeOperator")
+                          pData.hasExchange = true;
+                        if (op.type.includes("LocalExchange"))
+                          pData.hasLocalExchange = true;
+                        if (op.type.includes("LocalPartition"))
+                          pData.hasLocalPartition = true;
+                      }
+                      opEntry.inputRows += op.metrics.inputPositions || 0;
+                      opEntry.inputBytes += op.metrics.inputBytes || 0;
+                      opEntry.outputRows += op.metrics.outputPositions || 0;
+                      opEntry.outputBytes += op.metrics.outputBytes || 0;
+                      opEntry.spilledBytes += op.metrics.spilledBytes || 0;
+                      opEntry.blockedWallNanos +=
+                        op.metrics.blockedWallNanos || 0;
+                      opEntry.totalDrivers = Math.max(
+                        opEntry.totalDrivers,
+                        op.totalDrivers || 0,
+                      );
+                      opEntry.peakTotalMemoryBytes = Math.max(
+                        opEntry.peakTotalMemoryBytes,
+                        op.metrics.peakTotalMemoryBytes || 0,
+                      );
+                      opEntry.peakUserMemoryBytes = Math.max(
+                        opEntry.peakUserMemoryBytes,
+                        op.metrics.peakUserMemoryBytes || 0,
+                      );
+                      opEntry.addInputWallNanos +=
+                        op.metrics.addInputWallNanos || 0;
+                      opEntry.getOutputWallNanos +=
+                        op.metrics.getOutputWallNanos || 0;
+                      opEntry.finishWallNanos +=
+                        op.metrics.finishWallNanos || 0;
+                      opEntry.workerCount += 1;
+                    }
+                  });
+                });
+              });
+
+              pipelineMap.forEach((pData) => {
+                pData.operators.sort((a, b) => a.operatorId - b.operatorId);
+              });
+
+              const workerIds = Array.from(
+                stage.workerTiming?.keys() || [],
+              ).sort();
+
+              stageData.set(stageId, {
+                id: stageId,
+                color: stageColors[stageId],
+                pipelines: Array.from(pipelineMap.values()).sort(
+                  (a, b) => a.id - b.id,
+                ),
+                childStageIds: stage.childStageIds || [],
+                partitioningInfo: stage.partitioningInfo || {},
+                planNodeDetails: stage.planNodeDetails || new Map(),
+                workerIds: workerIds,
+                workerCount: workerIds.length,
+              });
+            });
+
+            // Track which stages have input/output ports
+            const stageInputPorts = new Map();
+            const stageOutputPorts = new Map();
+
+            stageData.forEach((toStage, toStageId) => {
+              toStage.childStageIds.forEach((fromStageId) => {
+                if (!stageOutputPorts.has(fromStageId)) {
+                  stageOutputPorts.set(fromStageId, []);
+                }
+                if (!stageOutputPorts.get(fromStageId).includes(toStageId)) {
+                  stageOutputPorts.get(fromStageId).push(toStageId);
+                }
+                if (!stageInputPorts.has(toStageId)) {
+                  stageInputPorts.set(toStageId, []);
+                }
+                if (!stageInputPorts.get(toStageId).includes(fromStageId)) {
+                  stageInputPorts.get(toStageId).push(fromStageId);
+                }
+              });
+            });
+
+            // Build edges with port-based connections
+            const edges = [];
+
+            // Stage-to-stage shuffle edges
+            stageData.forEach((toStage, toStageId) => {
+              toStage.childStageIds.forEach((fromStageId) => {
+                edges.push({
+                  type: "stage-shuffle",
+                  fromStage: fromStageId,
+                  toStage: toStageId,
+                });
+              });
+            });
+
+            // Connect pipelines to ports
+            stageData.forEach((stage, stageId) => {
+              const pipelines = stage.pipelines;
+
+              const outputPipelines = pipelines.filter(
+                (p) => p.hasPartitionedOutput,
+              );
+              const outputTargets = stageOutputPorts.get(stageId) || [];
+
+              outputPipelines.forEach((pipeline) => {
+                outputTargets.forEach((toStageId) => {
+                  edges.push({
+                    type: "pipeline-to-output",
+                    source: `${stageId}:${pipeline.id}`,
+                    stageId: stageId,
+                    toStage: toStageId,
+                  });
+                });
+              });
+
+              let inputPipelines = pipelines.filter((p) => p.hasExchange);
+              if (
+                inputPipelines.length === 0 &&
+                pipelines.length > 0 &&
+                stageInputPorts.has(stageId)
+              ) {
+                inputPipelines = [pipelines[0]];
+              }
+              const inputSources = stageInputPorts.get(stageId) || [];
+
+              inputPipelines.forEach((pipeline) => {
+                inputSources.forEach((fromStageId) => {
+                  edges.push({
+                    type: "input-to-pipeline",
+                    target: `${stageId}:${pipeline.id}`,
+                    stageId: stageId,
+                    fromStage: fromStageId,
+                  });
+                });
+              });
+            });
+
+            // Intra-stage local exchange edges
+            stageData.forEach((stage, stageId) => {
+              const pipelines = stage.pipelines;
+
+              pipelines.forEach((src) => {
+                if (src.hasLocalPartition) {
+                  pipelines.forEach((tgt) => {
+                    if (src.id !== tgt.id && tgt.hasLocalExchange) {
+                      edges.push({
+                        source: `${stageId}:${src.id}`,
+                        target: `${stageId}:${tgt.id}`,
+                        type: "local",
+                        fromStage: stageId,
+                        toStage: stageId,
+                      });
+                    }
+                  });
+                }
+              });
+
+              const sinkPipeline = pipelines.find(
+                (p) => p.hasPartitionedOutput,
+              );
+              if (sinkPipeline && pipelines.length > 1) {
+                const pipelinesWithOutgoing = new Set(
+                  edges
+                    .filter(
+                      (e) => e.fromStage === stageId && e.type === "local",
+                    )
+                    .map((e) => parseInt(e.source.split(":")[1])),
+                );
+
+                pipelines.forEach((src) => {
+                  if (src.id !== sinkPipeline.id) {
+                    const hasOutgoing = pipelinesWithOutgoing.has(src.id);
+                    if (!hasOutgoing) {
+                      edges.push({
+                        source: `${stageId}:${src.id}`,
+                        target: `${stageId}:${sinkPipeline.id}`,
+                        type: "local",
+                        fromStage: stageId,
+                        toStage: stageId,
+                      });
+                    }
+                  }
+                });
+              }
+            });
+
+            return {
+              stageData,
+              stageInputPorts,
+              stageOutputPorts,
+              edges,
+              stageColors,
+            };
+          },
+        };
+
+        // ==========================================================================
         // View Renderers
         // ==========================================================================
 
@@ -4973,23 +5867,7 @@
             const stageIds = [...new Set(nodes.map((n) => n.stageId))].sort(
               (a, b) => a - b,
             );
-            const stageColors = {};
-            // RAPIDS color palette
-            const colorPalette = [
-              "#7400ff", // RAPIDS Purple
-              "#d216d2", // RAPIDS Magenta
-              "#ffb500", // RAPIDS Gold
-              "#36c9dd", // RAPIDS Cyan
-              "#8735fb", // Light Purple
-              "#984dfb", // Medium Purple
-              "#a788e4", // Lavender
-              "#4ade80", // Green
-              "#f87171", // Red
-              "#fb923c", // Orange
-            ];
-            stageIds.forEach((id, i) => {
-              stageColors[id] = colorPalette[i % colorPalette.length];
-            });
+            const stageColors = Derived.stageColors(model.stages, "rapids");
 
             // Build stage timing data for timeline with per-worker rows
             const queryDuration = model.queryTiming?.durationMs || 1;
@@ -5114,461 +5992,15 @@
            * Render the Explain view - text-based tree representation
            */
           renderExplain(model, container) {
-            // Build a map of planNodeId -> operators, normalizing plan node IDs
-            const operatorsByNode = new Map();
-            model.operators.forEach((op) => {
-              const rawNodeId = op.planNodeId;
-              if (!rawNodeId) return;
-              // Normalize plan node ID (remove -to-velox, -from-velox suffixes)
-              const nodeId = Utils.normalizePlanNodeId(rawNodeId);
-              if (!operatorsByNode.has(nodeId)) {
-                operatorsByNode.set(nodeId, []);
-              }
-              operatorsByNode.get(nodeId).push(op);
-            });
-
-            // Build worker set for each plan node
-            const workersByNode = new Map();
-            operatorsByNode.forEach((ops, nodeId) => {
-              const workers = new Set();
-              ops.forEach((op) => {
-                const task = model.tasks.get(op.taskId);
-                if (task && task.workerHost) {
-                  workers.add(task.workerHost);
-                }
-              });
-              workersByNode.set(nodeId, [...workers]);
-            });
-
-            // Build pipeline info for each plan node: which pipelines contain this node
-            const pipelinesByNode = new Map();
-            operatorsByNode.forEach((ops, nodeId) => {
-              const pipelineSet = new Set();
-              ops.forEach((op) => {
-                pipelineSet.add(op.pipelineId);
-              });
-              pipelinesByNode.set(
-                nodeId,
-                [...pipelineSet].sort((a, b) => a - b),
-              );
-            });
-
-            // Build aggregated operator info per plan node, grouped by (pipelineId, operatorId, type)
-            // This gives us the runtime operators with their aggregated stats across tasks
-            //
-            // Start offset calculation: operators within a pipeline execute in sequence,
-            // so operator N starts after operators 0..N-1 complete. We calculate cumulative
-            // offsets based on the wall times of preceding operators in the same pipeline.
-            const operatorInfoByNode = new Map();
-
-            // First pass: gather all operators and compute their durations
-            // Key: "stageId:pipelineId:operatorId:type", Value: aggregated operator info
-            const allOperators = new Map();
-            const workerWallTimesByOp = new Map();
-
-            // Track per-worker active time (computation) and blocked time separately
-            const workerActiveTimesByOp = new Map();
-            const workerBlockedTimesByOp = new Map();
-
-            // Track per-worker stats for min/max/avg calculation
-            const workerStatsByOp = new Map();
-
-            operatorsByNode.forEach((ops, nodeId) => {
-              ops.forEach((op) => {
-                const key = `${op.stageId}:${op.pipelineId}:${op.operatorId}:${op.type}`;
-                if (!allOperators.has(key)) {
-                  allOperators.set(key, {
-                    nodeId: nodeId,
-                    stageId: op.stageId,
-                    pipelineId: op.pipelineId,
-                    operatorId: op.operatorId,
-                    type: op.type,
-                    isGpu: op.isGpu,
-                    inputRows: 0,
-                    inputBytes: 0,
-                    outputRows: 0,
-                    outputBytes: 0,
-                    outputBatches: 0,
-                    totalWallNanos: 0,
-                    totalActiveNanos: 0,
-                    totalBlockedNanos: 0,
-                  });
-                  workerWallTimesByOp.set(key, new Map());
-                  workerActiveTimesByOp.set(key, new Map());
-                  workerBlockedTimesByOp.set(key, new Map());
-                  workerStatsByOp.set(key, new Map());
-                }
-                const g = allOperators.get(key);
-                g.inputRows += op.metrics.inputPositions || 0;
-                g.inputBytes += op.metrics.inputBytes || 0;
-                g.outputRows += op.metrics.outputPositions || 0;
-                g.outputBytes += op.metrics.outputBytes || 0;
-                g.outputBatches += op.metrics.getOutputCalls || 0;
-
-                // Track per-worker stats for min/max/avg
-                const task = model.tasks.get(op.taskId);
-                const workerId = task?.workerHost || op.taskId;
-                const workerStats = workerStatsByOp.get(key);
-                if (!workerStats.has(workerId)) {
-                  workerStats.set(workerId, {
-                    inputRows: 0,
-                    inputBytes: 0,
-                    outputRows: 0,
-                    outputBytes: 0,
-                    outputBatches: 0,
-                    rawInputBytes: 0,
-                    // TableScan specific stats
-                    scanTimeNanos: 0,
-                    numSplits: 0,
-                    scanBatches: 0,
-                    getOutputWallNanos: 0,
-                    blockedWallNanos: 0,
-                  });
-                }
-                const ws = workerStats.get(workerId);
-                ws.inputRows += op.metrics.inputPositions || 0;
-                ws.inputBytes += op.metrics.inputBytes || 0;
-                ws.outputRows += op.metrics.outputPositions || 0;
-                ws.outputBytes += op.metrics.outputBytes || 0;
-                ws.outputBatches += op.metrics.getOutputCalls || 0;
-                ws.rawInputBytes += op.metrics.rawInputBytes || 0;
-                ws.getOutputWallNanos += op.metrics.getOutputWallNanos || 0;
-                ws.blockedWallNanos += op.metrics.blockedWallNanos || 0;
-
-                // Extract TableScan-specific runtime stats
-                if (op.runtimeStats && op.type.includes("TableScan")) {
-                  const planNodeId = Utils.normalizePlanNodeId(op.planNodeId);
-                  const prefix = `TableScan.${planNodeId}`;
-                  const scanTime = op.runtimeStats[`${prefix}.totalScanTime`];
-                  const numSplits = op.runtimeStats[`${prefix}.numSplits`];
-                  const outputBatches =
-                    op.runtimeStats[`${prefix}.outputBatches`];
-
-                  if (scanTime) ws.scanTimeNanos += scanTime.sum || 0;
-                  if (numSplits) ws.numSplits += numSplits.sum || 0;
-                  if (outputBatches) ws.scanBatches += outputBatches.sum || 0;
-                }
-
-                // Calculate active time (actual computation) and blocked time separately
-                const activeNanos =
-                  (op.metrics.addInputWallNanos || 0) +
-                  (op.metrics.getOutputWallNanos || 0) +
-                  (op.metrics.finishWallNanos || 0);
-                const blockedNanos = op.metrics.blockedWallNanos || 0;
-                const totalNanos = activeNanos + blockedNanos;
-
-                g.totalWallNanos += totalNanos;
-                g.totalActiveNanos += activeNanos;
-                g.totalBlockedNanos += blockedNanos;
-
-                // Track per-worker times (reuse workerId from above)
-                const workerTimes = workerWallTimesByOp.get(key);
-                workerTimes.set(
-                  workerId,
-                  (workerTimes.get(workerId) || 0) + totalNanos,
-                );
-
-                const workerActive = workerActiveTimesByOp.get(key);
-                workerActive.set(
-                  workerId,
-                  (workerActive.get(workerId) || 0) + activeNanos,
-                );
-
-                const workerBlocked = workerBlockedTimesByOp.get(key);
-                workerBlocked.set(
-                  workerId,
-                  (workerBlocked.get(workerId) || 0) + blockedNanos,
-                );
-              });
-            });
-
-            // Calculate max worker times for each operator
-            // Use active time (not blocked) for timeline duration
-            // Track min/max/avg blocked time across workers
-            // Track min/max/avg/sum for rows, bytes, batches across workers
-            allOperators.forEach((g, key) => {
-              const workerTimes = workerWallTimesByOp.get(key);
-              const workerActive = workerActiveTimesByOp.get(key);
-              const workerBlocked = workerBlockedTimesByOp.get(key);
-              const workerStats = workerStatsByOp.get(key);
-
-              g.maxWorkerWallNanos = Math.max(...workerTimes.values(), 0);
-              g.maxWorkerActiveNanos = Math.max(...workerActive.values(), 0);
-
-              // Calculate min/max/avg blocked time across workers
-              const blockedValues = [...workerBlocked.values()];
-              g.minWorkerBlockedNanos =
-                blockedValues.length > 0 ? Math.min(...blockedValues) : 0;
-              g.maxWorkerBlockedNanos =
-                blockedValues.length > 0 ? Math.max(...blockedValues) : 0;
-              g.avgWorkerBlockedNanos =
-                blockedValues.length > 0
-                  ? blockedValues.reduce((a, b) => a + b, 0) /
-                    blockedValues.length
-                  : 0;
-              g.workerCount = blockedValues.length;
-
-              // Calculate min/max/avg/sum for rows, bytes, batches across workers
-              const statsValues = [...workerStats.values()];
-              if (statsValues.length > 0) {
-                const inputRowValues = statsValues.map((s) => s.inputRows);
-                const inputByteValues = statsValues.map((s) => s.inputBytes);
-                const rowValues = statsValues.map((s) => s.outputRows);
-                const byteValues = statsValues.map((s) => s.outputBytes);
-                const batchValues = statsValues.map((s) => s.outputBatches);
-
-                g.inputRowsSum = inputRowValues.reduce((a, b) => a + b, 0);
-                g.inputBytesSum = inputByteValues.reduce((a, b) => a + b, 0);
-                g.rowsMin = Math.min(...rowValues);
-                g.rowsMax = Math.max(...rowValues);
-                g.rowsAvg =
-                  rowValues.reduce((a, b) => a + b, 0) / rowValues.length;
-                g.rowsSum = g.outputRows; // Already summed
-
-                g.bytesMin = Math.min(...byteValues);
-                g.bytesMax = Math.max(...byteValues);
-                g.bytesAvg =
-                  byteValues.reduce((a, b) => a + b, 0) / byteValues.length;
-                g.bytesSum = g.outputBytes; // Already summed
-
-                g.batchesMin = Math.min(...batchValues);
-                g.batchesMax = Math.max(...batchValues);
-                g.batchesAvg =
-                  batchValues.reduce((a, b) => a + b, 0) / batchValues.length;
-                g.batchesSum = g.outputBatches; // Already summed
-
-                // TableScan-specific aggregations
-                const scanTimeValues = statsValues.map((s) => s.scanTimeNanos);
-                const splitsValues = statsValues.map((s) => s.numSplits);
-                const scanBatchValues = statsValues.map((s) => s.scanBatches);
-                const rawInputValues = statsValues.map((s) => s.rawInputBytes);
-                const getOutputWallValues = statsValues.map(
-                  (s) => s.getOutputWallNanos,
-                );
-                const blockedWallValues = statsValues.map(
-                  (s) => s.blockedWallNanos,
-                );
-
-                g.scanTimeSum = scanTimeValues.reduce((a, b) => a + b, 0);
-                g.splitsSum = splitsValues.reduce((a, b) => a + b, 0);
-                g.scanBatchesSum = scanBatchValues.reduce((a, b) => a + b, 0);
-                g.rawInputBytesSum = rawInputValues.reduce((a, b) => a + b, 0);
-                g.getOutputWallMax = Math.max(...getOutputWallValues);
-                g.blockedWallMin = Math.min(...blockedWallValues);
-
-                // Store per-worker details for hover tooltip
-                g.workerDetails = statsValues.map((s, i) => {
-                  const workerIds = [...workerStats.keys()];
-                  return {
-                    workerId: workerIds[i],
-                    inputRows: s.inputRows,
-                    outputRows: s.outputRows,
-                    inputBytes: s.inputBytes,
-                    outputBytes: s.outputBytes,
-                    rawInputBytes: s.rawInputBytes,
-                    scanTimeNanos: s.scanTimeNanos,
-                    numSplits: s.numSplits,
-                    scanBatches: s.scanBatches,
-                    getOutputWallNanos: s.getOutputWallNanos,
-                    blockedWallNanos: s.blockedWallNanos,
-                  };
-                });
-              } else {
-                g.inputRowsSum = 0;
-                g.inputBytesSum = 0;
-                g.rowsMin = g.rowsMax = g.rowsAvg = g.rowsSum = 0;
-                g.bytesMin = g.bytesMax = g.bytesAvg = g.bytesSum = 0;
-                g.batchesMin = g.batchesMax = g.batchesAvg = g.batchesSum = 0;
-                g.scanTimeSum = g.splitsSum = g.scanBatchesSum = 0;
-                g.rawInputBytesSum = g.getOutputWallMax = g.blockedWallMin = 0;
-                g.workerDetails = [];
-              }
-
-              // Use active time for timeline duration (excludes blocked/waiting time)
-              g.durationMs = g.maxWorkerActiveNanos / 1e6;
-              g.blockedMinMs = g.minWorkerBlockedNanos / 1e6;
-              g.blockedMaxMs = g.maxWorkerBlockedNanos / 1e6;
-              g.blockedAvgMs = g.avgWorkerBlockedNanos / 1e6;
-            });
-
-            // Second pass: group operators by (stageId, pipelineId) and calculate cumulative offsets
-            // Within a pipeline, operators execute in sequence: op0 -> op1 -> op2 -> ...
-            const operatorsByPipeline = new Map();
-            allOperators.forEach((op, key) => {
-              const pipelineKey = `${op.stageId}:${op.pipelineId}`;
-              if (!operatorsByPipeline.has(pipelineKey)) {
-                operatorsByPipeline.set(pipelineKey, []);
-              }
-              operatorsByPipeline.get(pipelineKey).push(op);
-            });
-
-            // Use actual wall clock timing from stages for positioning
-            // Find the earliest stage start time as our baseline (time 0)
-            let queryStartMs = Infinity;
-            model.stages.forEach((stage) => {
-              if (
-                stage.timing.firstStartMs &&
-                stage.timing.firstStartMs < queryStartMs
-              ) {
-                queryStartMs = stage.timing.firstStartMs;
-              }
-            });
-            if (queryStartMs === Infinity) queryStartMs = 0;
-
-            // Calculate stage start/end offsets relative to query start
-            const stageStartOffsets = new Map();
-            const stageEndOffsets = new Map();
-            model.stages.forEach((stage, stageId) => {
-              const startMs = stage.timing.firstStartMs
-                ? stage.timing.firstStartMs - queryStartMs
-                : 0;
-              const endMs = stage.timing.lastEndMs
-                ? stage.timing.lastEndMs - queryStartMs
-                : startMs;
-              stageStartOffsets.set(stageId, startMs);
-              stageEndOffsets.set(stageId, endMs);
-            });
-
-            // Sort operators within each pipeline by operatorId
-            operatorsByPipeline.forEach((ops, pipelineKey) => {
-              ops.sort((a, b) => a.operatorId - b.operatorId);
-            });
-
-            // Position operators within their stage's time window
-            // Operators in a pipeline stream data, so we position them proportionally
-            // based on their order in the pipeline within the stage's actual duration
-            allOperators.forEach((op) => {
-              const stageStart = stageStartOffsets.get(op.stageId) || 0;
-              const stageEnd = stageEndOffsets.get(op.stageId) || stageStart;
-              const stageDuration = stageEnd - stageStart;
-
-              // Get the pipeline's operators to find this operator's position
-              const pipelineKey = `${op.stageId}:${op.pipelineId}`;
-              const pipelineOps = operatorsByPipeline.get(pipelineKey) || [];
-              const opIndex = pipelineOps.findIndex(
-                (o) => o.operatorId === op.operatorId && o.type === op.type,
-              );
-              const numOps = pipelineOps.length;
-
-              if (numOps > 1 && stageDuration > 0) {
-                // Position proportionally within the stage duration
-                const fraction = opIndex / (numOps - 1);
-                // Operator starts at its proportional position, duration scaled to fit
-                const opDurationFraction = 1 / numOps;
-                op.startOffsetMs =
-                  stageStart +
-                  fraction * stageDuration * (1 - opDurationFraction);
-                op.durationMs = stageDuration * opDurationFraction;
-              } else {
-                // Single operator or no duration - use full stage window
-                op.startOffsetMs = stageStart;
-                op.durationMs = stageDuration || op.durationMs;
-              }
-            });
-
-            // Third pass: group back by plan node for rendering
-            operatorsByNode.forEach((ops, nodeId) => {
-              const nodeOps = [];
-              const seenKeys = new Set();
-
-              ops.forEach((op) => {
-                const key = `${op.stageId}:${op.pipelineId}:${op.operatorId}:${op.type}`;
-                if (!seenKeys.has(key) && allOperators.has(key)) {
-                  seenKeys.add(key);
-                  nodeOps.push(allOperators.get(key));
-                }
-              });
-
-              // Sort by pipeline, then operator id
-              nodeOps.sort((a, b) => {
-                if (a.pipelineId !== b.pipelineId)
-                  return a.pipelineId - b.pipelineId;
-                return a.operatorId - b.operatorId;
-              });
-              operatorInfoByNode.set(nodeId, nodeOps);
-            });
-
-            // Calculate operator duration per plan node
-            //
-            // Per-operator wall time is derived from summing four components:
-            //   addInputWall + getOutputWall + finishWall + blockedWall
-            // (See https://github.com/prestodb/presto/blob/6fb40f02af65d48a808697efa7bb1e404418ccec/presto-ui/src/components/StageDetail.jsx#L44-L48)
-            //
-            // For timeline visualization with parallel workers:
-            // - We use maxWorkerActiveNanos (max active time of any single worker) as the duration
-            // - Active time = addInputWall + getOutputWall + finishWall (excludes blockedWall)
-            // - Blocked time is tracked separately for display
-            const timingByNode = new Map();
-            operatorsByNode.forEach((ops, nodeId) => {
-              let totalActiveNanos = 0;
-              let totalBlockedNanos = 0;
-
-              // Track per-worker times to find the max (for parallel execution)
-              const workerActiveTimes = new Map();
-              const workerBlockedTimes = new Map();
-
-              // For each operator instance of this plan node
-              ops.forEach((op) => {
-                // Calculate active time (actual computation) and blocked time separately
-                const activeNanos =
-                  (op.metrics.addInputWallNanos || 0) +
-                  (op.metrics.getOutputWallNanos || 0) +
-                  (op.metrics.finishWallNanos || 0);
-                const blockedNanos = op.metrics.blockedWallNanos || 0;
-
-                totalActiveNanos += activeNanos;
-                totalBlockedNanos += blockedNanos;
-
-                // Track per-worker totals (workers execute in parallel)
-                const task = model.tasks.get(op.taskId);
-                const workerId = task?.workerHost || op.taskId;
-                workerActiveTimes.set(
-                  workerId,
-                  (workerActiveTimes.get(workerId) || 0) + activeNanos,
-                );
-                workerBlockedTimes.set(
-                  workerId,
-                  (workerBlockedTimes.get(workerId) || 0) + blockedNanos,
-                );
-              });
-
-              // Max times across workers - this is the duration for the slowest worker
-              const maxWorkerActiveNanos = Math.max(
-                ...workerActiveTimes.values(),
-                0,
-              );
-              const maxWorkerBlockedNanos = Math.max(
-                ...workerBlockedTimes.values(),
-                0,
-              );
-
-              timingByNode.set(nodeId, {
-                activeMs: maxWorkerActiveNanos / 1e6, // Active computation time
-                blockedMs: maxWorkerBlockedNanos / 1e6, // Blocked/waiting time
-                durationMs: maxWorkerActiveNanos / 1e6, // For backward compat
-                totalActiveNanos: totalActiveNanos,
-                totalBlockedNanos: totalBlockedNanos,
-              });
-            });
-
-            // Get stage colors
-            const stageIds = [...model.stages.keys()].sort((a, b) => a - b);
-            const stageColorPalette = [
-              "#4a9eff",
-              "#22c55e",
-              "#f59e0b",
-              "#ef4444",
-              "#8b5cf6",
-              "#ec4899",
-              "#14b8a6",
-              "#f97316",
-              "#06b6d4",
-              "#84cc16",
-            ];
-            const stageColors = {};
-            stageIds.forEach((id, i) => {
-              stageColors[id] = stageColorPalette[i % stageColorPalette.length];
-            });
+            // Derive preprocessed data (operator aggregation, timing, colors)
+            const {
+              operatorsByNode,
+              operatorInfoByNode,
+              workersByNode,
+              pipelinesByNode,
+              timingByNode,
+              stageColors,
+            } = Derived.deriveExplainData(model);
 
             // Build the tree structure from raw query data
             const outputStage = model.raw.query?.outputStage;
@@ -8103,9 +8535,7 @@
            * Render the Stages view
            */
           renderStages(model, container) {
-            const stages = Array.from(model.stages.values()).sort(
-              (a, b) => a.id - b.id,
-            );
+            const { stages } = Derived.deriveStagesData(model);
 
             container.innerHTML = `
            <div class="view-header">
@@ -8506,21 +8936,8 @@
            * Render the Operators view
            */
           renderOperators(model, container) {
-            const operators = [...model.operators].sort((a, b) => {
-              if (a.stageId !== b.stageId) return a.stageId - b.stageId;
-              if (a.pipelineId !== b.pipelineId)
-                return a.pipelineId - b.pipelineId;
-              return a.operatorId - b.operatorId;
-            });
-
-            // Count by type
-            const typeCounts = new Map();
-            operators.forEach((op) => {
-              const count = typeCounts.get(op.type) || 0;
-              typeCounts.set(op.type, count + 1);
-            });
-
-            const gpuCount = operators.filter((o) => o.isGpu).length;
+            const { operators, typeCounts, gpuCount } =
+              Derived.deriveOperatorsData(model);
 
             container.innerHTML = `
            <div class="view-header">
@@ -8755,77 +9172,13 @@
            * Timeline Waterfall - Gantt-style view of worker/stage execution
            */
           renderWaterfallTab(model, container) {
-            const queryDuration = model.queryTiming?.durationMs || 1;
-            const workers = Array.from(model.workers.values()).sort((a, b) =>
-              a.host.localeCompare(b.host),
-            );
-            const stageIds = Array.from(model.stages.keys()).sort(
-              (a, b) => a - b,
-            );
-
-            // RAPIDS color palette for stages
-            const colorPalette = [
-              "#7400ff",
-              "#d216d2",
-              "#ffb500",
-              "#36c9dd",
-              "#8735fb",
-              "#984dfb",
-              "#a788e4",
-              "#4ade80",
-              "#f87171",
-              "#fb923c",
-            ];
-            const stageColors = {};
-            stageIds.forEach((id, i) => {
-              stageColors[id] = colorPalette[i % colorPalette.length];
-            });
-
-            // Build waterfall data: for each worker, show each stage's execution
-            const waterfallRows = [];
-
-            workers.forEach((worker) => {
-              stageIds.forEach((stageId) => {
-                const stage = model.stages.get(stageId);
-                const workerTiming = stage.workerTiming.get(worker.host);
-
-                if (workerTiming) {
-                  const startPct =
-                    ((workerTiming.relativeStartMs || 0) / queryDuration) * 100;
-                  const endPct =
-                    ((workerTiming.relativeEndMs || queryDuration) /
-                      queryDuration) *
-                    100;
-                  const activeStartPct =
-                    ((workerTiming.relativeActiveStartMs ||
-                      workerTiming.relativeStartMs ||
-                      0) /
-                      queryDuration) *
-                    100;
-
-                  waterfallRows.push({
-                    worker: worker.host,
-                    stageId,
-                    startPct,
-                    endPct,
-                    activeStartPct,
-                    blockedPct: activeStartPct - startPct,
-                    activePct: endPct - activeStartPct,
-                    cpuTimeNanos: workerTiming.cpuTimeNanos || 0,
-                    color: stageColors[stageId],
-                  });
-                }
-              });
-            });
-
-            // Group rows by worker
-            const workerGroups = new Map();
-            waterfallRows.forEach((row) => {
-              if (!workerGroups.has(row.worker)) {
-                workerGroups.set(row.worker, []);
-              }
-              workerGroups.get(row.worker).push(row);
-            });
+            const {
+              stageIds,
+              stageColors,
+              workerGroups,
+              timeMarkers,
+              queryDuration,
+            } = Derived.deriveWaterfallData(model);
 
             const rowHeight = 24;
             const headerHeight = 30;
@@ -8834,12 +9187,6 @@
               headerHeight +
               workerGroups.size * stageIds.length * rowHeight +
               40;
-
-            // Generate time axis markers
-            const timeMarkers = [0, 0.25, 0.5, 0.75, 1].map((frac) => ({
-              pct: frac * 100,
-              label: Utils.formatDuration(frac * queryDuration * 1e6),
-            }));
 
             // Generate HTML
             let rowsHtml = "";
@@ -8910,41 +9257,8 @@
            * Worker Heatmap - Grid showing worker × stage performance
            */
           renderHeatmapTab(model, container) {
-            const workers = Array.from(model.workers.values()).sort((a, b) =>
-              a.host.localeCompare(b.host),
-            );
-            const stageIds = Array.from(model.stages.keys()).sort(
-              (a, b) => a - b,
-            );
-
-            // Calculate metrics for each worker × stage cell
-            const cellData = new Map();
-            let maxCpuTime = 0;
-            let maxBlockedTime = 0;
-
-            workers.forEach((worker) => {
-              stageIds.forEach((stageId) => {
-                const stage = model.stages.get(stageId);
-                const workerTiming = stage.workerTiming.get(worker.host);
-
-                if (workerTiming) {
-                  const key = `${worker.host}:${stageId}`;
-                  const cpuTime = workerTiming.cpuTimeNanos || 0;
-                  const duration = (workerTiming.durationMs || 0) * 1e6;
-                  const blockedTime = duration - cpuTime;
-
-                  cellData.set(key, {
-                    cpuTime,
-                    blockedTime: Math.max(0, blockedTime),
-                    duration,
-                    taskCount: workerTiming.taskCount || 0,
-                  });
-
-                  maxCpuTime = Math.max(maxCpuTime, cpuTime);
-                  maxBlockedTime = Math.max(maxBlockedTime, blockedTime);
-                }
-              });
-            });
+            const { workers, stageIds, cellData, maxCpuTime, maxBlockedTime } =
+              Derived.deriveHeatmapData(model);
 
             // Generate heatmap HTML
             const cellSize = 60;
@@ -9025,45 +9339,12 @@
            * Shuffle Matrix - Shows data flow between stages
            */
           renderShuffleMatrixTab(model, container) {
-            const stageIds = Array.from(model.stages.keys()).sort(
-              (a, b) => a - b,
-            );
-
-            // Build shuffle matrix: from stage (rows) -> to stage (columns)
-            const shuffleMatrix = new Map();
-            let maxShuffleBytes = 0;
-
-            // For each stage, find its shuffle output and which stages receive it
-            model.stages.forEach((stage, fromStageId) => {
-              const shuffleOut = stage.metrics?.shuffleOut;
-              if (shuffleOut && shuffleOut.bytes > 0) {
-                // Find stages that have this stage as a child (they receive from us)
-                model.stages.forEach((toStage, toStageId) => {
-                  if (
-                    toStage.childStageIds &&
-                    toStage.childStageIds.includes(fromStageId)
-                  ) {
-                    const key = `${fromStageId}:${toStageId}`;
-                    // Approximate: divide by number of consumers
-                    const consumers = stageIds.filter((id) => {
-                      const s = model.stages.get(id);
-                      return (
-                        s.childStageIds && s.childStageIds.includes(fromStageId)
-                      );
-                    }).length;
-                    const bytes =
-                      consumers > 0
-                        ? shuffleOut.bytes / consumers
-                        : shuffleOut.bytes;
-                    shuffleMatrix.set(key, {
-                      bytes,
-                      rows: shuffleOut.rows / (consumers || 1),
-                    });
-                    maxShuffleBytes = Math.max(maxShuffleBytes, bytes);
-                  }
-                });
-              }
-            });
+            const {
+              stageIds,
+              shuffleMatrix,
+              maxShuffleBytes,
+              totalShuffleBytes,
+            } = Derived.deriveShuffleMatrixData(model);
 
             // Generate matrix HTML
             const headerCells = stageIds
@@ -9106,12 +9387,6 @@
                 `;
               })
               .join("");
-
-            // Calculate totals
-            let totalShuffleBytes = 0;
-            shuffleMatrix.forEach((data) => {
-              totalShuffleBytes += data.bytes;
-            });
 
             container.innerHTML = `
               <div class="card">
@@ -9159,297 +9434,13 @@
            * @param {boolean} isStandalone - If true, use full viewport height
            */
           renderPipelineGraphTab(model, container, isStandalone = false) {
-            const stageIds = Array.from(model.stages.keys()).sort(
-              (a, b) => a - b,
-            );
-
-            // RAPIDS color palette
-            const colorPalette = [
-              "#7400ff",
-              "#d216d2",
-              "#ffb500",
-              "#36c9dd",
-              "#8735fb",
-              "#984dfb",
-              "#a788e4",
-              "#4ade80",
-              "#f87171",
-              "#fb923c",
-            ];
-            const stageColors = {};
-            stageIds.forEach((id, i) => {
-              stageColors[id] = colorPalette[i % colorPalette.length];
-            });
-
-            // Build pipeline data per stage (aggregate across all workers/tasks)
-            const stageData = new Map();
-
-            stageIds.forEach((stageId) => {
-              const stage = model.stages.get(stageId);
-              const pipelineMap = new Map();
-
-              // Collect pipelines from all tasks in this stage
-              stage.tasks.forEach((taskId) => {
-                const task = model.tasks.get(taskId);
-                if (!task) return;
-
-                task.pipelines.forEach((pipeline) => {
-                  const pipelineId = pipeline.id;
-                  if (!pipelineMap.has(pipelineId)) {
-                    pipelineMap.set(pipelineId, {
-                      id: pipelineId,
-                      operators: [],
-                      hasPartitionedOutput: false,
-                      hasExchange: false,
-                      hasLocalExchange: false,
-                      hasLocalPartition: false,
-                      inputRows: 0,
-                      inputBytes: 0,
-                      outputRows: 0,
-                      outputBytes: 0,
-                    });
-                  }
-                  const pData = pipelineMap.get(pipelineId);
-
-                  pipeline.operators.forEach((opKey) => {
-                    const op = model.operators.find((o) => o.key === opKey);
-                    if (op) {
-                      // Aggregate pipeline-level metrics across all workers
-                      // Note: rows are stored as inputPositions/outputPositions
-                      pData.inputRows += op.metrics.inputPositions || 0;
-                      pData.inputBytes += op.metrics.inputBytes || 0;
-                      pData.outputRows += op.metrics.outputPositions || 0;
-                      pData.outputBytes += op.metrics.outputBytes || 0;
-
-                      // Find or create operator entry
-                      let opEntry = pData.operators.find(
-                        (o) => o.type === op.type,
-                      );
-                      if (!opEntry) {
-                        opEntry = {
-                          type: op.type,
-                          isGpu: !!op.isGpu,
-                          operatorId: op.operatorId,
-                          planNodeId: op.planNodeId,
-                          inputRows: 0,
-                          inputBytes: 0,
-                          outputRows: 0,
-                          outputBytes: 0,
-                          // Additional metrics for visualization
-                          spilledBytes: 0,
-                          blockedWallNanos: 0,
-                          totalDrivers: 0,
-                          addInputWallNanos: 0,
-                          getOutputWallNanos: 0,
-                          finishWallNanos: 0,
-                          // Memory metrics
-                          peakTotalMemoryBytes: 0,
-                          peakUserMemoryBytes: 0,
-                          // For average throughput calculation
-                          workerCount: 0,
-                        };
-                        pData.operators.push(opEntry);
-                        if (op.type === "PartitionedOutput")
-                          pData.hasPartitionedOutput = true;
-                        if (op.type === "ExchangeOperator")
-                          pData.hasExchange = true;
-                        if (op.type.includes("LocalExchange"))
-                          pData.hasLocalExchange = true;
-                        if (op.type.includes("LocalPartition"))
-                          pData.hasLocalPartition = true;
-                      }
-                      // Aggregate operator-level metrics across workers
-                      opEntry.inputRows += op.metrics.inputPositions || 0;
-                      opEntry.inputBytes += op.metrics.inputBytes || 0;
-                      opEntry.outputRows += op.metrics.outputPositions || 0;
-                      opEntry.outputBytes += op.metrics.outputBytes || 0;
-                      opEntry.spilledBytes += op.metrics.spilledBytes || 0;
-                      opEntry.blockedWallNanos +=
-                        op.metrics.blockedWallNanos || 0;
-                      opEntry.totalDrivers = Math.max(
-                        opEntry.totalDrivers,
-                        op.totalDrivers || 0,
-                      );
-                      // Memory: take max across workers (peak memory)
-                      opEntry.peakTotalMemoryBytes = Math.max(
-                        opEntry.peakTotalMemoryBytes,
-                        op.metrics.peakTotalMemoryBytes || 0,
-                      );
-                      opEntry.peakUserMemoryBytes = Math.max(
-                        opEntry.peakUserMemoryBytes,
-                        op.metrics.peakUserMemoryBytes || 0,
-                      );
-                      opEntry.addInputWallNanos +=
-                        op.metrics.addInputWallNanos || 0;
-                      opEntry.getOutputWallNanos +=
-                        op.metrics.getOutputWallNanos || 0;
-                      opEntry.finishWallNanos +=
-                        op.metrics.finishWallNanos || 0;
-                      opEntry.workerCount += 1;
-                    }
-                  });
-                });
-              });
-
-              // Sort operators within each pipeline by operatorId (ascending - highest at bottom)
-              pipelineMap.forEach((pData) => {
-                pData.operators.sort((a, b) => a.operatorId - b.operatorId);
-              });
-
-              // Get worker list from stage.workerTiming
-              const workerIds = Array.from(
-                stage.workerTiming?.keys() || [],
-              ).sort();
-
-              stageData.set(stageId, {
-                id: stageId,
-                color: stageColors[stageId],
-                pipelines: Array.from(pipelineMap.values()).sort(
-                  (a, b) => a.id - b.id,
-                ),
-                childStageIds: stage.childStageIds || [],
-                partitioningInfo: stage.partitioningInfo || {},
-                planNodeDetails: stage.planNodeDetails || new Map(),
-                workerIds: workerIds,
-                workerCount: workerIds.length,
-              });
-            });
-
-            // Track which stages have input/output ports (needed for edges and layout)
-            const stageInputPorts = new Map(); // stageId -> [fromStageIds]
-            const stageOutputPorts = new Map(); // stageId -> [toStageIds]
-
-            stageData.forEach((toStage, toStageId) => {
-              toStage.childStageIds.forEach((fromStageId) => {
-                if (!stageOutputPorts.has(fromStageId)) {
-                  stageOutputPorts.set(fromStageId, []);
-                }
-                if (!stageOutputPorts.get(fromStageId).includes(toStageId)) {
-                  stageOutputPorts.get(fromStageId).push(toStageId);
-                }
-                if (!stageInputPorts.has(toStageId)) {
-                  stageInputPorts.set(toStageId, []);
-                }
-                if (!stageInputPorts.get(toStageId).includes(fromStageId)) {
-                  stageInputPorts.get(toStageId).push(fromStageId);
-                }
-              });
-            });
-
-            // Build edges with port-based connections
-            // Edge types:
-            // - "stage-shuffle": connects output port of one stage to input port of another
-            // - "pipeline-to-output": connects pipeline to stage's output port
-            // - "input-to-pipeline": connects stage's input port to pipeline
-            // - "local": local exchange within stage (pipeline to pipeline)
-            const edges = [];
-
-            // Create stage-to-stage shuffle edges
-            stageData.forEach((toStage, toStageId) => {
-              toStage.childStageIds.forEach((fromStageId) => {
-                edges.push({
-                  type: "stage-shuffle",
-                  fromStage: fromStageId,
-                  toStage: toStageId,
-                });
-              });
-            });
-
-            // Connect pipelines to ports
-            stageData.forEach((stage, stageId) => {
-              const pipelines = stage.pipelines;
-
-              // Pipelines with PartitionedOutput connect to output port
-              const outputPipelines = pipelines.filter(
-                (p) => p.hasPartitionedOutput,
-              );
-              const outputTargets = stageOutputPorts.get(stageId) || [];
-
-              outputPipelines.forEach((pipeline) => {
-                outputTargets.forEach((toStageId) => {
-                  edges.push({
-                    type: "pipeline-to-output",
-                    source: `${stageId}:${pipeline.id}`,
-                    stageId: stageId,
-                    toStage: toStageId,
-                  });
-                });
-              });
-
-              // Pipelines with Exchange connect from input port
-              let inputPipelines = pipelines.filter((p) => p.hasExchange);
-              if (
-                inputPipelines.length === 0 &&
-                pipelines.length > 0 &&
-                stageInputPorts.has(stageId)
-              ) {
-                // Stage 0 typically receives via TaskOutput
-                inputPipelines = [pipelines[0]];
-              }
-              const inputSources = stageInputPorts.get(stageId) || [];
-
-              inputPipelines.forEach((pipeline) => {
-                inputSources.forEach((fromStageId) => {
-                  edges.push({
-                    type: "input-to-pipeline",
-                    target: `${stageId}:${pipeline.id}`,
-                    stageId: stageId,
-                    fromStage: fromStageId,
-                  });
-                });
-              });
-            });
-
-            // Intra-stage local exchange edges
-            stageData.forEach((stage, stageId) => {
-              const pipelines = stage.pipelines;
-
-              // LocalPartition -> LocalExchange connections
-              pipelines.forEach((src) => {
-                if (src.hasLocalPartition) {
-                  pipelines.forEach((tgt) => {
-                    if (src.id !== tgt.id && tgt.hasLocalExchange) {
-                      edges.push({
-                        source: `${stageId}:${src.id}`,
-                        target: `${stageId}:${tgt.id}`,
-                        type: "local",
-                        fromStage: stageId,
-                        toStage: stageId,
-                      });
-                    }
-                  });
-                }
-              });
-
-              // Connect pipelines to sink pipeline (PartitionedOutput)
-              const sinkPipeline = pipelines.find(
-                (p) => p.hasPartitionedOutput,
-              );
-              if (sinkPipeline && pipelines.length > 1) {
-                const pipelinesWithOutgoing = new Set(
-                  edges
-                    .filter(
-                      (e) => e.fromStage === stageId && e.type === "local",
-                    )
-                    .map((e) => parseInt(e.source.split(":")[1])),
-                );
-
-                pipelines.forEach((src) => {
-                  if (src.id !== sinkPipeline.id) {
-                    const hasOutgoing = pipelinesWithOutgoing.has(src.id);
-                    if (!hasOutgoing) {
-                      edges.push({
-                        source: `${stageId}:${src.id}`,
-                        target: `${stageId}:${sinkPipeline.id}`,
-                        type: "local",
-                        fromStage: stageId,
-                        toStage: stageId,
-                      });
-                    }
-                  }
-                });
-              }
-            });
+            const {
+              stageData,
+              stageInputPorts,
+              stageOutputPorts,
+              edges,
+              stageColors,
+            } = Derived.derivePipelineGraphData(model);
 
             if (isStandalone) {
               // Full-page view without card wrapper
@@ -12055,6 +12046,30 @@
         // ==========================================================================
 
         const DetailPanel = {
+          // ── Helpers ────────────────────────
+          tasksForStage(model, stage) {
+            return stage.tasks
+              .map((tid) => model.tasks.get(tid))
+              .filter(Boolean);
+          },
+
+          operatorsForStage(model, stageId) {
+            return model.operators.filter((op) => op.stageId === stageId);
+          },
+
+          operatorsForTask(model, taskId) {
+            return model.operators.filter((op) => op.taskId === taskId);
+          },
+
+          countByType(operators) {
+            const counts = new Map();
+            operators.forEach((op) => {
+              counts.set(op.type, (counts.get(op.type) || 0) + 1);
+            });
+            return counts;
+          },
+
+          // ── Panel Chrome ───────────────────
           show(title, content) {
             const panel = document.getElementById("detail-panel");
             const titleEl = document.getElementById("detail-title");
@@ -12069,23 +12084,14 @@
             document.getElementById("detail-panel").classList.add("hidden");
           },
 
+          // ── Renderers ─────────────────────
           renderStage(model, stageId) {
             const stage = model.stages.get(stageId);
             if (!stage) return;
 
-            const tasks = stage.tasks
-              .map((tid) => model.tasks.get(tid))
-              .filter(Boolean);
-            const operators = model.operators.filter(
-              (op) => op.stageId === stageId,
-            );
-
-            // Group operators by type
-            const opTypes = new Map();
-            operators.forEach((op) => {
-              if (!opTypes.has(op.type)) opTypes.set(op.type, 0);
-              opTypes.set(op.type, opTypes.get(op.type) + 1);
-            });
+            const tasks = this.tasksForStage(model, stage);
+            const operators = this.operatorsForStage(model, stageId);
+            const opTypes = this.countByType(operators);
 
             const content = `
            <div class="detail-section">
@@ -12169,9 +12175,7 @@
             if (!task) return;
 
             const stats = task.stats || {};
-            const operators = model.operators.filter(
-              (op) => op.taskId === taskId,
-            );
+            const operators = this.operatorsForTask(model, taskId);
 
             const content = `
            <div class="detail-section">
@@ -13004,6 +13008,7 @@
         // ==========================================================================
 
         const App = {
+          // ── State ──────────────────────────
           model: null,
           currentView: "explain",
           viewSetFromUrl: false,
@@ -13019,6 +13024,7 @@
             dag: { in: true, out: true },
           },
 
+          // ── Lifecycle ──────────────────────
           init() {
             // Read view from URL parameter
             const urlParams = new URLSearchParams(window.location.search);
@@ -13374,6 +13380,7 @@
             }
           },
 
+          // ── Navigation ─────────────────────
           showDataView() {
             document.getElementById("upload-screen").classList.add("hidden");
             document.getElementById("sidebar").classList.remove("hidden");
@@ -13455,7 +13462,7 @@
             }
           },
 
-          // Detail panel methods (exposed globally for onclick handlers)
+          // ── Detail Panel Dispatch ──────────
           showStageDetail(stageId) {
             DetailPanel.renderStage(this.model, stageId);
           },
@@ -13476,7 +13483,7 @@
             DetailPanel.renderPlanNode(this.model, nodeId);
           },
 
-          // Stage highlighting for Plan view - linked across timeline, legend, and graph
+          // ── Cross-View Highlighting ────────
           highlightPlanStage(stageId) {
             if (!this.planSelections) return;
 
