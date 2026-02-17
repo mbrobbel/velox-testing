@@ -15,7 +15,7 @@
    CSS Variables & Theme
    ============================================================================= */
       :root {
-        /* RAPIDS Brand Colors */
+        /* RAPIDS Brand Colors (constant across themes) */
         --rapids-purple: #7400ff;
         --rapids-magenta: #d216d2;
         --rapids-gold: #ffb500;
@@ -24,7 +24,7 @@
         --rapids-medium-purple: #984dfb;
         --rapids-lavender: #a788e4;
 
-        /* Colors - Dark Theme (RAPIDS-inspired) */
+        /* Default: Dark Theme (RAPIDS-inspired) */
         --bg-primary: #0d0d1a;
         --bg-secondary: #1a1a2e;
         --bg-tertiary: #2d1f4e;
@@ -51,6 +51,47 @@
         --status-running: var(--rapids-cyan);
         --status-failed: var(--accent-danger);
 
+        /* Syntax highlighting */
+        --syntax-keyword: #c586c0;
+        --syntax-function: #dcdcaa;
+        --syntax-string: #ce9178;
+        --syntax-number: #b5cea8;
+        --syntax-comment: #6a9955;
+        --syntax-operator: #d4d4d4;
+
+        /* Scrollbar */
+        --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+        --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+
+        /* Header text */
+        --header-text: #fff;
+        --header-label: rgba(255, 255, 255, 0.4);
+        --header-stat: rgba(255, 255, 255, 0.9);
+
+        /* Subtle overlay tints (white on dark, black on light) */
+        --tint-01: rgba(255, 255, 255, 0.01);
+        --tint-02: rgba(255, 255, 255, 0.02);
+        --tint-05: rgba(255, 255, 255, 0.05);
+        --tint-06: rgba(255, 255, 255, 0.06);
+        --tint-08: rgba(255, 255, 255, 0.08);
+        --tint-10: rgba(255, 255, 255, 0.1);
+
+        /* D3 / SVG colors that need theme adaptation */
+        --dag-edge-neutral: #6a6a6a;
+        --dag-edge-label-bg: rgba(26, 26, 46, 0.85);
+        --dag-edge-label-neutral: #a0a0a0;
+        --dag-edge-cols: #6a9ec9;
+        --dag-node-stroke-default: #1a1a2e;
+        --dag-highlight-stroke: #fff;
+        --dag-badge-gray: #6b7280;
+        --dag-badge-purple: #8b5cf6;
+        --dag-badge-blue: #3b82f6;
+        --dag-badge-red: #ef4444;
+        --dag-badge-text: #fff;
+
+        /* Shadow */
+        --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+
         /* Sizing */
         --header-height: 44px;
         --sidebar-width: 240px;
@@ -73,6 +114,66 @@
         /* Transitions */
         --transition-fast: 150ms ease;
         --transition-normal: 250ms ease;
+      }
+
+      /* Light Theme (follows system preference) */
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg-primary: #f5f5f8;
+          --bg-secondary: #ffffff;
+          --bg-tertiary: #ece4f7;
+          --bg-card: #ffffff;
+          --bg-hover: #f0ecf5;
+
+          --text-primary: #1a1a2e;
+          --text-secondary: #555566;
+          --text-muted: #888899;
+
+          --border-color: #d8d8e0;
+          --border-light: #c8c8d4;
+
+          --accent-success: #16a34a;
+          --accent-danger: #dc2626;
+
+          --status-finished: #16a34a;
+          --status-running: #0891b2;
+          --status-failed: #dc2626;
+
+          --syntax-keyword: #8b008b;
+          --syntax-function: #795e26;
+          --syntax-string: #a31515;
+          --syntax-number: #098658;
+          --syntax-comment: #008000;
+          --syntax-operator: #383838;
+
+          --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+          --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+
+          --header-text: #fff;
+          --header-label: rgba(255, 255, 255, 0.5);
+          --header-stat: rgba(255, 255, 255, 0.95);
+
+          --tint-01: rgba(0, 0, 0, 0.01);
+          --tint-02: rgba(0, 0, 0, 0.02);
+          --tint-05: rgba(0, 0, 0, 0.04);
+          --tint-06: rgba(0, 0, 0, 0.05);
+          --tint-08: rgba(0, 0, 0, 0.06);
+          --tint-10: rgba(0, 0, 0, 0.08);
+
+          --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+          --dag-edge-neutral: #b0b0b8;
+          --dag-edge-label-bg: rgba(255, 255, 255, 0.92);
+          --dag-edge-label-neutral: #666680;
+          --dag-edge-cols: #4a7a9e;
+          --dag-node-stroke-default: #d8d8e0;
+          --dag-highlight-stroke: #1a1a2e;
+          --dag-badge-gray: #9ca3af;
+          --dag-badge-purple: #7c3aed;
+          --dag-badge-blue: #2563eb;
+          --dag-badge-red: #dc2626;
+          --dag-badge-text: #fff;
+        }
       }
 
       /* =============================================================================
@@ -152,13 +253,12 @@
       }
 
       .query-summary-id {
-        color: var(--text-primary);
+        color: var(--header-text);
         font-weight: 500;
       }
 
       .query-summary-separator {
-        color: var(--text-muted);
-        opacity: 0.5;
+        color: rgba(255, 255, 255, 0.3);
       }
 
       .query-summary-badge {
@@ -167,7 +267,7 @@
         border-radius: 10px;
         font-size: 12px;
         font-weight: 600;
-        color: var(--text-primary);
+        color: var(--header-text);
       }
 
       .query-summary-state {
@@ -194,7 +294,7 @@
       }
 
       .query-summary-label {
-        color: rgba(255, 255, 255, 0.4);
+        color: var(--header-label);
         font-size: 10px;
         margin-right: 3px;
         text-transform: uppercase;
@@ -202,7 +302,7 @@
       }
 
       .query-summary-stat {
-        color: rgba(255, 255, 255, 0.9);
+        color: var(--header-stat);
         font-weight: 500;
       }
 
@@ -211,7 +311,7 @@
         background: rgba(255, 255, 255, 0.1);
         border-radius: var(--border-radius-sm);
         cursor: pointer;
-        color: var(--text-secondary);
+        color: var(--header-stat);
         transition: all var(--transition-fast);
         position: relative;
       }
@@ -255,29 +355,29 @@
 
       /* SQL syntax highlighting */
       .sql-keyword {
-        color: #c586c0;
+        color: var(--syntax-keyword);
         font-weight: 600;
       }
 
       .sql-function {
-        color: #dcdcaa;
+        color: var(--syntax-function);
       }
 
       .sql-string {
-        color: #ce9178;
+        color: var(--syntax-string);
       }
 
       .sql-number {
-        color: #b5cea8;
+        color: var(--syntax-number);
       }
 
       .sql-comment {
-        color: #6a9955;
+        color: var(--syntax-comment);
         font-style: italic;
       }
 
       .sql-operator {
-        color: #d4d4d4;
+        color: var(--syntax-operator);
       }
 
       .header-upload-btn {
@@ -493,6 +593,7 @@
         border: 1px solid var(--border-color);
         border-radius: var(--border-radius);
         overflow: hidden;
+        box-shadow: var(--shadow-card);
       }
 
       .card-header {
@@ -1344,15 +1445,15 @@
       }
 
       .legend-node.gpu {
-        background: #22c55e;
+        background: var(--accent-success);
       }
 
       .legend-node.exchange {
-        background: #8b5cf6;
+        background: var(--dag-badge-purple);
       }
 
       .legend-node.output {
-        background: #ef4444;
+        background: var(--dag-badge-red);
       }
 
       #pipeline-graph-svg-container {
@@ -1435,11 +1536,11 @@
       }
 
       .edge-tooltip-value.throughput {
-        color: #22c55e;
+        color: var(--accent-success);
       }
 
       .edge-tooltip-value.warning {
-        color: #f59e0b;
+        color: var(--accent-warning);
       }
 
       .edge-tooltip-value.muted {
@@ -1465,29 +1566,30 @@
       }
 
       .badge.success {
-        background: rgba(74, 222, 128, 0.15);
+        background: color-mix(in srgb, var(--accent-success) 15%, transparent);
         color: var(--accent-success);
       }
 
       .badge.warning {
-        background: rgba(251, 191, 36, 0.15);
+        background: color-mix(in srgb, var(--accent-warning) 15%, transparent);
         color: var(--accent-warning);
       }
 
       .badge.danger {
-        background: rgba(248, 113, 113, 0.15);
+        background: color-mix(in srgb, var(--accent-danger) 15%, transparent);
         color: var(--accent-danger);
       }
 
       .badge.primary {
-        background: rgba(74, 158, 255, 0.15);
+        background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
         color: var(--accent-primary);
       }
 
       .badge.gpu {
-        background: rgba(116, 0, 255, 0.2);
+        background: color-mix(in srgb, var(--rapids-purple) 20%, transparent);
         color: var(--rapids-light-purple);
-        border: 1px solid rgba(116, 0, 255, 0.3);
+        border: 1px solid
+          color-mix(in srgb, var(--rapids-purple) 30%, transparent);
       }
 
       /* =============================================================================
@@ -1706,7 +1808,7 @@
       }
 
       .explain-stage {
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--tint-10);
         border-radius: var(--border-radius);
         margin: 8px 0;
         background: var(--bg-card);
@@ -1714,8 +1816,8 @@
 
       .explain-stage-header {
         padding: 6px 12px;
-        background: rgba(255, 255, 255, 0.02);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--tint-02);
+        border-bottom: 1px solid var(--tint-05);
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -1727,16 +1829,16 @@
       }
 
       .explain-task {
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--tint-08);
         border-radius: var(--border-radius-sm);
         margin: 4px 0;
-        background: rgba(255, 255, 255, 0.01);
+        background: var(--tint-01);
       }
 
       .explain-task-header {
         padding: 4px 8px;
-        background: rgba(255, 255, 255, 0.02);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--tint-02);
+        border-bottom: 1px solid var(--tint-05);
         font-size: var(--font-size-xs);
         color: var(--text-secondary);
         display: flex;
@@ -1779,7 +1881,7 @@
         margin: 2px 0;
         border-radius: var(--border-radius-sm);
         background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--tint-06);
         display: flex;
         align-items: flex-start;
         gap: 8px;
@@ -2046,18 +2148,18 @@
       }
 
       .remotesource-backpressure-badge.low {
-        background: #22c55e30;
-        color: #22c55e;
+        background: color-mix(in srgb, var(--accent-success) 20%, transparent);
+        color: var(--accent-success);
       }
 
       .remotesource-backpressure-badge.medium {
-        background: #f59e0b30;
-        color: #f59e0b;
+        background: color-mix(in srgb, var(--accent-warning) 20%, transparent);
+        color: var(--accent-warning);
       }
 
       .remotesource-backpressure-badge.high {
-        background: #ef444430;
-        color: #ef4444;
+        background: color-mix(in srgb, var(--accent-danger) 20%, transparent);
+        color: var(--accent-danger);
       }
 
       /* RemoteSource details table */
@@ -2105,7 +2207,7 @@
       .stage-pipeline-timeline {
         padding: 8px 12px;
         background: var(--bg-secondary);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--tint-05);
         font-size: 10px;
       }
 
@@ -2949,18 +3051,22 @@
       }
 
       .command-palette-item-icon.stage {
-        background: rgba(74, 158, 255, 0.2);
-        color: #4a9eff;
+        background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+        color: var(--accent-primary);
       }
 
       .command-palette-item-icon.plan {
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
+        background: color-mix(in srgb, var(--accent-success) 20%, transparent);
+        color: var(--accent-success);
       }
 
       .command-palette-item-icon.pipeline {
-        background: rgba(168, 85, 247, 0.2);
-        color: #a855f7;
+        background: color-mix(
+          in srgb,
+          var(--rapids-light-purple) 20%,
+          transparent
+        );
+        color: var(--rapids-light-purple);
       }
 
       .command-palette-item-content {
@@ -3042,9 +3148,13 @@
       }
 
       .view-link-btn.active {
-        background: rgba(74, 158, 255, 0.15);
-        border-color: rgba(74, 158, 255, 0.4);
-        color: #4a9eff;
+        background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+        border-color: color-mix(
+          in srgb,
+          var(--accent-primary) 40%,
+          transparent
+        );
+        color: var(--accent-primary);
       }
 
       .view-link-btn .link-icon {
@@ -3100,13 +3210,17 @@
       }
 
       .highlight-mode-switch.hover-mode {
-        background: rgba(74, 158, 255, 0.15);
-        border-color: rgba(74, 158, 255, 0.4);
+        background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+        border-color: color-mix(
+          in srgb,
+          var(--accent-primary) 40%,
+          transparent
+        );
       }
 
       .highlight-mode-switch.hover-mode::after {
         left: 32px;
-        background: #4a9eff;
+        background: var(--accent-primary);
       }
 
       .highlight-mode-label {
@@ -3116,12 +3230,202 @@
       }
 
       .highlight-mode-label.active {
-        color: #4a9eff;
+        color: var(--accent-primary);
       }
 
       .explain-timeline-pane .explain-timeline-content {
         flex: 1;
         overflow-y: auto;
+      }
+
+      /* ── Compare View ─────────────────── */
+      .compare-file-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .compare-file-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius-sm);
+      }
+
+      .compare-file-label {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+      }
+
+      .compare-remove-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+
+      .compare-remove-btn:hover {
+        color: var(--accent-danger);
+        background: rgba(248, 113, 113, 0.1);
+      }
+
+      .compare-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--panel-gap);
+      }
+
+      .compare-query-card {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 16px;
+      }
+
+      .compare-query-label {
+        font-weight: 600;
+        font-size: var(--font-size-base);
+        margin-bottom: 12px;
+        font-family: var(--font-mono);
+      }
+
+      .compare-better {
+        color: var(--accent-success);
+      }
+
+      .compare-worse {
+        color: var(--accent-danger);
+      }
+
+      .compare-timing-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .compare-timing-row:last-child {
+        border-bottom: none;
+      }
+
+      .compare-timing-label {
+        width: 120px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+
+      .compare-timing-bars {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .compare-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .compare-bar-track {
+        flex: 1;
+        height: 16px;
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .compare-bar {
+        height: 100%;
+        border-radius: 3px;
+        min-width: 2px;
+        transition: width var(--transition-normal);
+      }
+
+      .compare-bar-value {
+        font-size: var(--font-size-xs);
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+        white-space: nowrap;
+        min-width: 60px;
+      }
+
+      .compare-upload-zone {
+        width: 100%;
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 60px 40px;
+        border: 2px dashed var(--border-light);
+        border-radius: var(--border-radius);
+        background: var(--bg-card);
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--transition-normal);
+      }
+
+      .compare-upload-zone:hover,
+      .compare-upload-zone.drag-over {
+        border-color: var(--rapids-purple);
+        background: var(--bg-hover);
+        box-shadow: 0 0 20px rgba(116, 0, 255, 0.2);
+      }
+
+      .compare-add-more {
+        text-align: center;
+        padding: 24px;
+        margin-top: var(--panel-gap);
+      }
+
+      .compare-add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background: var(--bg-card);
+        border: 1px dashed var(--border-light);
+        border-radius: var(--border-radius);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: var(--font-size-sm);
+        transition: all var(--transition-fast);
+      }
+
+      .compare-add-btn:hover {
+        border-color: var(--rapids-purple);
+        color: var(--text-primary);
+      }
+
+      .upload-compare-hint {
+        text-align: center;
+        margin-top: 16px;
+        font-size: var(--font-size-sm);
+        color: var(--text-muted);
+      }
+
+      .upload-compare-hint a {
+        color: var(--rapids-purple);
+        text-decoration: none;
+      }
+
+      .upload-compare-hint a:hover {
+        text-decoration: underline;
+      }
+
+      .compare-stage-bar {
+        display: inline-block;
+        height: 14px;
+        border-radius: 2px;
+        vertical-align: middle;
       }
     </style>
   </head>
@@ -3191,6 +3495,17 @@
             />
           </div>
           <div id="upload-error" class="upload-error hidden"></div>
+          <div class="upload-compare-hint">
+            or
+            <a href="#" id="upload-compare-link">compare multiple files</a>
+            <input
+              type="file"
+              id="compare-upload-input"
+              class="upload-input"
+              accept=".json"
+              multiple
+            />
+          </div>
         </div>
 
         <!-- Sidebar Navigation (shown when data loaded) -->
@@ -3220,6 +3535,16 @@
             <div class="nav-item" data-view="pipeline-graph">
               <span class="nav-item-icon">🔗</span>
               <span>Pipeline Graph</span>
+            </div>
+          </div>
+          <div
+            class="nav-section"
+            style="border-top: 1px solid var(--border-color)"
+          >
+            <div class="nav-section-title">Tools</div>
+            <div class="nav-item" data-view="compare">
+              <span class="nav-item-icon">&#x2194;</span>
+              <span>Compare</span>
             </div>
           </div>
           <div
@@ -3262,6 +3587,11 @@
 
           <!-- Pipeline Graph View -->
           <div id="view-pipeline-graph" class="view">
+            <!-- Populated by JavaScript -->
+          </div>
+
+          <!-- Compare View -->
+          <div id="view-compare" class="view">
             <!-- Populated by JavaScript -->
           </div>
         </div>
@@ -5659,6 +5989,157 @@
         };
 
         // ==========================================================================
+        // Compare Utilities
+        // ==========================================================================
+
+        const CompareUtils = {
+          detectOverlap(models) {
+            const none = {
+              level: "totals_only",
+              sameSql: false,
+              samePlanStructure: false,
+              sameStageCount: false,
+              stageMapping: null,
+              sameWorkerSet: false,
+              workerIntersection: new Set(),
+            };
+            if (models.length < 2) return none;
+
+            const result = { ...none };
+            result.sameSql = this.checkSameSql(models);
+
+            const stageCounts = models.map((m) => m.model.stages.size);
+            result.sameStageCount = stageCounts.every(
+              (c) => c === stageCounts[0],
+            );
+
+            const fingerprints = models.map((m) =>
+              this.planFingerprint(m.model),
+            );
+            result.samePlanStructure = fingerprints.every(
+              (f) => f === fingerprints[0],
+            );
+
+            if (result.samePlanStructure) {
+              result.stageMapping = this.buildStageMapping(models);
+            }
+
+            const workerSets = models.map(
+              (m) => new Set(Array.from(m.model.workers.keys())),
+            );
+            result.workerIntersection = this.setIntersection(workerSets);
+            const workerUnion = this.setUnion(workerSets);
+            result.sameWorkerSet =
+              workerUnion.size > 0 &&
+              result.workerIntersection.size / workerUnion.size >= 0.8;
+
+            if (result.samePlanStructure) result.level = "full_plan";
+            else if (result.sameStageCount) result.level = "same_stages";
+            else if (result.sameWorkerSet) result.level = "same_workers";
+            else result.level = "totals_only";
+
+            return result;
+          },
+
+          checkSameSql(models) {
+            const sqls = models.map((m) => (m.model.query.sql || "").trim());
+            return sqls.every((s) => s === sqls[0]);
+          },
+
+          planFingerprint(model) {
+            const stages = [];
+            const walkStage = (stageData) => {
+              if (!stageData) return;
+              const root = stageData.plan?.root;
+              stages.push(root ? this.planNodeSequence(root) : "");
+              (stageData.subStages || []).forEach((sub) => walkStage(sub));
+            };
+            walkStage(model.raw.query?.outputStage);
+            return stages.join("|");
+          },
+
+          planNodeSequence(node) {
+            if (!node || typeof node !== "object") return "";
+            const type = ModelBuilder.getNodeTypeName(node["@type"] || "");
+            const childKeys = [
+              "source",
+              "left",
+              "right",
+              "input",
+              "sources",
+              "filteringSource",
+              "probeSource",
+              "buildSource",
+            ];
+            const children = [];
+            childKeys.forEach((key) => {
+              if (node[key]) {
+                if (Array.isArray(node[key])) {
+                  node[key].forEach((child) =>
+                    children.push(this.planNodeSequence(child)),
+                  );
+                } else if (
+                  typeof node[key] === "object" &&
+                  node[key]["@type"]
+                ) {
+                  children.push(this.planNodeSequence(node[key]));
+                }
+              }
+            });
+            return `${type}(${children.join(",")})`;
+          },
+
+          buildStageMapping(models) {
+            const getStageOrder = (model) => {
+              const order = [];
+              const walk = (stageData) => {
+                if (!stageData) return;
+                const parts = stageData.stageId.split(".");
+                order.push(parseInt(parts[parts.length - 1], 10));
+                (stageData.subStages || []).forEach((sub) => walk(sub));
+              };
+              walk(model.raw.query?.outputStage);
+              return order;
+            };
+            const orders = models.map((m) => getStageOrder(m.model));
+            return orders.map((order) => {
+              const map = new Map();
+              orders[0].forEach((baseId, idx) => {
+                if (idx < order.length) map.set(baseId, order[idx]);
+              });
+              return map;
+            });
+          },
+
+          delta(a, b, lowerIsBetter = true) {
+            const abs = b - a;
+            const pct = a !== 0 ? ((b - a) / a) * 100 : b !== 0 ? Infinity : 0;
+            let direction = "neutral";
+            if (abs !== 0) {
+              direction = (lowerIsBetter ? abs < 0 : abs > 0)
+                ? "better"
+                : "worse";
+            }
+            return { abs, pct, direction };
+          },
+
+          setIntersection(sets) {
+            if (sets.length === 0) return new Set();
+            let result = new Set(sets[0]);
+            for (let i = 1; i < sets.length; i++) {
+              result = new Set([...result].filter((x) => sets[i].has(x)));
+            }
+            return result;
+          },
+
+          setUnion(sets) {
+            const result = new Set();
+            sets.forEach((s) => s.forEach((x) => result.add(x)));
+            return result;
+          },
+        };
+
+        // ==========================================================================
         // View Renderers
         // ==========================================================================
 
@@ -5672,7 +6153,10 @@
                 .attr("height", "100%")
                 .attr("viewBox", opts.viewBox);
             } else {
-              svg.attr("width", width).attr("height", height);
+              svg
+                .attr("width", width)
+                .attr("height", height)
+                .style("overflow", "visible");
             }
             const g = svg.append("g");
             const scaleExtent = opts.scaleExtent || [0.1, 4];
@@ -7458,7 +7942,9 @@
               .attr("markerHeight", 6)
               .attr("orient", "auto")
               .append("path")
-              .attr("fill", (d) => (d === "exchange" ? "#d216d2" : "#6a6a6a"))
+              .attr("fill", (d) =>
+                d === "exchange" ? "#d216d2" : "var(--dag-edge-neutral)",
+              )
               .attr("d", "M0,-5L10,0L0,5");
 
             // Get layout metadata
@@ -7640,7 +8126,7 @@
               .join("path")
               .attr("fill", "none")
               .attr("stroke", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#4a5568",
+                d.type === "exchange" ? "#d216d2" : "var(--dag-edge-neutral)",
               )
               .attr("stroke-width", (d) => (d.type === "exchange" ? 2 : 1.5))
               .attr("stroke-dasharray", (d) =>
@@ -7691,7 +8177,7 @@
 
             edgeLabel
               .append("rect")
-              .attr("fill", "rgba(26, 26, 46, 0.9)")
+              .attr("fill", "var(--bg-card)")
               .attr("rx", 3)
               .attr("ry", 3);
 
@@ -7701,7 +8187,7 @@
               .attr("text-anchor", "middle")
               .attr("dy", "-0.8em")
               .attr("fill", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#a0a0a0",
+                d.type === "exchange" ? "#d216d2" : "var(--text-secondary)",
               )
               .attr("font-size", "9px")
               .attr("font-family", "var(--font-mono)")
@@ -7715,7 +8201,7 @@
               .attr("text-anchor", "middle")
               .attr("dy", "0.3em")
               .attr("fill", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#a0a0a0",
+                d.type === "exchange" ? "#d216d2" : "var(--text-secondary)",
               )
               .attr("font-size", "8px")
               .attr("font-family", "var(--font-mono)")
@@ -7727,7 +8213,7 @@
               .attr("class", "edge-cols")
               .attr("text-anchor", "middle")
               .attr("dy", "1.4em")
-              .attr("fill", "#6a9ec9")
+              .attr("fill", "var(--dag-edge-cols)")
               .attr("font-size", "8px")
               .attr("font-family", "var(--font-mono)")
               .text((d) =>
@@ -7795,7 +8281,7 @@
               .attr("height", nodeHeight)
               .attr("rx", 6)
               .attr("ry", 6)
-              .attr("fill", "#1a1a2e")
+              .attr("fill", "var(--bg-card)")
               .attr("stroke", (d) => stageColors[d.stageId] || "#4a9eff")
               .attr("stroke-width", (d) => (d.isRemoteSource ? 3 : 2));
 
@@ -7805,7 +8291,7 @@
               .attr("class", "node-type-label")
               .attr("dy", -4)
               .attr("text-anchor", "middle")
-              .attr("fill", "#fff")
+              .attr("fill", "var(--text-primary)")
               .attr("font-size", "11px")
               .attr("font-weight", "bold")
               .text((d) =>
@@ -7818,7 +8304,7 @@
               .attr("class", "node-id-label")
               .attr("dy", -4)
               .attr("text-anchor", "start")
-              .attr("fill", "rgba(255,255,255,0.4)")
+              .attr("fill", "var(--text-muted)")
               .attr("font-size", "8px")
               .attr("dx", (d) => {
                 const typeLen = Math.min(d.type.length, 14);
@@ -7831,7 +8317,7 @@
               .append("text")
               .attr("dy", 12)
               .attr("text-anchor", "middle")
-              .attr("fill", "rgba(255,255,255,0.6)")
+              .attr("fill", "var(--text-secondary)")
               .attr("font-size", "8px")
               .text((d) => {
                 const det = d.details;
@@ -8019,7 +8505,9 @@
               .attr("markerHeight", 6)
               .attr("orient", "auto")
               .append("path")
-              .attr("fill", (d) => (d === "exchange" ? "#d216d2" : "#6a6a6a"))
+              .attr("fill", (d) =>
+                d === "exchange" ? "#d216d2" : "var(--dag-edge-neutral)",
+              )
               .attr("d", "M0,-5L10,0L0,5");
 
             // Resolve link source/target to actual node objects
@@ -8041,7 +8529,7 @@
               .data(resolvedLinks)
               .join("line")
               .attr("stroke", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#4a5568",
+                d.type === "exchange" ? "#d216d2" : "var(--dag-edge-neutral)",
               )
               .attr("stroke-width", (d) => (d.type === "exchange" ? 2 : 1.5))
               .attr("stroke-dasharray", (d) =>
@@ -8069,7 +8557,7 @@
             // Background for readability
             edgeLabel
               .append("rect")
-              .attr("fill", "rgba(26, 26, 46, 0.85)")
+              .attr("fill", "var(--dag-edge-label-bg)")
               .attr("rx", 3)
               .attr("ry", 3);
 
@@ -8081,7 +8569,9 @@
               .attr("text-anchor", "middle")
               .attr("dy", "-1.1em")
               .attr("fill", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#a0a0a0",
+                d.type === "exchange"
+                  ? "#d216d2"
+                  : "var(--dag-edge-label-neutral)",
               )
               .attr("font-size", "9px")
               .attr("font-family", "var(--font-mono)")
@@ -8099,7 +8589,9 @@
               .attr("text-anchor", "middle")
               .attr("dy", "0.1em")
               .attr("fill", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#a0a0a0",
+                d.type === "exchange"
+                  ? "#d216d2"
+                  : "var(--dag-edge-label-neutral)",
               )
               .attr("font-size", "9px")
               .attr("font-family", "var(--font-mono)")
@@ -8118,7 +8610,9 @@
               .attr("text-anchor", "middle")
               .attr("dy", "1.3em")
               .attr("fill", (d) =>
-                d.type === "exchange" ? "#d216d2" : "#a0a0a0",
+                d.type === "exchange"
+                  ? "#d216d2"
+                  : "var(--dag-edge-label-neutral)",
               )
               .attr("font-size", "9px")
               .attr("font-family", "var(--font-mono)")
@@ -8194,7 +8688,9 @@
               .attr("rx", 6)
               .attr("ry", 6)
               .attr("fill", (d) => stageColors[d.stageId] || "#4a9eff")
-              .attr("stroke", (d) => (d.isRemoteSource ? "#a78bfa" : "#1a1a2e"))
+              .attr("stroke", (d) =>
+                d.isRemoteSource ? "#a78bfa" : "var(--dag-node-stroke-default)",
+              )
               .attr("stroke-width", (d) => (d.isRemoteSource ? 3 : 2));
 
             // Node type label (inside, top)
@@ -8202,7 +8698,7 @@
               .append("text")
               .attr("dy", -4)
               .attr("text-anchor", "middle")
-              .attr("fill", "#fff")
+              .attr("fill", "var(--dag-badge-text)")
               .attr("font-size", "10px")
               .attr("font-weight", "bold")
               .text((d) =>
@@ -9350,6 +9846,544 @@
             this.renderPipelineGraphTab(model, container, true);
           },
 
+          // ── Compare View ───────────────────
+          renderCompare(models, container) {
+            if (models.length === 0) {
+              container.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px;">
+                  <div class="compare-upload-zone" id="compare-upload-zone">
+                    <div style="font-size: 32px; margin-bottom: 16px;">&#x2194;</div>
+                    <div class="upload-zone-title">Compare Queries</div>
+                    <div class="upload-zone-subtitle">Drop 2 or more <code>.presto_metrics.json</code> files here</div>
+                    <div class="upload-zone-hint">or click to browse</div>
+                    <input type="file" id="compare-file-input" class="upload-input" accept=".json" multiple />
+                  </div>
+                </div>`;
+              this.wireCompareUploadZone();
+              return;
+            }
+
+            const overlap = CompareUtils.detectOverlap(models);
+
+            let html = `
+              <div class="view-header">
+                <h2 class="view-title">Query Comparison</h2>
+                <p class="text-secondary">${models.length} queries &mdash;
+                  <span class="badge primary">${overlap.level.replace(/_/g, " ")}</span>
+                  ${overlap.sameSql ? '<span class="badge success">Same SQL</span>' : ""}
+                  ${overlap.samePlanStructure ? '<span class="badge success">Same Plan</span>' : ""}
+                  ${overlap.sameWorkerSet ? '<span class="badge success">Same Workers</span>' : ""}
+                </p>
+              </div>`;
+
+            html += this.renderCompareFileBar(models);
+            html += this.renderCompareSummary(models);
+            html += this.renderCompareTotals(models);
+            html += this.renderCompareTimingBreakdown(models);
+
+            if (overlap.samePlanStructure || overlap.sameStageCount) {
+              html += this.renderCompareStages(models, overlap);
+            }
+
+            if (overlap.samePlanStructure) {
+              html += this.renderCompareOperators(models, overlap);
+            }
+
+            if (overlap.sameWorkerSet) {
+              html += this.renderCompareWorkers(models, overlap);
+            }
+
+            html += `<div class="compare-add-more">
+              <label class="compare-add-btn">
+                + Add more files
+                <input type="file" class="upload-input" id="compare-add-input" accept=".json" multiple />
+              </label>
+            </div>`;
+
+            container.innerHTML = html;
+
+            // Wire events
+            const addInput = document.getElementById("compare-add-input");
+            if (addInput) {
+              addInput.addEventListener("change", (e) => {
+                if (e.target.files.length > 0)
+                  App.loadCompareFiles(e.target.files);
+              });
+            }
+            container.querySelectorAll(".compare-remove-btn").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const idx = parseInt(btn.dataset.index, 10);
+                App.compareModels.splice(idx, 1);
+                const COLORS = [
+                  "#4a9eff",
+                  "#f59e0b",
+                  "#22c55e",
+                  "#ec4899",
+                  "#8b5cf6",
+                  "#14b8a6",
+                ];
+                App.compareModels.forEach((entry, i) => {
+                  entry.color = COLORS[i % COLORS.length];
+                });
+                App.renderCurrentView();
+              });
+            });
+          },
+
+          wireCompareUploadZone() {
+            const zone = document.getElementById("compare-upload-zone");
+            const input = document.getElementById("compare-file-input");
+            if (!zone || !input) return;
+            zone.addEventListener("click", () => input.click());
+            zone.addEventListener("dragover", (e) => {
+              e.preventDefault();
+              zone.classList.add("drag-over");
+            });
+            zone.addEventListener("dragleave", () =>
+              zone.classList.remove("drag-over"),
+            );
+            zone.addEventListener("drop", (e) => {
+              e.preventDefault();
+              zone.classList.remove("drag-over");
+              if (e.dataTransfer.files.length > 0)
+                App.loadCompareFiles(e.dataTransfer.files);
+            });
+            input.addEventListener("change", (e) => {
+              if (e.target.files.length > 0)
+                App.loadCompareFiles(e.target.files);
+            });
+          },
+
+          renderCompareFileBar(models) {
+            const items = models
+              .map(
+                (m, i) => `
+              <div class="compare-file-item" style="border-left: 3px solid ${m.color}">
+                <span class="compare-file-label">${Utils.escapeHtml(m.label)}</span>
+                <span class="badge ${this.getStateBadgeClass(m.model.query.state)}">${m.model.query.state}</span>
+                <button class="compare-remove-btn" data-index="${i}" title="Remove">&#x2715;</button>
+              </div>`,
+              )
+              .join("");
+            return Utils.card(
+              "Loaded Queries",
+              `<div class="compare-file-bar">${items}</div>`,
+              { mb: true },
+            );
+          },
+
+          renderCompareSummary(models) {
+            const R = Utils.detailRow;
+            const cards = models
+              .map((m) => {
+                const q = m.model.query;
+                return `<div class="compare-query-card" style="border-top: 3px solid ${m.color}">
+                <div class="compare-query-label" style="color: ${m.color}">${Utils.escapeHtml(m.label)}</div>
+                ${R("User", Utils.escapeHtml(q.session.user || "N/A"))}
+                ${R("Catalog", `${Utils.escapeHtml(q.session.catalog || "N/A")}.${Utils.escapeHtml(q.session.schema || "N/A")}`)}
+                ${R("Source", Utils.escapeHtml(q.session.source || "N/A"))}
+                ${R("Duration", `<span class="font-mono">${q.timing.elapsed || "N/A"}</span>`)}
+                ${R("CPU Time", `<span class="font-mono">${q.totals.cpuTime || "N/A"}</span>`)}
+                ${R("Peak Memory", `<span class="font-mono">${q.totals.peakTotalMemory || "N/A"}</span>`)}
+              </div>`;
+              })
+              .join("");
+            return Utils.card(
+              "Query Summary",
+              `<div class="compare-card-grid">${cards}</div>`,
+              { mb: true },
+            );
+          },
+
+          renderCompareTotals(models) {
+            const metrics = [
+              {
+                label: "Elapsed Time",
+                get: (m) => Utils.parseTimeToNanos(m.query.timing.elapsed),
+                fmt: (v) => Utils.formatDuration(v),
+                lower: true,
+              },
+              {
+                label: "CPU Time",
+                get: (m) => Utils.parseTimeToNanos(m.query.totals.cpuTime),
+                fmt: (v) => Utils.formatDuration(v),
+                lower: true,
+              },
+              {
+                label: "Blocked Time",
+                get: (m) => Utils.parseTimeToNanos(m.query.totals.blockedTime),
+                fmt: (v) => Utils.formatDuration(v),
+                lower: true,
+              },
+              {
+                label: "Peak Memory",
+                get: (m) => Utils.parseBytes(m.query.totals.peakTotalMemory),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: true,
+              },
+              {
+                label: "Raw Input",
+                get: (m) => Utils.parseBytes(m.query.totals.rawInputSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: false,
+              },
+              {
+                label: "Processed Input",
+                get: (m) => Utils.parseBytes(m.query.totals.processedInputSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: false,
+              },
+              {
+                label: "Shuffled",
+                get: (m) => Utils.parseBytes(m.query.totals.shuffledSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: true,
+              },
+              {
+                label: "Output",
+                get: (m) => Utils.parseBytes(m.query.totals.outputSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: false,
+              },
+              {
+                label: "Stages",
+                get: (m) => m.stages.size,
+                fmt: (v) => v,
+                lower: false,
+              },
+              {
+                label: "Tasks",
+                get: (m) => m.tasks.size,
+                fmt: (v) => v,
+                lower: false,
+              },
+              {
+                label: "Workers",
+                get: (m) => m.workers.size,
+                fmt: (v) => v,
+                lower: false,
+              },
+            ];
+
+            const headers = [{ label: "Metric" }];
+            models.forEach((m) =>
+              headers.push({
+                label: `<span style="color:${m.color}">${Utils.escapeHtml(m.label)}</span>`,
+              }),
+            );
+            if (models.length === 2) headers.push({ label: "Delta" });
+
+            let rowsHtml = "";
+            metrics.forEach((metric) => {
+              const values = models.map((entry) => metric.get(entry.model));
+              const formatted = values.map((v) => metric.fmt(v));
+
+              let deltaHtml = "";
+              if (models.length === 2) {
+                const d = CompareUtils.delta(
+                  values[0],
+                  values[1],
+                  metric.lower,
+                );
+                const cls =
+                  d.direction === "better"
+                    ? "compare-better"
+                    : d.direction === "worse"
+                      ? "compare-worse"
+                      : "";
+                const sign = d.abs > 0 ? "+" : "";
+                const pctStr = isFinite(d.pct)
+                  ? ` (${sign}${d.pct.toFixed(1)}%)`
+                  : "";
+                deltaHtml = `<td class="numeric ${cls}">${sign}${metric.fmt(d.abs)}${pctStr}</td>`;
+              }
+
+              rowsHtml += `<tr><td>${metric.label}</td>`;
+              formatted.forEach(
+                (f) => (rowsHtml += `<td class="numeric">${f}</td>`),
+              );
+              rowsHtml += deltaHtml + "</tr>";
+            });
+
+            return Utils.card(
+              "High-Level Totals",
+              Utils.dataTable("compare-totals", headers, rowsHtml),
+              { mb: true, noPadding: true },
+            );
+          },
+
+          renderCompareTimingBreakdown(models) {
+            const phases = [
+              { label: "Queued", key: "queued", color: "#666680" },
+              { label: "Planning", key: "planning", color: "#8b5cf6" },
+              { label: "Analysis", key: "analysis", color: "#6366f1" },
+              { label: "Execution", key: "execution", color: "#4a9eff" },
+              { label: "Finishing", key: "finishing", color: "#22c55e" },
+            ];
+
+            // Gather values per model per phase
+            const data = models.map((entry) => {
+              const t = entry.model.query.timing;
+              return phases.map((p) => Utils.parseTimeToNanos(t[p.key]) || 0);
+            });
+            const maxTotal = Math.max(
+              ...data.map((d) => d.reduce((a, b) => a + b, 0)),
+              1,
+            );
+
+            let rows = "";
+            models.forEach((entry, mi) => {
+              const total = data[mi].reduce((a, b) => a + b, 0);
+              const segments = phases
+                .map((p, pi) => {
+                  const w = total > 0 ? (data[mi][pi] / maxTotal) * 100 : 0;
+                  if (w < 0.5) return "";
+                  return `<div class="compare-bar" style="width: ${w}%; background: ${p.color};" title="${p.label}: ${Utils.formatDuration(data[mi][pi])}"></div>`;
+                })
+                .join("");
+              rows += `<div class="compare-timing-row">
+                <div class="compare-timing-label">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${entry.color}; flex-shrink: 0;"></span>
+                  ${Utils.escapeHtml(entry.label)}
+                </div>
+                <div class="compare-bar-track" style="display: flex;">${segments}</div>
+                <span class="compare-bar-value">${Utils.formatDuration(total)}</span>
+              </div>`;
+            });
+
+            // Legend
+            const legend = phases
+              .map(
+                (p) =>
+                  `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:2px;background:${p.color}"></span>${p.label}</span>`,
+              )
+              .join("");
+
+            return Utils.card(
+              "Timing Breakdown",
+              `<div style="margin-bottom:8px">${legend}</div>${rows}`,
+              { mb: true },
+            );
+          },
+
+          renderCompareStages(models, overlap) {
+            const baseModel = models[0].model;
+            const stageIds = Array.from(baseModel.stages.keys()).sort(
+              (a, b) => a - b,
+            );
+
+            const headers = [{ label: "Stage" }, { label: "Root Type" }];
+            models.forEach((m) => {
+              headers.push({
+                label: `<span style="color:${m.color}">CPU</span>`,
+              });
+              headers.push({
+                label: `<span style="color:${m.color}">Blocked</span>`,
+              });
+              headers.push({
+                label: `<span style="color:${m.color}">Input</span>`,
+              });
+            });
+
+            let rowsHtml = "";
+            stageIds.forEach((baseStageId) => {
+              const baseStage = baseModel.stages.get(baseStageId);
+              if (!baseStage) return;
+
+              rowsHtml += `<tr><td>${baseStageId}</td><td>${baseStage.rootNodeType || "?"}</td>`;
+
+              models.forEach((entry, mi) => {
+                let stageId = baseStageId;
+                if (
+                  overlap.stageMapping &&
+                  mi > 0 &&
+                  overlap.stageMapping[mi]
+                ) {
+                  stageId = overlap.stageMapping[mi].get(baseStageId);
+                }
+                const stage = entry.model.stages.get(stageId);
+                if (stage) {
+                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stage.metrics.cpuTimeNanos)}</td>`;
+                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stage.metrics.blockedTimeNanos)}</td>`;
+                  rowsHtml += `<td class="numeric">${Utils.formatBytes(stage.metrics.inputBytes)}</td>`;
+                } else {
+                  rowsHtml += `<td>-</td><td>-</td><td>-</td>`;
+                }
+              });
+              rowsHtml += "</tr>";
+            });
+
+            return Utils.card(
+              "Stage Comparison",
+              Utils.dataTable("compare-stages", headers, rowsHtml),
+              { mb: true, noPadding: true },
+            );
+          },
+
+          renderCompareOperators(models, overlap) {
+            if (!overlap.stageMapping) return "";
+
+            const baseModel = models[0].model;
+            const headers = [
+              { label: "Stage" },
+              { label: "Node" },
+              { label: "Type" },
+            ];
+            models.forEach((m) => {
+              headers.push({
+                label: `<span style="color:${m.color}">Wall Time</span>`,
+              });
+              headers.push({
+                label: `<span style="color:${m.color}">Rows Out</span>`,
+              });
+            });
+            if (models.length === 2) {
+              headers.push({ label: "Time Delta" });
+            }
+
+            // Group operators by plan node for the base model
+            const baseByNode = new Map();
+            baseModel.operators.forEach((op) => {
+              if (!op.planNodeId) return;
+              if (!baseByNode.has(op.planNodeId)) {
+                baseByNode.set(op.planNodeId, {
+                  type: op.type,
+                  stageId: op.stageId,
+                  wallTime: 0,
+                  rowsOut: 0,
+                });
+              }
+              const entry = baseByNode.get(op.planNodeId);
+              entry.wallTime +=
+                (op.metrics.addInputWallNanos || 0) +
+                (op.metrics.getOutputWallNanos || 0) +
+                (op.metrics.finishWallNanos || 0);
+              entry.rowsOut += op.metrics.outputPositions || 0;
+            });
+
+            // Do the same for other models
+            const otherByNode = models.slice(1).map((entry) => {
+              const byNode = new Map();
+              entry.model.operators.forEach((op) => {
+                if (!op.planNodeId) return;
+                if (!byNode.has(op.planNodeId)) {
+                  byNode.set(op.planNodeId, {
+                    type: op.type,
+                    stageId: op.stageId,
+                    wallTime: 0,
+                    rowsOut: 0,
+                  });
+                }
+                const e = byNode.get(op.planNodeId);
+                e.wallTime +=
+                  (op.metrics.addInputWallNanos || 0) +
+                  (op.metrics.getOutputWallNanos || 0) +
+                  (op.metrics.finishWallNanos || 0);
+                e.rowsOut += op.metrics.outputPositions || 0;
+              });
+              return byNode;
+            });
+
+            // Build rows sorted by base wall time descending
+            const entries = Array.from(baseByNode.entries()).sort(
+              (a, b) => b[1].wallTime - a[1].wallTime,
+            );
+
+            let rowsHtml = "";
+            entries.forEach(([nodeId, base]) => {
+              rowsHtml += `<tr><td>${base.stageId}</td><td class="font-mono">${nodeId}</td><td>${base.type}</td>`;
+              rowsHtml += `<td class="numeric">${Utils.formatDuration(base.wallTime)}</td>`;
+              rowsHtml += `<td class="numeric">${Utils.formatNumber(base.rowsOut)}</td>`;
+
+              otherByNode.forEach((byNode) => {
+                const other = byNode.get(nodeId);
+                if (other) {
+                  rowsHtml += `<td class="numeric">${Utils.formatDuration(other.wallTime)}</td>`;
+                  rowsHtml += `<td class="numeric">${Utils.formatNumber(other.rowsOut)}</td>`;
+                } else {
+                  rowsHtml += `<td>-</td><td>-</td>`;
+                }
+              });
+
+              if (models.length === 2) {
+                const other = otherByNode[0]?.get(nodeId);
+                if (other) {
+                  const d = CompareUtils.delta(
+                    base.wallTime,
+                    other.wallTime,
+                    true,
+                  );
+                  const cls =
+                    d.direction === "better"
+                      ? "compare-better"
+                      : d.direction === "worse"
+                        ? "compare-worse"
+                        : "";
+                  const sign = d.abs > 0 ? "+" : "";
+                  const pctStr = isFinite(d.pct)
+                    ? ` (${sign}${d.pct.toFixed(1)}%)`
+                    : "";
+                  rowsHtml += `<td class="numeric ${cls}">${sign}${Utils.formatDuration(d.abs)}${pctStr}</td>`;
+                } else {
+                  rowsHtml += `<td>-</td>`;
+                }
+              }
+
+              rowsHtml += "</tr>";
+            });
+
+            return Utils.card(
+              "Operator Comparison",
+              Utils.dataTable("compare-operators", headers, rowsHtml, {
+                maxHeight: "500px",
+              }),
+              { mb: true, noPadding: true },
+            );
+          },
+
+          renderCompareWorkers(models, overlap) {
+            const workers = Array.from(overlap.workerIntersection).sort();
+
+            // Derive per-worker stats for each model
+            const allStats = models.map((entry) => {
+              const { workerStats } = Derived.deriveWorkersData(entry.model);
+              return workerStats;
+            });
+
+            const headers = [{ label: "Worker" }];
+            models.forEach((m) => {
+              headers.push({
+                label: `<span style="color:${m.color}">Tasks</span>`,
+              });
+              headers.push({
+                label: `<span style="color:${m.color}">CPU</span>`,
+              });
+            });
+
+            let rowsHtml = "";
+            workers.forEach((host) => {
+              rowsHtml += `<tr><td class="font-mono">${Utils.escapeHtml(host)}</td>`;
+              models.forEach((entry, mi) => {
+                const stats = allStats[mi].get(host);
+                if (stats) {
+                  rowsHtml += `<td class="numeric">${stats.taskCount}</td>`;
+                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stats.cpuTimeNanos)}</td>`;
+                } else {
+                  rowsHtml += `<td>-</td><td>-</td>`;
+                }
+              });
+              rowsHtml += "</tr>";
+            });
+
+            return Utils.card(
+              "Worker Comparison",
+              Utils.dataTable("compare-workers", headers, rowsHtml, {
+                maxHeight: "400px",
+              }),
+              { mb: true, noPadding: true },
+            );
+          },
+
           /**
            * Pipeline Graph Tab - Shared implementation for both standalone view and tab
            * @param {boolean} isStandalone - If true, use full viewport height
@@ -10495,7 +11529,7 @@
                   .attr("width", workerBadgeWidth)
                   .attr("height", 18)
                   .attr("rx", 4)
-                  .attr("fill", "#6b7280");
+                  .attr("fill", "var(--dag-badge-gray)");
 
                 workerBadgeGroup
                   .append("text")
@@ -10504,7 +11538,7 @@
                   .attr("text-anchor", "middle")
                   .attr("font-size", "10px")
                   .attr("font-weight", "600")
-                  .attr("fill", "white")
+                  .attr("fill", "var(--dag-badge-text)")
                   .text(`${workerCount}w`);
               }
 
@@ -10528,14 +11562,14 @@
                 .attr("width", stageDurationBadgeWidth)
                 .attr("height", 18)
                 .attr("rx", 4)
-                .attr("fill", "#8b5cf6");
+                .attr("fill", "var(--dag-badge-purple)");
               sg.append("text")
                 .attr("x", layout.width - 12 - stageDurationBadgeWidth / 2)
                 .attr("y", 19)
                 .attr("text-anchor", "middle")
                 .attr("font-size", "10px")
                 .attr("font-weight", "600")
-                .attr("fill", "white")
+                .attr("fill", "var(--dag-badge-text)")
                 .text(stageDurationText);
 
               // Stage footer bar (for ports)
@@ -10581,7 +11615,7 @@
                     .attr("text-anchor", "middle")
                     .attr("font-size", "8px")
                     .attr("font-weight", "600")
-                    .attr("fill", "#f59e0b")
+                    .attr("fill", "var(--accent-warning)")
                     .text(Utils.formatDuration(avgBackpressure));
                 }
               });
@@ -11252,7 +12286,7 @@
                 .attr("width", pipelineDurationBadgeWidth)
                 .attr("height", 14)
                 .attr("rx", 3)
-                .attr("fill", "#8b5cf6");
+                .attr("fill", "var(--dag-badge-purple)");
               pg.append("text")
                 .attr(
                   "x",
@@ -11262,7 +12296,7 @@
                 .attr("text-anchor", "middle")
                 .attr("font-size", "8px")
                 .attr("font-weight", "600")
-                .attr("fill", "white")
+                .attr("fill", "var(--dag-badge-text)")
                 .text(pipelineDurationText);
 
               // Pipeline memory metrics - aggregate from operators
@@ -11288,14 +12322,14 @@
                   .attr("width", memoryBadgeWidth)
                   .attr("height", 14)
                   .attr("rx", 3)
-                  .attr("fill", "#3b82f6");
+                  .attr("fill", "var(--dag-badge-blue)");
                 pg.append("text")
                   .attr("x", badgeX + memoryBadgeWidth / 2)
                   .attr("y", 28)
                   .attr("text-anchor", "middle")
                   .attr("font-size", "8px")
                   .attr("font-weight", "600")
-                  .attr("fill", "white")
+                  .attr("fill", "var(--dag-badge-text)")
                   .text(memoryText);
                 badgeX += memoryBadgeWidth + 4;
               }
@@ -11310,14 +12344,14 @@
                   .attr("width", spillBadgeWidth)
                   .attr("height", 14)
                   .attr("rx", 3)
-                  .attr("fill", "#ef4444");
+                  .attr("fill", "var(--dag-badge-red)");
                 pg.append("text")
                   .attr("x", badgeX + spillBadgeWidth / 2)
                   .attr("y", 28)
                   .attr("text-anchor", "middle")
                   .attr("font-size", "8px")
                   .attr("font-weight", "600")
-                  .attr("fill", "white")
+                  .attr("fill", "var(--dag-badge-text)")
                   .text(`⚠${spillText}`);
               }
 
@@ -11620,7 +12654,7 @@
                     .attr("width", throughputBadgeWidth)
                     .attr("height", 14)
                     .attr("rx", 3)
-                    .attr("fill", "#f59e0b");
+                    .attr("fill", "var(--accent-warning)");
                   pg.append("text")
                     .attr(
                       "x",
@@ -11633,7 +12667,7 @@
                     .attr("text-anchor", "middle")
                     .attr("font-size", "8px")
                     .attr("font-weight", "600")
-                    .attr("fill", "white")
+                    .attr("fill", "var(--dag-badge-text)")
                     .text(throughputText);
                 }
 
@@ -11644,14 +12678,14 @@
                   .attr("width", durationBadgeWidth)
                   .attr("height", 14)
                   .attr("rx", 3)
-                  .attr("fill", "#8b5cf6");
+                  .attr("fill", "var(--dag-badge-purple)");
                 pg.append("text")
                   .attr("x", pos.width - durationBadgeWidth / 2 - 4)
                   .attr("y", opY + 13)
                   .attr("text-anchor", "middle")
                   .attr("font-size", "8px")
                   .attr("font-weight", "600")
-                  .attr("fill", "white")
+                  .attr("fill", "var(--dag-badge-text)")
                   .text(durationText);
 
                 // Bottom row for output badges
@@ -11666,7 +12700,7 @@
                     .attr("y", bottomBarY + 8)
                     .attr("text-anchor", "start")
                     .attr("font-size", "8px")
-                    .attr("fill", "#ef4444")
+                    .attr("fill", "var(--accent-danger)")
                     .attr("title", `Spilled: ${spillText}`)
                     .text(`💾${spillText}`);
                   leftX += spillText.length * 5 + 14;
@@ -11692,7 +12726,7 @@
                   .attr("text-anchor", "end")
                   .attr("font-size", "8px")
                   .attr("font-weight", "600")
-                  .attr("fill", "#36c9dd")
+                  .attr("fill", "var(--accent-primary)")
                   .text(`${rowsText} rows`);
 
                 // Output bytes badge (orange) - left of rows
@@ -11703,7 +12737,7 @@
                   .attr("text-anchor", "end")
                   .attr("font-size", "8px")
                   .attr("font-weight", "600")
-                  .attr("fill", "#f59e0b")
+                  .attr("fill", "var(--accent-warning)")
                   .text(bytesText);
 
                 opY += currentOpHeight + operatorGap;
@@ -12660,6 +13694,7 @@
         const App = {
           // ── State ──────────────────────────
           model: null,
+          compareModels: [],
           currentView: "explain",
           viewSetFromUrl: false,
           // D3 selections for Plan view highlighting
@@ -12686,6 +13721,7 @@
               "operators",
               "pipeline",
               "pipeline-graph",
+              "compare",
             ];
             if (viewParam && validViews.includes(viewParam)) {
               this.currentView = viewParam;
@@ -12746,6 +13782,23 @@
               .addEventListener("click", () => {
                 this.reset();
               });
+
+            // Compare multiple files from upload screen
+            const compareLink = document.getElementById("upload-compare-link");
+            const compareInput = document.getElementById(
+              "compare-upload-input",
+            );
+            if (compareLink && compareInput) {
+              compareLink.addEventListener("click", (e) => {
+                e.preventDefault();
+                compareInput.click();
+              });
+              compareInput.addEventListener("change", (e) => {
+                if (e.target.files.length > 0) {
+                  this.loadCompareFiles(e.target.files);
+                }
+              });
+            }
 
             // Detail panel close
             document
@@ -12935,90 +13988,17 @@
                 "operators",
                 "pipeline",
                 "pipeline-graph",
+                "compare",
               ];
+              const defaultView =
+                this.currentView && this.currentView !== "compare"
+                  ? this.currentView
+                  : "explain";
               const targetView =
-                urlView && validViews.includes(urlView)
-                  ? urlView
-                  : this.currentView || "explain";
+                urlView && validViews.includes(urlView) ? urlView : defaultView;
               this.switchView(targetView);
 
-              // Update header with query summary
-              const querySummary = document.getElementById("query-summary");
-              querySummary.classList.remove("hidden");
-
-              const q = this.model.query;
-
-              // Query ID
-              document.getElementById("header-query-id").textContent = q.id;
-
-              // State badge
-              const stateEl = document.getElementById("header-state");
-              stateEl.textContent = q.state;
-              stateEl.className = "query-summary-state";
-              if (q.state === "FINISHED") {
-                stateEl.classList.add("state-finished");
-              } else if (q.state === "FAILED") {
-                stateEl.classList.add("state-failed");
-              } else {
-                stateEl.classList.add("state-running");
-              }
-
-              // Duration
-              document.getElementById("header-duration").innerHTML =
-                `<span class="query-summary-label">Duration</span>${q.timing.elapsed || "N/A"}`;
-
-              // Queued
-              document.getElementById("header-queued").innerHTML =
-                `<span class="query-summary-label">Queued</span>${q.timing.queued || "0"}`;
-
-              // Planning
-              document.getElementById("header-planning").innerHTML =
-                `<span class="query-summary-label">Planning</span>${q.timing.planning || "0"}`;
-
-              // Analysis
-              document.getElementById("header-analysis").innerHTML =
-                `<span class="query-summary-label">Analysis</span>${q.timing.analysis || "0"}`;
-
-              // CPU Time
-              document.getElementById("header-cpu").innerHTML =
-                `<span class="query-summary-label">CPU</span>${q.totals.cpuTime || "N/A"}`;
-
-              // Peak Memory
-              document.getElementById("header-memory").innerHTML =
-                `<span class="query-summary-label">Memory</span>${q.totals.peakTotalMemory || "N/A"}`;
-
-              // Input
-              document.getElementById("header-input").innerHTML =
-                `<span class="query-summary-label">Input</span>${q.totals.rawInputSize || "0B"}`;
-
-              // Shuffled
-              document.getElementById("header-shuffled").innerHTML =
-                `<span class="query-summary-label">Shuffled</span>${q.totals.shuffledSize || "0B"}`;
-
-              // Output
-              document.getElementById("header-output").innerHTML =
-                `<span class="query-summary-label">Output</span>${q.totals.outputSize || "0B"}`;
-
-              // Stages
-              document.getElementById("header-stages").innerHTML =
-                `<span class="query-summary-label">Stages</span>${this.model.stages.size}`;
-
-              // Tasks
-              document.getElementById("header-tasks").innerHTML =
-                `<span class="query-summary-label">Tasks</span>${this.model.tasks.size}`;
-
-              // Workers
-              document.getElementById("header-workers").innerHTML =
-                `<span class="query-summary-label">Workers</span>${this.model.workers.size}`;
-
-              // Operators
-              document.getElementById("header-operators").innerHTML =
-                `<span class="query-summary-label">Operators</span>${this.model.operators.length}`;
-
-              // SQL hover with syntax highlighting
-              const sqlTooltip = document.getElementById("sql-tooltip");
-              const sql = q.sql || "No SQL available";
-              sqlTooltip.innerHTML = this.highlightSQL(sql);
+              this.updateHeader();
 
               // Reset file inputs
               document.getElementById("file-input").value = "";
@@ -13030,6 +14010,112 @@
             }
           },
 
+          updateHeader() {
+            if (!this.model) return;
+            const querySummary = document.getElementById("query-summary");
+            querySummary.classList.remove("hidden");
+
+            const q = this.model.query;
+
+            document.getElementById("header-query-id").textContent = q.id;
+
+            const stateEl = document.getElementById("header-state");
+            stateEl.textContent = q.state;
+            stateEl.className = "query-summary-state";
+            if (q.state === "FINISHED") stateEl.classList.add("state-finished");
+            else if (q.state === "FAILED")
+              stateEl.classList.add("state-failed");
+            else stateEl.classList.add("state-running");
+
+            document.getElementById("header-duration").innerHTML =
+              `<span class="query-summary-label">Duration</span>${q.timing.elapsed || "N/A"}`;
+            document.getElementById("header-queued").innerHTML =
+              `<span class="query-summary-label">Queued</span>${q.timing.queued || "0"}`;
+            document.getElementById("header-planning").innerHTML =
+              `<span class="query-summary-label">Planning</span>${q.timing.planning || "0"}`;
+            document.getElementById("header-analysis").innerHTML =
+              `<span class="query-summary-label">Analysis</span>${q.timing.analysis || "0"}`;
+            document.getElementById("header-cpu").innerHTML =
+              `<span class="query-summary-label">CPU</span>${q.totals.cpuTime || "N/A"}`;
+            document.getElementById("header-memory").innerHTML =
+              `<span class="query-summary-label">Memory</span>${q.totals.peakTotalMemory || "N/A"}`;
+            document.getElementById("header-input").innerHTML =
+              `<span class="query-summary-label">Input</span>${q.totals.rawInputSize || "0B"}`;
+            document.getElementById("header-shuffled").innerHTML =
+              `<span class="query-summary-label">Shuffled</span>${q.totals.shuffledSize || "0B"}`;
+            document.getElementById("header-output").innerHTML =
+              `<span class="query-summary-label">Output</span>${q.totals.outputSize || "0B"}`;
+            document.getElementById("header-stages").innerHTML =
+              `<span class="query-summary-label">Stages</span>${this.model.stages.size}`;
+            document.getElementById("header-tasks").innerHTML =
+              `<span class="query-summary-label">Tasks</span>${this.model.tasks.size}`;
+            document.getElementById("header-workers").innerHTML =
+              `<span class="query-summary-label">Workers</span>${this.model.workers.size}`;
+            document.getElementById("header-operators").innerHTML =
+              `<span class="query-summary-label">Operators</span>${this.model.operators.length}`;
+
+            const sqlTooltip = document.getElementById("sql-tooltip");
+            sqlTooltip.innerHTML = this.highlightSQL(
+              q.sql || "No SQL available",
+            );
+          },
+
+          async loadCompareFiles(fileList) {
+            const COLORS = [
+              "#4a9eff",
+              "#f59e0b",
+              "#22c55e",
+              "#ec4899",
+              "#8b5cf6",
+              "#14b8a6",
+            ];
+            const newModels = [];
+
+            for (const file of fileList) {
+              try {
+                const text = await file.text();
+                const rawData = JSON.parse(text);
+                if (!rawData.query || !rawData.tasks) continue;
+                const model = ModelBuilder.build(rawData);
+                newModels.push({
+                  model,
+                  label:
+                    model.query.id ||
+                    file.name.replace(".presto_metrics.json", ""),
+                  fileName: file.name,
+                });
+              } catch (err) {
+                console.error(`Compare: failed to load ${file.name}:`, err);
+              }
+            }
+
+            if (newModels.length === 0) return;
+
+            // Include current single model as first entry if not already in compare
+            if (this.model && this.compareModels.length === 0) {
+              this.compareModels.push({
+                model: this.model,
+                label: this.model.query.id || "Current",
+                fileName: "current",
+              });
+            }
+
+            this.compareModels.push(...newModels);
+
+            // Assign colors
+            this.compareModels.forEach((entry, i) => {
+              entry.color = COLORS[i % COLORS.length];
+            });
+
+            // Ensure data view is visible
+            if (!this.model) {
+              this.model = this.compareModels[0].model;
+              this.updateHeader();
+            }
+            this.showDataView();
+            this.switchView("compare");
+          },
+
           // ── Navigation ─────────────────────
           showDataView() {
             document.getElementById("upload-screen").classList.add("hidden");
@@ -13039,6 +14125,7 @@
 
           reset() {
             this.model = null;
+            this.compareModels = [];
             document.getElementById("upload-screen").classList.remove("hidden");
             document.getElementById("sidebar").classList.add("hidden");
             document.getElementById("content-area").classList.add("hidden");
@@ -13075,11 +14162,16 @@
           },
 
           renderCurrentView() {
-            if (!this.model) return;
-
             const container = document.getElementById(
               `view-${this.currentView}`,
             );
+
+            if (this.currentView === "compare") {
+              Views.renderCompare(this.compareModels, container);
+              return;
+            }
+
+            if (!this.model) return;
 
             switch (this.currentView) {
               case "overview":
@@ -13289,7 +14381,7 @@
                 if (d.id === nodeId) {
                   el.attr("opacity", 1);
                   el.select(".node-rect")
-                    .attr("stroke", "#fff")
+                    .attr("stroke", "var(--dag-highlight-stroke)")
                     .attr("stroke-width", 3);
                   targetNode = d;
                 } else {
@@ -13453,7 +14545,7 @@
                 if (d.stageId === stageId) {
                   el.attr("opacity", 1);
                   el.select(".node-rect")
-                    .attr("stroke", "#fff")
+                    .attr("stroke", "var(--dag-highlight-stroke)")
                     .attr("stroke-width", 3);
                   if (!targetNode) targetNode = d;
                 } else {
@@ -13610,7 +14702,7 @@
                 if (String(d.id) === nodeIdStr) {
                   el.attr("opacity", 1);
                   el.select(".node-rect")
-                    .attr("stroke", "#fff")
+                    .attr("stroke", "var(--dag-highlight-stroke)")
                     .attr("stroke-width", 3);
                   targetNode = d;
                 } else {
@@ -13703,7 +14795,7 @@
                 if (String(d.id) === nodeIdStr) {
                   el.attr("opacity", 1);
                   el.select("rect")
-                    .attr("stroke", "#fff")
+                    .attr("stroke", "var(--dag-highlight-stroke)")
                     .attr("stroke-width", 3);
                 } else {
                   el.attr("opacity", 0.3);
@@ -13786,7 +14878,12 @@
                 const el = d3.select(this);
                 el.attr("opacity", 1);
                 el.select("rect")
-                  .attr("stroke", d.isRemoteSource ? "#a78bfa" : "#1a1a2e")
+                  .attr(
+                    "stroke",
+                    d.isRemoteSource
+                      ? "#a78bfa"
+                      : "var(--dag-node-stroke-default)",
+                  )
                   .attr("stroke-width", d.isRemoteSource ? 3 : 2);
               });
 
