@@ -3060,6 +3060,65 @@
         opacity: 0.5;
       }
 
+      .highlight-mode-toggle {
+        display: flex;
+        align-items: center;
+        margin-right: auto;
+      }
+
+      .highlight-mode-toggle label {
+        font-size: 10px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .highlight-mode-switch {
+        position: relative;
+        width: 48px;
+        height: 18px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 9px;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+
+      .highlight-mode-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        background: var(--text-secondary);
+        border-radius: 50%;
+        transition: all 0.2s;
+      }
+
+      .highlight-mode-switch.hover-mode {
+        background: rgba(74, 158, 255, 0.15);
+        border-color: rgba(74, 158, 255, 0.4);
+      }
+
+      .highlight-mode-switch.hover-mode::after {
+        left: 32px;
+        background: #4a9eff;
+      }
+
+      .highlight-mode-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 28px;
+      }
+
+      .highlight-mode-label.active {
+        color: #4a9eff;
+      }
+
       .explain-timeline-pane .explain-timeline-content {
         flex: 1;
         overflow-y: auto;
@@ -5923,8 +5982,9 @@
                   ? ` data-source-stages="${sourceFragmentIds.join(",")}"`
                   : "";
 
+                const highlightArgs = `${nodeId}, &quot;tree&quot;${isRemoteSource ? `, [${sourceFragmentIds.join(",")}]` : ""}`;
                 let html = `
-                     <div class="explain-operator${isRemoteSource ? " remotesource-operator" : ""}" data-node-id="${nodeId}" data-stage-id="${stageId}"${remoteSourceDataAttrs} onmouseenter="App.highlightPlanNode(${nodeId}, &quot;tree&quot;${isRemoteSource ? `, [${sourceFragmentIds.join(",")}]` : ""})" onmouseleave="App.unhighlightPlanNode()" style="margin-left: ${indent * 10}px;">
+                     <div class="explain-operator${isRemoteSource ? " remotesource-operator" : ""}" data-node-id="${nodeId}" data-stage-id="${stageId}"${remoteSourceDataAttrs} onmouseenter="if(App.highlightMode==='hover'){App.highlightPlanNode(${highlightArgs})}" onmouseleave="if(App.highlightMode==='hover'){App.unhighlightPlanNode()}" onclick="if(App.highlightMode==='click'){App.highlightPlanNode(${highlightArgs})}" style="margin-left: ${indent * 10}px;">
                        <div class="explain-operator-main${expandableClass}"${clickHandler}>
                          <div class="explain-operator-type" style="display: flex; justify-content: space-between; align-items: center;">
                            <span>
@@ -6301,7 +6361,7 @@
 
               return `
                    <div class="explain-stage" data-stage-id="${stageId}" style="border-color: ${color};"
-                        onmouseenter="event.stopPropagation(); App.highlightStage(${stageId}, &quot;tree&quot;)" onmouseleave="event.stopPropagation(); App.unhighlightStage()">
+                        onmouseenter="event.stopPropagation(); if(App.highlightMode==='hover'){App.highlightStage(${stageId}, &quot;tree&quot;)}" onmouseleave="event.stopPropagation(); if(App.highlightMode==='hover'){App.unhighlightStage()}" onclick="event.stopPropagation(); if(App.highlightMode==='click'){App.highlightStage(${stageId}, &quot;tree&quot;)}">
                      <div class="explain-stage-header" style="background: ${color}20;">
                        <span class="badge" style="background: ${color}; color: white;">Stage ${stageId}</span>
                        <span style="margin-left: 8px; display: flex; gap: 8px;">
@@ -6475,8 +6535,10 @@
                          .map(
                            (stage) => `
                          <div class="explain-timeline-group" data-stage-id="${stage.stageId}"
-                              onmouseenter="App.highlightStage(${stage.stageId}, &quot;timeline&quot;)"
-                              onmouseleave="App.unhighlightStage()">
+                              onmouseenter="if(App.highlightMode==='hover'){App.highlightStage(${stage.stageId}, &quot;timeline&quot;)}"
+                              onmouseleave="if(App.highlightMode==='hover'){App.unhighlightStage()}"
+                              onclick="if(App.highlightMode==='click'){App.highlightStage(${stage.stageId}, &quot;timeline&quot;)}"
+                              style="cursor: pointer;">
                            <div class="explain-timeline-row"
                                 title="Stage ${stage.stageId} (${stage.workerCount} worker${stage.workerCount !== 1 ? "s" : ""}): total ${Utils.formatDuration(stage.totalMs * 1e6)} (blocked: ${Utils.formatDuration(stage.initialBlockedMs * 1e6)}, active: ${Utils.formatDuration(stage.activeMs * 1e6)})">
                              <div class="explain-timeline-label">Stage ${stage.stageId}</div>
@@ -6499,10 +6561,17 @@
                  <div class="explain-container">
                    <div class="explain-timeline-pane">
                      <div class="view-link-toggle">
-                       <button class="view-link-btn active" id="timeline-link-in" title="Respond to highlights from other views">
+                       <div class="highlight-mode-toggle">
+                         <label>
+                           <span class="highlight-mode-label active" id="highlight-mode-click-label">click</span>
+                           <div class="highlight-mode-switch" id="highlight-mode-switch" title="Toggle between click and hover to trigger cross-view highlighting"></div>
+                           <span class="highlight-mode-label" id="highlight-mode-hover-label">hover</span>
+                         </label>
+                       </div>
+                       <button class="view-link-btn active" id="timeline-link-in" title="Receive: highlight this view when other views are interacted with">
                          <span class="link-icon">&#8592;</span>IN
                        </button>
-                       <button class="view-link-btn" id="timeline-link-out" title="Send highlights to other views">
+                       <button class="view-link-btn active" id="timeline-link-out" title="Send: highlight other views when this view is interacted with">
                          OUT<span class="link-icon">&#8594;</span>
                        </button>
                      </div>
@@ -6515,10 +6584,10 @@
                      <div class="explain-split-container">
                        <div class="explain-tree-pane">
                          <div class="view-link-toggle">
-                           <button class="view-link-btn active" id="tree-link-in" title="Respond to highlights from other views">
+                           <button class="view-link-btn active" id="tree-link-in" title="Receive: highlight this view when other views are interacted with">
                              <span class="link-icon">&#8592;</span>IN
                            </button>
-                           <button class="view-link-btn active" id="tree-link-out" title="Send highlights to other views">
+                           <button class="view-link-btn active" id="tree-link-out" title="Send: highlight other views when this view is interacted with">
                              OUT<span class="link-icon">&#8594;</span>
                            </button>
                          </div>
@@ -6529,10 +6598,10 @@
                        <div class="explain-divider-v" id="explain-divider-v"></div>
                        <div class="explain-dag-pane">
                          <div class="view-link-toggle">
-                           <button class="view-link-btn active" id="dag-link-in" title="Respond to highlights from other views">
+                           <button class="view-link-btn active" id="dag-link-in" title="Receive: highlight this view when other views are interacted with">
                              <span class="link-icon">&#8592;</span>IN
                            </button>
-                           <button class="view-link-btn" id="dag-link-out" title="Send highlights to other views">
+                           <button class="view-link-btn active" id="dag-link-out" title="Send: highlight other views when this view is interacted with">
                              OUT<span class="link-icon">&#8594;</span>
                            </button>
                          </div>
@@ -6580,6 +6649,30 @@
                 });
               }
             });
+
+            // Highlight mode toggle (click vs hover)
+            const modeSwitch = document.getElementById("highlight-mode-switch");
+            const clickLabel = document.getElementById(
+              "highlight-mode-click-label",
+            );
+            const hoverLabel = document.getElementById(
+              "highlight-mode-hover-label",
+            );
+            if (modeSwitch && clickLabel && hoverLabel) {
+              const updateModeUI = () => {
+                const isHover = App.highlightMode === "hover";
+                modeSwitch.classList.toggle("hover-mode", isHover);
+                clickLabel.classList.toggle("active", !isHover);
+                hoverLabel.classList.toggle("active", isHover);
+              };
+              updateModeUI();
+              modeSwitch.addEventListener("click", (e) => {
+                e.stopPropagation();
+                App.highlightMode =
+                  App.highlightMode === "hover" ? "click" : "hover";
+                updateModeUI();
+              });
+            }
           },
 
           setupExplainDividers() {
@@ -6828,12 +6921,11 @@
               height,
             );
 
-            // Get the computed layout dimensions
+            // Get the computed layout dimensions (used for node positioning)
             const layoutWidth = nodePositions._layoutWidth || width;
             const layoutHeight = nodePositions._layoutHeight || height;
 
-            // Update SVG size to match layout
-            svg.attr("width", layoutWidth).attr("height", layoutHeight);
+            // SVG stays at container size; zoom/pan handles overflow
 
             // Create nodes data with computed positions and details
             const nodes = model.planNodes.map((n) => ({
@@ -7262,7 +7354,9 @@
                   html += `<div class="dag-tooltip-section"><span class="dag-tooltip-label">Output (${d.outputVariables.length}):</span>${outputList}</div>`;
                 }
                 showTooltip(event, html);
-                App.highlightPlanNode(d.id, "dag");
+                if (App.highlightMode === "hover") {
+                  App.highlightPlanNode(d.id, "dag");
+                }
               })
               .on("mousemove", (event) => {
                 const containerRect = container.getBoundingClientRect();
@@ -7272,7 +7366,15 @@
               })
               .on("mouseleave", () => {
                 hideTooltip();
-                App.unhighlightPlanNode();
+                if (App.highlightMode === "hover") {
+                  App.unhighlightPlanNode();
+                }
+              })
+              .on("click", (event, d) => {
+                event.stopPropagation();
+                if (App.highlightMode === "click") {
+                  App.highlightPlanNode(d.id, "dag");
+                }
               });
 
             // Initial zoom to fit - zoom in more and focus towards the root (top)
@@ -7300,6 +7402,14 @@
                   .scale(scale),
               );
             }, 50);
+
+            // Click SVG background to clear highlights in click mode
+            svg.on("click", () => {
+              if (App.highlightMode === "click") {
+                App.unhighlightPlanNode();
+                App.unhighlightStage();
+              }
+            });
 
             // Store for highlight functions
             App.explainDagSelections = {
@@ -7402,12 +7512,11 @@
               height,
             );
 
-            // Get the computed layout dimensions (may be larger than container)
+            // Get the computed layout dimensions (used for node positioning)
             const layoutWidth = nodePositions._layoutWidth || width;
             const layoutHeight = nodePositions._layoutHeight || height;
 
-            // Update SVG size to match layout
-            svg.attr("width", layoutWidth).attr("height", layoutHeight);
+            // SVG stays at container size; zoom/pan handles overflow
 
             // Create nodes data with computed positions
             const nodes = model.planNodes.map((n) => ({
@@ -12902,10 +13011,12 @@
           planSelections: null,
           planStageColors: null,
           // View linking state (controls cross-view highlighting)
+          // Cross-view highlighting trigger mode: "hover" or "click"
+          highlightMode: "click",
           viewLinks: {
-            timeline: { in: true, out: false },
+            timeline: { in: true, out: true },
             tree: { in: true, out: true },
-            dag: { in: true, out: false },
+            dag: { in: true, out: true },
           },
 
           init() {
