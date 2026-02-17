@@ -708,6 +708,7 @@
         background: rgba(74, 158, 255, 0.1);
       }
 
+      .data-table th.numeric,
       .data-table td.numeric {
         font-family: var(--font-mono);
         text-align: right;
@@ -3242,6 +3243,7 @@
       .compare-file-bar {
         display: flex;
         flex-wrap: wrap;
+        align-items: center;
         gap: 12px;
       }
 
@@ -3275,25 +3277,7 @@
         background: rgba(248, 113, 113, 0.1);
       }
 
-      .compare-card-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: var(--panel-gap);
-      }
-
-      .compare-query-card {
-        background: var(--bg-secondary);
-        border-radius: var(--border-radius);
-        padding: 16px;
-      }
-
-      .compare-query-label {
-        font-weight: 600;
-        font-size: var(--font-size-base);
-        margin-bottom: 12px;
-        font-family: var(--font-mono);
-      }
-
+      /* Compare: delta coloring */
       .compare-better {
         color: var(--accent-success);
       }
@@ -3302,62 +3286,339 @@
         color: var(--accent-danger);
       }
 
-      .compare-timing-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border-color);
+      /* Compare: headline */
+      .compare-headline {
+        margin-bottom: var(--panel-gap);
       }
 
-      .compare-timing-row:last-child {
-        border-bottom: none;
+      .compare-headline-verdict {
+        text-align: center;
+        padding: 24px 32px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-card);
       }
 
-      .compare-timing-label {
-        width: 120px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: var(--font-size-sm);
+      .compare-headline-label {
+        font-size: var(--font-size-lg);
         color: var(--text-secondary);
       }
 
-      .compare-timing-bars {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
+      .compare-headline-speedup {
+        font-size: 36px;
+        font-weight: 700;
+        display: block;
+        margin: 8px 0;
+        font-family: var(--font-mono);
       }
 
-      .compare-bar-row {
+      .compare-verdict-faster .compare-headline-speedup {
+        color: var(--accent-success);
+      }
+
+      .compare-verdict-slower .compare-headline-speedup {
+        color: var(--accent-danger);
+      }
+
+      .compare-verdict-same .compare-headline-speedup {
+        color: var(--text-secondary);
+      }
+
+      .compare-headline-times {
+        font-size: var(--font-size-base);
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+      }
+
+      .compare-headline-ranking {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      .compare-rank-item {
         display: flex;
         align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: var(--bg-card);
+        border-radius: var(--border-radius-sm);
+      }
+
+      .compare-rank-position {
+        font-weight: 700;
+        font-size: var(--font-size-lg);
+        color: var(--text-muted);
+        min-width: 24px;
+      }
+
+      .compare-rank-label {
+        flex: 1;
+        font-weight: 600;
+      }
+
+      .compare-rank-time {
+        font-weight: 600;
+      }
+
+      /* Compare: metric strip */
+      .compare-metric-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: var(--panel-gap);
+      }
+
+      .compare-metric-delta-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 16px;
+        text-align: center;
+        box-shadow: var(--shadow-card);
+      }
+
+      .compare-metric-delta-label {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      .compare-metric-delta-value {
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        font-family: var(--font-mono);
+        margin-bottom: 4px;
+      }
+
+      .compare-metric-delta-detail {
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        margin-bottom: 8px;
+      }
+
+      .compare-metric-delta-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .compare-metric-bar-seg {
+        height: 6px;
+        border-radius: 3px;
+        min-width: 3px;
+      }
+
+      /* Compare: phase breakdown */
+      .compare-phase-legend {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .compare-phase-rows {
+        display: flex;
+        flex-direction: column;
         gap: 8px;
       }
 
-      .compare-bar-track {
-        flex: 1;
-        height: 16px;
+      .compare-phase-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 70px;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .compare-phase-model-label {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .compare-phase-bar-track {
+        display: flex;
+        height: 28px;
         background: var(--bg-tertiary);
-        border-radius: 3px;
+        border-radius: 4px;
         overflow: hidden;
       }
 
-      .compare-bar {
-        height: 100%;
-        border-radius: 3px;
+      .compare-phase-segment {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         min-width: 2px;
-        transition: width var(--transition-normal);
       }
 
-      .compare-bar-value {
+      .compare-phase-seg-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 4px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      .compare-phase-total {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-sm);
+        color: var(--text-muted);
+        text-align: right;
+      }
+
+      .compare-phase-deltas {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 8px 0 0 132px;
+      }
+
+      .compare-phase-delta-tag {
         font-size: var(--font-size-xs);
         font-family: var(--font-mono);
-        color: var(--text-muted);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      .compare-phase-delta-tag.compare-better {
+        background: color-mix(in srgb, var(--accent-success) 15%, transparent);
+      }
+
+      .compare-phase-delta-tag.compare-worse {
+        background: color-mix(in srgb, var(--accent-danger) 15%, transparent);
+      }
+
+      /* Compare: stage waterfall */
+      .compare-stage-waterfall {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .compare-stage-wf-row {
+        display: grid;
+        grid-template-columns: 160px 1fr 80px;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: var(--border-radius-sm);
+        transition: background var(--transition-fast);
+      }
+
+      .compare-stage-wf-row:hover {
+        background: var(--bg-hover);
+      }
+
+      .compare-stage-wf-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .compare-stage-wf-id {
+        font-weight: 600;
+        font-size: var(--font-size-sm);
+      }
+
+      .compare-stage-wf-type {
+        font-size: var(--font-size-xs);
+      }
+
+      .compare-stage-wf-bar-pair {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .compare-stage-wf-bar {
+        height: 18px;
+        border-radius: 3px;
+        min-width: 3px;
+        display: flex;
+        align-items: center;
+        padding: 0 6px;
+      }
+
+      .compare-stage-wf-bar-label {
+        font-size: 10px;
+        font-family: var(--font-mono);
+        font-weight: 600;
+        color: #fff;
         white-space: nowrap;
-        min-width: 60px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      .compare-stage-wf-delta {
+        font-family: var(--font-mono);
+        font-weight: 600;
+        font-size: var(--font-size-sm);
+        text-align: right;
+      }
+
+      .compare-stage-wf-secondary {
+        grid-column: 2 / -1;
+        font-size: var(--font-size-xs);
+        padding: 2px 0 4px;
+        display: flex;
+        gap: 16px;
+      }
+
+      /* Compare: operator hotspots */
+      .compare-hotspot-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 100px;
+      }
+
+      .compare-hotspot-bar {
+        height: 8px;
+        border-radius: 2px;
+        min-width: 2px;
+      }
+
+      .compare-hotspot-expand {
+        text-align: center;
+        padding: 12px;
+        border-top: 1px solid var(--border-color);
+      }
+
+      .compare-hotspot-expand a {
+        color: var(--rapids-purple);
+        text-decoration: none;
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+      }
+
+      .compare-hotspot-expand a:hover {
+        text-decoration: underline;
+      }
+
+      .compare-hotspot-rows-badge {
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 8px;
+        font-family: var(--font-mono);
+        font-weight: 500;
+        margin-left: 6px;
+      }
+
+      .compare-hotspot-rows-badge.changed {
+        background: color-mix(in srgb, var(--accent-warning) 15%, transparent);
+        color: var(--accent-warning);
       }
 
       .compare-upload-zone {
@@ -3380,18 +3641,12 @@
         box-shadow: 0 0 20px rgba(116, 0, 255, 0.2);
       }
 
-      .compare-add-more {
-        text-align: center;
-        padding: 24px;
-        margin-top: var(--panel-gap);
-      }
-
       .compare-add-btn {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 8px 16px;
-        background: var(--bg-card);
+        padding: 6px 14px;
+        background: transparent;
         border: 1px dashed var(--border-light);
         border-radius: var(--border-radius);
         color: var(--text-secondary);
@@ -3419,13 +3674,6 @@
 
       .upload-compare-hint a:hover {
         text-decoration: underline;
-      }
-
-      .compare-stage-bar {
-        display: inline-block;
-        height: 14px;
-        border-radius: 2px;
-        vertical-align: middle;
       }
     </style>
   </head>
@@ -3936,11 +4184,14 @@
               ? ` style="max-height: ${opts.maxHeight}; overflow-y: auto;"`
               : "";
             const ths = headers
-              .map((h) =>
-                typeof h === "string"
-                  ? `<th>${h}</th>`
-                  : `<th${h.sort ? ` data-sort="${h.sort}"` : ""}>${h.label}</th>`,
-              )
+              .map((h) => {
+                if (typeof h === "string") return `<th>${h}</th>`;
+                const attrs = [];
+                if (h.sort) attrs.push(`data-sort="${h.sort}"`);
+                if (h.className) attrs.push(`class="${h.className}"`);
+                const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+                return `<th${attrStr}>${h.label}</th>`;
+              })
               .join("");
             return `<div class="table-container"${style}><table class="data-table" id="${id}"><thead><tr>${ths}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
           },
@@ -9093,12 +9344,32 @@
                [
                  { label: "Stage", sort: "id" },
                  { label: "Type", sort: "rootNodeType" },
-                 { label: "Tasks", sort: "taskCount" },
-                 { label: "CPU Time", sort: "cpuTimeNanos" },
-                 { label: "Blocked", sort: "blockedTimeNanos" },
-                 { label: "Input Rows", sort: "inputRows" },
-                 { label: "Output Rows", sort: "outputRows" },
-                 { label: "Input Size", sort: "inputBytes" },
+                 { label: "Tasks", sort: "taskCount", className: "numeric" },
+                 {
+                   label: "CPU Time",
+                   sort: "cpuTimeNanos",
+                   className: "numeric",
+                 },
+                 {
+                   label: "Blocked",
+                   sort: "blockedTimeNanos",
+                   className: "numeric",
+                 },
+                 {
+                   label: "Input Rows",
+                   sort: "inputRows",
+                   className: "numeric",
+                 },
+                 {
+                   label: "Output Rows",
+                   sort: "outputRows",
+                   className: "numeric",
+                 },
+                 {
+                   label: "Input Size",
+                   sort: "inputBytes",
+                   className: "numeric",
+                 },
                ],
                stages
                  .map(
@@ -9368,11 +9639,11 @@
                  "Task ID",
                  "Stage",
                  "Worker",
-                 "Pipelines",
-                 "CPU Time",
-                 "Blocked",
-                 "Input",
-                 "Output",
+                 { label: "Pipelines", className: "numeric" },
+                 { label: "CPU Time", className: "numeric" },
+                 { label: "Blocked", className: "numeric" },
+                 { label: "Input", className: "numeric" },
+                 { label: "Output", className: "numeric" },
                ],
                tasks
                  .map((task) => {
@@ -9447,13 +9718,13 @@
                "operators-table",
                [
                  "Stage",
-                 "Pipeline",
+                 { label: "Pipeline", className: "numeric" },
                  "Type",
                  "Plan Node",
-                 "Input Rows",
-                 "Output Rows",
-                 "CPU Time",
-                 "Blocked",
+                 { label: "Input Rows", className: "numeric" },
+                 { label: "Output Rows", className: "numeric" },
+                 { label: "CPU Time", className: "numeric" },
+                 { label: "Blocked", className: "numeric" },
                ],
                operators
                  .map(
@@ -9508,7 +9779,13 @@
              "Worker Summary",
              Utils.dataTable(
                "workers-table",
-               ["Worker", "Tasks", "CPU Time", "Input Data", "Status"],
+               [
+                 "Worker",
+                 { label: "Tasks", className: "numeric" },
+                 { label: "CPU Time", className: "numeric" },
+                 { label: "Input Data", className: "numeric" },
+                 "Status",
+               ],
                workers
                  .map((worker) => {
                    const stats = workerStats.get(worker.id);
@@ -9872,33 +10149,21 @@
                   <span class="badge primary">${overlap.level.replace(/_/g, " ")}</span>
                   ${overlap.sameSql ? '<span class="badge success">Same SQL</span>' : ""}
                   ${overlap.samePlanStructure ? '<span class="badge success">Same Plan</span>' : ""}
-                  ${overlap.sameWorkerSet ? '<span class="badge success">Same Workers</span>' : ""}
                 </p>
               </div>`;
 
             html += this.renderCompareFileBar(models);
-            html += this.renderCompareSummary(models);
-            html += this.renderCompareTotals(models);
-            html += this.renderCompareTimingBreakdown(models);
+            html += this.renderCompareHeadline(models);
+            html += this.renderCompareMetricStrip(models);
+            html += this.renderComparePhaseBreakdown(models);
 
             if (overlap.samePlanStructure || overlap.sameStageCount) {
-              html += this.renderCompareStages(models, overlap);
+              html += this.renderCompareStageWaterfall(models, overlap);
             }
 
             if (overlap.samePlanStructure) {
-              html += this.renderCompareOperators(models, overlap);
+              html += this.renderCompareOperatorHotspots(models, overlap);
             }
-
-            if (overlap.sameWorkerSet) {
-              html += this.renderCompareWorkers(models, overlap);
-            }
-
-            html += `<div class="compare-add-more">
-              <label class="compare-add-btn">
-                + Add more files
-                <input type="file" class="upload-input" id="compare-add-input" accept=".json" multiple />
-              </label>
-            </div>`;
 
             container.innerHTML = html;
 
@@ -9914,6 +10179,9 @@
               btn.addEventListener("click", () => {
                 const idx = parseInt(btn.dataset.index, 10);
                 App.compareModels.splice(idx, 1);
+                if (App.compareModels.length === 0) {
+                  App.model = null;
+                }
                 const COLORS = [
                   "#4a9eff",
                   "#f59e0b",
@@ -9928,6 +10196,7 @@
                 App.renderCurrentView();
               });
             });
+            this.wireCompareHotspotExpand(container);
           },
 
           wireCompareUploadZone() {
@@ -9965,40 +10234,76 @@
               </div>`,
               )
               .join("");
+            const addBtn = `<label class="compare-add-btn">
+                + Add more
+                <input type="file" class="upload-input" id="compare-add-input" accept=".json" multiple />
+              </label>`;
             return Utils.card(
               "Loaded Queries",
-              `<div class="compare-file-bar">${items}</div>`,
+              `<div class="compare-file-bar">${items}${addBtn}</div>`,
               { mb: true },
             );
           },
 
-          renderCompareSummary(models) {
-            const R = Utils.detailRow;
-            const cards = models
-              .map((m) => {
-                const q = m.model.query;
-                return `<div class="compare-query-card" style="border-top: 3px solid ${m.color}">
-                <div class="compare-query-label" style="color: ${m.color}">${Utils.escapeHtml(m.label)}</div>
-                ${R("User", Utils.escapeHtml(q.session.user || "N/A"))}
-                ${R("Catalog", `${Utils.escapeHtml(q.session.catalog || "N/A")}.${Utils.escapeHtml(q.session.schema || "N/A")}`)}
-                ${R("Source", Utils.escapeHtml(q.session.source || "N/A"))}
-                ${R("Duration", `<span class="font-mono">${q.timing.elapsed || "N/A"}</span>`)}
-                ${R("CPU Time", `<span class="font-mono">${q.totals.cpuTime || "N/A"}</span>`)}
-                ${R("Peak Memory", `<span class="font-mono">${q.totals.peakTotalMemory || "N/A"}</span>`)}
+          renderCompareHeadline(models) {
+            const times = models.map((m) =>
+              Utils.parseTimeToNanos(m.model.query.timing.elapsed),
+            );
+
+            if (models.length === 2) {
+              const [tA, tB] = times;
+              const ratio = tA > tB ? tA / tB : tB / tA;
+              const fasterIdx = tA <= tB ? 0 : 1;
+              const slowerIdx = 1 - fasterIdx;
+
+              if (ratio < 1.05) {
+                return `<div class="compare-headline">
+                  <div class="compare-headline-verdict compare-verdict-same">
+                    <span class="compare-headline-speedup">About the same</span>
+                    <span class="compare-headline-times">${Utils.formatDuration(tA)} vs ${Utils.formatDuration(tB)}</span>
+                  </div>
+                </div>`;
+              }
+
+              const verdictClass =
+                fasterIdx === 1
+                  ? "compare-verdict-faster"
+                  : "compare-verdict-slower";
+              return `<div class="compare-headline">
+                <div class="compare-headline-verdict ${verdictClass}">
+                  <span class="compare-headline-label">
+                    <span style="color: ${models[fasterIdx].color}">${Utils.escapeHtml(models[fasterIdx].label)}</span> is
+                  </span>
+                  <span class="compare-headline-speedup">${ratio.toFixed(1)}x faster</span>
+                  <span class="compare-headline-times">${Utils.formatDuration(times[fasterIdx])} vs ${Utils.formatDuration(times[slowerIdx])}</span>
+                </div>
               </div>`;
-              })
+            }
+
+            // >2 queries: ranked list
+            const ranked = models
+              .map((m, i) => ({ m, t: times[i] }))
+              .sort((a, b) => a.t - b.t);
+            const items = ranked
+              .map(
+                (r, i) => `
+              <div class="compare-rank-item" style="border-left: 3px solid ${r.m.color}">
+                <span class="compare-rank-position">${i + 1}.</span>
+                <span class="compare-rank-label" style="color: ${r.m.color}">${Utils.escapeHtml(r.m.label)}</span>
+                <span class="compare-rank-time font-mono">${Utils.formatDuration(r.t)}</span>
+              </div>`,
+              )
               .join("");
-            return Utils.card(
-              "Query Summary",
-              `<div class="compare-card-grid">${cards}</div>`,
-              { mb: true },
-            );
+
+            return `<div class="compare-headline">
+              <div class="compare-headline-ranking">${items}</div>
+            </div>`;
           },
 
-          renderCompareTotals(models) {
+          renderCompareMetricStrip(models) {
             const metrics = [
               {
-                label: "Elapsed Time",
+                label: "Elapsed",
                 get: (m) => Utils.parseTimeToNanos(m.query.timing.elapsed),
                 fmt: (v) => Utils.formatDuration(v),
                 lower: true,
@@ -10010,28 +10315,10 @@
                 lower: true,
               },
               {
-                label: "Blocked Time",
-                get: (m) => Utils.parseTimeToNanos(m.query.totals.blockedTime),
-                fmt: (v) => Utils.formatDuration(v),
-                lower: true,
-              },
-              {
                 label: "Peak Memory",
                 get: (m) => Utils.parseBytes(m.query.totals.peakTotalMemory),
                 fmt: (v) => Utils.formatBytes(v),
                 lower: true,
-              },
-              {
-                label: "Raw Input",
-                get: (m) => Utils.parseBytes(m.query.totals.rawInputSize),
-                fmt: (v) => Utils.formatBytes(v),
-                lower: false,
-              },
-              {
-                label: "Processed Input",
-                get: (m) => Utils.parseBytes(m.query.totals.processedInputSize),
-                fmt: (v) => Utils.formatBytes(v),
-                lower: false,
               },
               {
                 label: "Shuffled",
@@ -10040,79 +10327,83 @@
                 lower: true,
               },
               {
-                label: "Output",
-                get: (m) => Utils.parseBytes(m.query.totals.outputSize),
+                label: "Processed Input",
+                get: (m) => Utils.parseBytes(m.query.totals.processedInputSize),
                 fmt: (v) => Utils.formatBytes(v),
                 lower: false,
               },
               {
-                label: "Stages",
-                get: (m) => m.stages.size,
-                fmt: (v) => v,
-                lower: false,
-              },
-              {
-                label: "Tasks",
-                get: (m) => m.tasks.size,
-                fmt: (v) => v,
-                lower: false,
-              },
-              {
-                label: "Workers",
-                get: (m) => m.workers.size,
-                fmt: (v) => v,
+                label: "Avg Throughput",
+                get: (m) => {
+                  const bytes = Utils.parseBytes(
+                    m.query.totals.processedInputSize,
+                  );
+                  const nanos = Utils.parseTimeToNanos(m.query.timing.elapsed);
+                  return nanos > 0 ? bytes / (nanos / 1e9) : 0;
+                },
+                fmt: (v) => Utils.formatThroughput(v),
                 lower: false,
               },
             ];
 
-            const headers = [{ label: "Metric" }];
-            models.forEach((m) =>
-              headers.push({
-                label: `<span style="color:${m.color}">${Utils.escapeHtml(m.label)}</span>`,
-              }),
-            );
-            if (models.length === 2) headers.push({ label: "Delta" });
+            const cards = metrics
+              .map((metric) => {
+                const values = models.map((entry) => metric.get(entry.model));
+                const maxVal = Math.max(...values, 1);
 
-            let rowsHtml = "";
-            metrics.forEach((metric) => {
-              const values = models.map((entry) => metric.get(entry.model));
-              const formatted = values.map((v) => metric.fmt(v));
+                if (models.length === 2) {
+                  const d = CompareUtils.delta(
+                    values[0],
+                    values[1],
+                    metric.lower,
+                  );
+                  const cls =
+                    d.direction === "better"
+                      ? "compare-better"
+                      : d.direction === "worse"
+                        ? "compare-worse"
+                        : "";
+                  const sign = d.pct > 0 ? "+" : "";
+                  const pctStr = isFinite(d.pct)
+                    ? `${sign}${d.pct.toFixed(0)}%`
+                    : "~";
 
-              let deltaHtml = "";
-              if (models.length === 2) {
-                const d = CompareUtils.delta(
-                  values[0],
-                  values[1],
-                  metric.lower,
-                );
-                const cls =
-                  d.direction === "better"
-                    ? "compare-better"
-                    : d.direction === "worse"
-                      ? "compare-worse"
-                      : "";
-                const sign = d.abs > 0 ? "+" : "";
-                const pctStr = isFinite(d.pct)
-                  ? ` (${sign}${d.pct.toFixed(1)}%)`
-                  : "";
-                deltaHtml = `<td class="numeric ${cls}">${sign}${metric.fmt(d.abs)}${pctStr}</td>`;
-              }
+                  const bars = models
+                    .map((m, i) => {
+                      const w = maxVal > 0 ? (values[i] / maxVal) * 100 : 0;
+                      return `<div class="compare-metric-bar-seg" style="width: ${Math.max(w, 2)}%; background: ${m.color};"></div>`;
+                    })
+                    .join("");
 
-              rowsHtml += `<tr><td>${metric.label}</td>`;
-              formatted.forEach(
-                (f) => (rowsHtml += `<td class="numeric">${f}</td>`),
-              );
-              rowsHtml += deltaHtml + "</tr>";
-            });
+                  return `<div class="compare-metric-delta-card">
+                    <div class="compare-metric-delta-label">${metric.label}</div>
+                    <div class="compare-metric-delta-value ${cls}">${pctStr}</div>
+                    <div class="compare-metric-delta-detail">${metric.fmt(values[0])} vs ${metric.fmt(values[1])}</div>
+                    <div class="compare-metric-delta-bar">${bars}</div>
+                  </div>`;
+                }
 
-            return Utils.card(
-              "High-Level Totals",
-              Utils.dataTable("compare-totals", headers, rowsHtml),
-              { mb: true, noPadding: true },
-            );
+                // >2 queries: value list
+                const valueList = models
+                  .map(
+                    (m) =>
+                      `<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0;"></span>
+                    <span class="font-mono">${metric.fmt(metric.get(m.model))}</span>
+                  </div>`,
+                  )
+                  .join("");
+                return `<div class="compare-metric-delta-card">
+                  <div class="compare-metric-delta-label">${metric.label}</div>
+                  ${valueList}
+                </div>`;
+              })
+              .join("");
+
+            return `<div class="compare-metric-strip">${cards}</div>`;
           },
 
-          renderCompareTimingBreakdown(models) {
+          renderComparePhaseBreakdown(models) {
             const phases = [
               { label: "Queued", key: "queued", color: "#666680" },
               { label: "Planning", key: "planning", color: "#8b5cf6" },
@@ -10121,127 +10412,231 @@
               { label: "Finishing", key: "finishing", color: "#22c55e" },
             ];
 
-            // Gather values per model per phase
             const data = models.map((entry) => {
               const t = entry.model.query.timing;
               return phases.map((p) => Utils.parseTimeToNanos(t[p.key]) || 0);
             });
-            const maxTotal = Math.max(
-              ...data.map((d) => d.reduce((a, b) => a + b, 0)),
-              1,
-            );
+
+            const legend = phases
+              .map(
+                (p) =>
+                  `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:2px;background:${p.color}"></span>${p.label}</span>`,
+              )
+              .join("");
 
             let rows = "";
             models.forEach((entry, mi) => {
               const total = data[mi].reduce((a, b) => a + b, 0);
               const segments = phases
                 .map((p, pi) => {
-                  const w = total > 0 ? (data[mi][pi] / maxTotal) * 100 : 0;
-                  if (w < 0.5) return "";
-                  return `<div class="compare-bar" style="width: ${w}%; background: ${p.color};" title="${p.label}: ${Utils.formatDuration(data[mi][pi])}"></div>`;
+                  const pct = total > 0 ? (data[mi][pi] / total) * 100 : 0;
+                  if (pct < 0.5) return "";
+                  const label =
+                    pct > 12
+                      ? `<span class="compare-phase-seg-label">${p.label} ${Utils.formatDuration(data[mi][pi])}</span>`
+                      : pct > 5
+                        ? `<span class="compare-phase-seg-label">${Utils.formatDuration(data[mi][pi])}</span>`
+                        : "";
+                  return `<div class="compare-phase-segment" style="width: ${pct}%; background: ${p.color};" title="${p.label}: ${Utils.formatDuration(data[mi][pi])}">${label}</div>`;
                 })
                 .join("");
-              rows += `<div class="compare-timing-row">
-                <div class="compare-timing-label">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: ${entry.color}; flex-shrink: 0;"></span>
+
+              rows += `<div class="compare-phase-row">
+                <div class="compare-phase-model-label">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${entry.color};flex-shrink:0;"></span>
                   ${Utils.escapeHtml(entry.label)}
                 </div>
-                <div class="compare-bar-track" style="display: flex;">${segments}</div>
-                <span class="compare-bar-value">${Utils.formatDuration(total)}</span>
+                <div class="compare-phase-bar-track">${segments}</div>
+                <span class="compare-phase-total">${Utils.formatDuration(total)}</span>
               </div>`;
             });
 
-            // Legend
-            const legend = phases
-              .map(
-                (p) =>
-                  `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:2px;background:${p.color}"></span>${p.label}</span>`,
-              )
-              .join("");
+            // Phase deltas (2-query only, significant changes)
+            let deltasHtml = "";
+            if (models.length === 2) {
+              const tags = phases
+                .map((p, pi) => {
+                  if (data[0][pi] === 0 && data[1][pi] === 0) return "";
+                  const d = CompareUtils.delta(data[0][pi], data[1][pi], true);
+                  if (Math.abs(d.pct) < 20) return "";
+                  const cls =
+                    d.direction === "better"
+                      ? "compare-better"
+                      : d.direction === "worse"
+                        ? "compare-worse"
+                        : "";
+                  const sign = d.abs > 0 ? "+" : "";
+                  return `<span class="compare-phase-delta-tag ${cls}">${p.label} ${sign}${Utils.formatDuration(d.abs)} (${sign}${d.pct.toFixed(0)}%)</span>`;
+                })
+                .filter(Boolean)
+                .join("");
+              if (tags)
+                deltasHtml = `<div class="compare-phase-deltas">${tags}</div>`;
+            }
 
             return Utils.card(
-              "Timing Breakdown",
-              `<div style="margin-bottom:8px">${legend}</div>${rows}`,
-              { mb: true },
+              "Time Phase Breakdown",
+              `<div class="compare-phase-legend">${legend}</div>
+               <div class="compare-phase-rows">${rows}${deltasHtml}</div>`,
+              { mb: true, subtitle: "Proportional within each query" },
             );
           },
 
-          renderCompareStages(models, overlap) {
+          renderCompareStageWaterfall(models, overlap) {
             const baseModel = models[0].model;
             const stageIds = Array.from(baseModel.stages.keys()).sort(
               (a, b) => a - b,
             );
 
-            const headers = [{ label: "Stage" }, { label: "Root Type" }];
-            models.forEach((m) => {
-              headers.push({
-                label: `<span style="color:${m.color}">CPU</span>`,
-              });
-              headers.push({
-                label: `<span style="color:${m.color}">Blocked</span>`,
-              });
-              headers.push({
-                label: `<span style="color:${m.color}">Input</span>`,
-              });
-            });
+            const stageData = stageIds
+              .map((baseStageId) => {
+                const baseStage = baseModel.stages.get(baseStageId);
+                if (!baseStage) return null;
+
+                const values = models.map((entry, mi) => {
+                  let stageId = baseStageId;
+                  if (
+                    overlap.stageMapping &&
+                    mi > 0 &&
+                    overlap.stageMapping[mi]
+                  ) {
+                    stageId = overlap.stageMapping[mi].get(baseStageId);
+                  }
+                  const stage = entry.model.stages.get(stageId);
+                  return stage
+                    ? {
+                        cpu: stage.metrics.cpuTimeNanos,
+                        inputBytes: stage.metrics.inputBytes || 0,
+                      }
+                    : { cpu: 0, inputBytes: 0 };
+                });
+
+                const absDelta =
+                  models.length === 2
+                    ? Math.abs(values[1].cpu - values[0].cpu)
+                    : 0;
+                return {
+                  baseStageId,
+                  rootType: baseStage.rootNodeType || "?",
+                  values,
+                  absDelta,
+                };
+              })
+              .filter(Boolean);
+
+            if (models.length === 2) {
+              stageData.sort((a, b) => b.absDelta - a.absDelta);
+            }
+
+            const maxCpu = Math.max(
+              ...stageData.flatMap((s) => s.values.map((v) => v.cpu)),
+              1,
+            );
 
             let rowsHtml = "";
-            stageIds.forEach((baseStageId) => {
-              const baseStage = baseModel.stages.get(baseStageId);
-              if (!baseStage) return;
+            stageData.forEach((sd) => {
+              const bars = models
+                .map((m, i) => {
+                  const w = (sd.values[i].cpu / maxCpu) * 100;
+                  const label = Utils.formatDuration(sd.values[i].cpu);
+                  return `<div class="compare-stage-wf-bar" style="width: ${Math.max(w, 0.5)}%; background: ${m.color};" title="${Utils.escapeHtml(m.label)}: ${label}">
+                    <span class="compare-stage-wf-bar-label">${label}</span>
+                  </div>`;
+                })
+                .join("");
 
-              rowsHtml += `<tr><td>${baseStageId}</td><td>${baseStage.rootNodeType || "?"}</td>`;
+              let deltaHtml = "";
+              if (models.length === 2) {
+                const d = CompareUtils.delta(
+                  sd.values[0].cpu,
+                  sd.values[1].cpu,
+                  true,
+                );
+                const cls =
+                  d.direction === "better"
+                    ? "compare-better"
+                    : d.direction === "worse"
+                      ? "compare-worse"
+                      : "";
+                const sign = d.pct > 0 ? "+" : "";
+                const pctStr = isFinite(d.pct)
+                  ? `${sign}${d.pct.toFixed(0)}%`
+                  : "";
+                deltaHtml = `<div class="compare-stage-wf-delta ${cls}">${pctStr}</div>`;
+              }
 
-              models.forEach((entry, mi) => {
-                let stageId = baseStageId;
+              let secondaryHtml = "";
+              if (models.length === 2) {
+                const lines = [];
+                const inputDelta = CompareUtils.delta(
+                  sd.values[0].inputBytes,
+                  sd.values[1].inputBytes,
+                  false,
+                );
                 if (
-                  overlap.stageMapping &&
-                  mi > 0 &&
-                  overlap.stageMapping[mi]
+                  Math.abs(inputDelta.pct) > 10 &&
+                  sd.values[0].inputBytes > 0
                 ) {
-                  stageId = overlap.stageMapping[mi].get(baseStageId);
+                  const sign = inputDelta.pct > 0 ? "+" : "";
+                  lines.push(
+                    `Input: ${Utils.formatBytes(sd.values[0].inputBytes)} vs ${Utils.formatBytes(sd.values[1].inputBytes)} <span class="compare-hotspot-rows-badge changed">${sign}${inputDelta.pct.toFixed(0)}%</span>`,
+                  );
                 }
-                const stage = entry.model.stages.get(stageId);
-                if (stage) {
-                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stage.metrics.cpuTimeNanos)}</td>`;
-                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stage.metrics.blockedTimeNanos)}</td>`;
-                  rowsHtml += `<td class="numeric">${Utils.formatBytes(stage.metrics.inputBytes)}</td>`;
-                } else {
-                  rowsHtml += `<td>-</td><td>-</td><td>-</td>`;
+                // Avg throughput per stage (inputBytes / cpuTime)
+                const tp0 =
+                  sd.values[0].cpu > 0
+                    ? sd.values[0].inputBytes / (sd.values[0].cpu / 1e9)
+                    : 0;
+                const tp1 =
+                  sd.values[1].cpu > 0
+                    ? sd.values[1].inputBytes / (sd.values[1].cpu / 1e9)
+                    : 0;
+                if (tp0 > 0 && tp1 > 0) {
+                  const tpDelta = CompareUtils.delta(tp0, tp1, false);
+                  if (Math.abs(tpDelta.pct) > 10) {
+                    const sign = tpDelta.pct > 0 ? "+" : "";
+                    lines.push(
+                      `Avg throughput: ${Utils.formatThroughput(tp0)} vs ${Utils.formatThroughput(tp1)} <span class="compare-hotspot-rows-badge changed">${sign}${tpDelta.pct.toFixed(0)}%</span>`,
+                    );
+                  }
                 }
-              });
-              rowsHtml += "</tr>";
+                if (lines.length > 0) {
+                  secondaryHtml = lines
+                    .map(
+                      (l) =>
+                        `<div class="compare-stage-wf-secondary"><span class="text-muted">${l}</span></div>`,
+                    )
+                    .join("");
+                }
+              }
+
+              rowsHtml += `<div class="compare-stage-wf-row">
+                <div class="compare-stage-wf-label">
+                  <span class="compare-stage-wf-id">Stage ${sd.baseStageId}</span>
+                  <span class="compare-stage-wf-type text-muted">${sd.rootType}</span>
+                </div>
+                <div class="compare-stage-wf-bar-pair">${bars}</div>
+                ${deltaHtml}
+                ${secondaryHtml}
+              </div>`;
             });
 
             return Utils.card(
-              "Stage Comparison",
-              Utils.dataTable("compare-stages", headers, rowsHtml),
-              { mb: true, noPadding: true },
+              "Stage Time Comparison",
+              `<div class="compare-stage-waterfall">${rowsHtml}</div>`,
+              {
+                mb: true,
+                subtitle: "Sorted by largest difference",
+              },
             );
           },
 
-          renderCompareOperators(models, overlap) {
+          renderCompareOperatorHotspots(models, overlap) {
             if (!overlap.stageMapping) return "";
 
             const baseModel = models[0].model;
-            const headers = [
-              { label: "Stage" },
-              { label: "Node" },
-              { label: "Type" },
-            ];
-            models.forEach((m) => {
-              headers.push({
-                label: `<span style="color:${m.color}">Wall Time</span>`,
-              });
-              headers.push({
-                label: `<span style="color:${m.color}">Rows Out</span>`,
-              });
-            });
-            if (models.length === 2) {
-              headers.push({ label: "Time Delta" });
-            }
 
-            // Group operators by plan node for the base model
+            // Group operators by plan node
             const baseByNode = new Map();
             baseModel.operators.forEach((op) => {
               if (!op.planNodeId) return;
@@ -10261,7 +10656,6 @@
               entry.rowsOut += op.metrics.outputPositions || 0;
             });
 
-            // Do the same for other models
             const otherByNode = models.slice(1).map((entry) => {
               const byNode = new Map();
               entry.model.operators.forEach((op) => {
@@ -10284,33 +10678,72 @@
               return byNode;
             });
 
-            // Build rows sorted by base wall time descending
-            const entries = Array.from(baseByNode.entries()).sort(
-              (a, b) => b[1].wallTime - a[1].wallTime,
+            let entries = Array.from(baseByNode.entries()).map(
+              ([nodeId, base]) => {
+                const other = otherByNode[0]?.get(nodeId);
+                const otherWall = other ? other.wallTime : 0;
+                const absDelta = Math.abs(otherWall - base.wallTime);
+                return { nodeId, base, other, absDelta };
+              },
             );
 
-            let rowsHtml = "";
-            entries.forEach(([nodeId, base]) => {
-              rowsHtml += `<tr><td>${base.stageId}</td><td class="font-mono">${nodeId}</td><td>${base.type}</td>`;
-              rowsHtml += `<td class="numeric">${Utils.formatDuration(base.wallTime)}</td>`;
-              rowsHtml += `<td class="numeric">${Utils.formatNumber(base.rowsOut)}</td>`;
+            if (models.length === 2) {
+              entries.sort((a, b) => b.absDelta - a.absDelta);
+            } else {
+              entries.sort((a, b) => b.base.wallTime - a.base.wallTime);
+            }
 
-              otherByNode.forEach((byNode) => {
-                const other = byNode.get(nodeId);
-                if (other) {
-                  rowsHtml += `<td class="numeric">${Utils.formatDuration(other.wallTime)}</td>`;
-                  rowsHtml += `<td class="numeric">${Utils.formatNumber(other.rowsOut)}</td>`;
-                } else {
-                  rowsHtml += `<td>-</td><td>-</td>`;
-                }
+            const INITIAL_SHOW = 10;
+            const maxWall = Math.max(
+              ...entries.flatMap((e) => [
+                e.base.wallTime,
+                e.other?.wallTime || 0,
+              ]),
+              1,
+            );
+
+            const headers = [
+              { label: "Stage", sort: "stage" },
+              { label: "Operator", sort: "operator" },
+            ];
+            models.forEach((m, mi) => {
+              headers.push({
+                label: `<span style="color:${m.color}">Wall Time</span>`,
+                className: "numeric",
+                sort: `wall${mi}`,
               });
+            });
+            if (models.length === 2) {
+              headers.push({
+                label: "Delta",
+                className: "numeric",
+                sort: "delta",
+              });
+              headers.push({ label: "Visual" });
+            }
+
+            let rowsHtml = "";
+            entries.forEach((e, idx) => {
+              const otherWall = e.other ? e.other.wallTime : 0;
+              const deltaVal =
+                models.length === 2 && e.other
+                  ? otherWall - e.base.wallTime
+                  : 0;
+              const sortAttrs = `data-sort-stage="${e.base.stageId}" data-sort-operator="${Utils.escapeHtml(e.base.type)}" data-sort-wall0="${e.base.wallTime}" data-sort-wall1="${otherWall}" data-sort-delta="${Math.abs(deltaVal)}"`;
+              const hiddenClass =
+                idx >= INITIAL_SHOW ? " compare-hotspot-hidden" : "";
+              const hiddenStyle =
+                idx >= INITIAL_SHOW ? ' style="display:none;"' : "";
+              rowsHtml += `<tr class="${hiddenClass.trim()}" ${sortAttrs}${hiddenStyle}>`;
+              rowsHtml += `<td>${e.base.stageId}</td><td>${e.base.type}</td>`;
+              rowsHtml += `<td class="numeric">${Utils.formatDuration(e.base.wallTime)}</td>`;
 
               if (models.length === 2) {
-                const other = otherByNode[0]?.get(nodeId);
-                if (other) {
+                rowsHtml += `<td class="numeric">${e.other ? Utils.formatDuration(e.other.wallTime) : "-"}</td>`;
+                if (e.other) {
                   const d = CompareUtils.delta(
-                    base.wallTime,
-                    other.wallTime,
+                    e.base.wallTime,
+                    e.other.wallTime,
                     true,
                   );
                   const cls =
@@ -10321,67 +10754,139 @@
                         : "";
                   const sign = d.abs > 0 ? "+" : "";
                   const pctStr = isFinite(d.pct)
-                    ? ` (${sign}${d.pct.toFixed(1)}%)`
+                    ? ` (${sign}${d.pct.toFixed(0)}%)`
                     : "";
-                  rowsHtml += `<td class="numeric ${cls}">${sign}${Utils.formatDuration(d.abs)}${pctStr}</td>`;
-                } else {
-                  rowsHtml += `<td>-</td>`;
-                }
-              }
+                  rowsHtml += `<td class="numeric ${cls}">${sign}${Utils.formatDuration(d.abs)}${pctStr}`;
 
+                  // Rows badge if changed >10%
+                  if (e.base.rowsOut > 0) {
+                    const rowsDelta = CompareUtils.delta(
+                      e.base.rowsOut,
+                      e.other.rowsOut,
+                      false,
+                    );
+                    if (Math.abs(rowsDelta.pct) > 10) {
+                      const rs = rowsDelta.pct > 0 ? "+" : "";
+                      rowsHtml += `<span class="compare-hotspot-rows-badge changed">${rs}${rowsDelta.pct.toFixed(0)}% rows</span>`;
+                    }
+                  }
+                  rowsHtml += `</td>`;
+
+                  // Visual bars
+                  const wA = (e.base.wallTime / maxWall) * 100;
+                  const wB = (e.other.wallTime / maxWall) * 100;
+                  rowsHtml += `<td><div class="compare-hotspot-bars">
+                    <div class="compare-hotspot-bar" style="width: ${Math.max(wA, 1)}%; background: ${models[0].color};"></div>
+                    <div class="compare-hotspot-bar" style="width: ${Math.max(wB, 1)}%; background: ${models[1].color};"></div>
+                  </div></td>`;
+                } else {
+                  rowsHtml += "<td>-</td><td>-</td>";
+                }
+              } else {
+                otherByNode.forEach((byNode) => {
+                  const other = byNode.get(e.nodeId);
+                  rowsHtml += `<td class="numeric">${other ? Utils.formatDuration(other.wallTime) : "-"}</td>`;
+                });
+              }
               rowsHtml += "</tr>";
             });
 
+            let expandHtml = "";
+            if (entries.length > INITIAL_SHOW) {
+              expandHtml = `<div class="compare-hotspot-expand">
+                <a href="#" id="compare-hotspot-toggle">Show all ${entries.length} operators</a>
+              </div>`;
+            }
+
             return Utils.card(
-              "Operator Comparison",
-              Utils.dataTable("compare-operators", headers, rowsHtml, {
+              "Operator Hotspots",
+              Utils.dataTable("compare-hotspots", headers, rowsHtml, {
                 maxHeight: "500px",
-              }),
-              { mb: true, noPadding: true },
+              }) + expandHtml,
+              {
+                mb: true,
+                noPadding: true,
+                subtitle: "Top changes by wall time delta",
+              },
             );
           },
 
-          renderCompareWorkers(models, overlap) {
-            const workers = Array.from(overlap.workerIntersection).sort();
+          wireCompareHotspotExpand(container) {
+            const table = container.querySelector("#compare-hotspots");
+            if (!table) return;
+            const tbody = table.querySelector("tbody");
+            const toggle = container.querySelector("#compare-hotspot-toggle");
 
-            // Derive per-worker stats for each model
-            const allStats = models.map((entry) => {
-              const { workerStats } = Derived.deriveWorkersData(entry.model);
-              return workerStats;
-            });
-
-            const headers = [{ label: "Worker" }];
-            models.forEach((m) => {
-              headers.push({
-                label: `<span style="color:${m.color}">Tasks</span>`,
+            // Expand / collapse
+            if (toggle) {
+              toggle.addEventListener("click", (e) => {
+                e.preventDefault();
+                const hidden = container.querySelectorAll(
+                  ".compare-hotspot-hidden",
+                );
+                const isShowing = toggle.textContent.startsWith("Show all");
+                hidden.forEach((row) => {
+                  row.style.display = isShowing ? "" : "none";
+                });
+                const total = tbody.querySelectorAll("tr").length;
+                toggle.textContent = isShowing
+                  ? "Show top 10 only"
+                  : `Show all ${total} operators`;
               });
-              headers.push({
-                label: `<span style="color:${m.color}">CPU</span>`,
-              });
-            });
+            }
 
-            let rowsHtml = "";
-            workers.forEach((host) => {
-              rowsHtml += `<tr><td class="font-mono">${Utils.escapeHtml(host)}</td>`;
-              models.forEach((entry, mi) => {
-                const stats = allStats[mi].get(host);
-                if (stats) {
-                  rowsHtml += `<td class="numeric">${stats.taskCount}</td>`;
-                  rowsHtml += `<td class="numeric">${Utils.formatDuration(stats.cpuTimeNanos)}</td>`;
+            // Column sorting
+            let sortKey = null;
+            let sortAsc = false;
+            table.querySelectorAll("th[data-sort]").forEach((th) => {
+              th.addEventListener("click", () => {
+                const key = th.dataset.sort;
+                if (sortKey === key) {
+                  sortAsc = !sortAsc;
                 } else {
-                  rowsHtml += `<td>-</td><td>-</td>`;
+                  sortKey = key;
+                  sortAsc = key === "stage" || key === "operator";
+                }
+
+                // Update header indicators
+                table.querySelectorAll("th").forEach((h) => {
+                  h.classList.remove("sorted-asc", "sorted-desc");
+                });
+                th.classList.add(sortAsc ? "sorted-asc" : "sorted-desc");
+
+                // Sort rows — convert data-sort-* camelCase key
+                const attrName =
+                  "sort" +
+                  key
+                    .split("-")
+                    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+                    .join("");
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+                rows.sort((a, b) => {
+                  const aVal = a.dataset[attrName];
+                  const bVal = b.dataset[attrName];
+                  if (key === "operator") {
+                    return sortAsc
+                      ? aVal.localeCompare(bVal)
+                      : bVal.localeCompare(aVal);
+                  }
+                  return sortAsc
+                    ? Number(aVal) - Number(bVal)
+                    : Number(bVal) - Number(aVal);
+                });
+
+                // Re-append sorted, reveal all rows
+                rows.forEach((row) => {
+                  row.classList.remove("compare-hotspot-hidden");
+                  row.style.display = "";
+                  tbody.appendChild(row);
+                });
+                if (toggle) {
+                  toggle.textContent = `Show all ${rows.length} operators`;
+                  toggle.style.display = "none";
                 }
               });
-              rowsHtml += "</tr>";
             });
-
-            return Utils.card(
-              "Worker Comparison",
-              Utils.dataTable("compare-workers", headers, rowsHtml, {
-                maxHeight: "400px",
-              }),
-              { mb: true, noPadding: true },
-            );
           },
 
           /**
@@ -13995,7 +14500,9 @@
                   ? this.currentView
                   : "explain";
               const targetView =
-                urlView && validViews.includes(urlView) ? urlView : defaultView;
+                urlView && urlView !== "compare" && validViews.includes(urlView)
+                  ? urlView
+                  : defaultView;
               this.switchView(targetView);
 
               this.updateHeader();
@@ -14091,8 +14598,13 @@
 
             if (newModels.length === 0) return;
 
-            // Include current single model as first entry if not already in compare
-            if (this.model && this.compareModels.length === 0) {
+            // Include current single model as first entry only when adding
+            // one file to an existing single-file session (not a fresh multi-upload)
+            if (
+              this.model &&
+              this.compareModels.length === 0 &&
+              newModels.length === 1
+            ) {
               this.compareModels.push({
                 model: this.model,
                 label: this.model.query.id || "Current",
@@ -14154,6 +14666,14 @@
             document.querySelectorAll(".view").forEach((view) => {
               view.classList.toggle("active", view.id === `view-${viewName}`);
             });
+
+            // Hide single-query header in compare view
+            const qs = document.getElementById("query-summary");
+            if (viewName === "compare") {
+              qs.classList.add("hidden");
+            } else if (this.model) {
+              qs.classList.remove("hidden");
+            }
 
             // Hide detail panel on view switch
             DetailPanel.hide();
