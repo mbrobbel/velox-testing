@@ -3592,6 +3592,51 @@
           escapeRegex(str) {
             return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           },
+
+          detailRow(label, value, attrs = "") {
+            return `<div class="detail-row"${attrs}><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`;
+          },
+
+          detailSection(title, rows) {
+            return `<div class="detail-section"><div class="detail-section-title">${title}</div>${rows}</div>`;
+          },
+
+          dataTable(id, headers, rowsHtml, opts = {}) {
+            const style = opts.maxHeight
+              ? ` style="max-height: ${opts.maxHeight}; overflow-y: auto;"`
+              : "";
+            const ths = headers
+              .map((h) =>
+                typeof h === "string"
+                  ? `<th>${h}</th>`
+                  : `<th${h.sort ? ` data-sort="${h.sort}"` : ""}>${h.label}</th>`,
+              )
+              .join("");
+            return `<div class="table-container"${style}><table class="data-table" id="${id}"><thead><tr>${ths}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+          },
+
+          metricCard(label, value, subvalue) {
+            return `<div class="metric-card"><div class="metric-label">${label}</div><div class="metric-value">${value}</div>${subvalue ? `<div class="metric-subvalue">${subvalue}</div>` : ""}</div>`;
+          },
+
+          card(title, body, opts = {}) {
+            const cls = [
+              "card",
+              ...(opts.mb ? ["mb-md"] : []),
+              ...(opts.classes ? [opts.classes] : []),
+            ].join(" ");
+            const extra = opts.subtitle
+              ? `<span class="text-secondary">${opts.subtitle}</span>`
+              : opts.badge
+                ? opts.badge
+                : opts.headerExtra
+                  ? opts.headerExtra
+                  : "";
+            const bodyClass = opts.noPadding
+              ? "card-body no-padding"
+              : "card-body";
+            return `<div class="${cls}"><div class="card-header"><span class="card-title">${title}</span>${extra}</div><div class="${bodyClass}">${body}</div></div>`;
+          },
         };
 
         // ==========================================================================
@@ -5531,6 +5576,86 @@
               stageColors,
             };
           },
+
+          deriveTasksData(model) {
+            const tasks = Array.from(model.tasks.values()).sort((a, b) => {
+              if (a.stageId !== b.stageId) return a.stageId - b.stageId;
+              return a.partitionId - b.partitionId;
+            });
+            return { tasks };
+          },
+
+          deriveWorkersData(model) {
+            const workers = Array.from(model.workers.values());
+
+            const workerStats = new Map();
+            workers.forEach((w) => {
+              workerStats.set(w.id, {
+                taskCount: 0,
+                cpuTimeNanos: 0,
+                inputBytes: 0,
+              });
+            });
+
+            model.tasks.forEach((task) => {
+              const stats = workerStats.get(task.workerId);
+              if (stats) {
+                stats.taskCount++;
+                stats.cpuTimeNanos += task.stats?.totalCpuTimeInNanos || 0;
+                stats.inputBytes += task.stats?.rawInputDataSizeInBytes || 0;
+              }
+            });
+
+            return { workers, workerStats };
+          },
+
+          derivePlanViewData(model) {
+            const nodes = model.planNodes;
+            const stageIds = [...new Set(nodes.map((n) => n.stageId))].sort(
+              (a, b) => a - b,
+            );
+            const stageColors = this.stageColors(model.stages, "rapids");
+
+            const queryDuration = model.queryTiming?.durationMs || 1;
+            const timelineRows = [];
+            stageIds.forEach((id) => {
+              const stage = model.stages.get(id);
+              const timing = stage.timing || {};
+              const workerIds = Array.from(stage.workerTiming.keys()).sort();
+
+              timelineRows.push({
+                type: "stage",
+                stageId: id,
+                startPct: ((timing.relativeStartMs || 0) / queryDuration) * 100,
+                endPct:
+                  ((timing.relativeEndMs || queryDuration) / queryDuration) *
+                  100,
+                workerCount: workerIds.length,
+              });
+
+              workerIds.forEach((workerId) => {
+                const wt = stage.workerTiming.get(workerId);
+                const cpuMs = (wt.cpuTimeNanos || 0) / 1e6;
+                const wallMs = wt.durationMs || 1;
+                const activeStartPct =
+                  ((wt.relativeActiveStartMs || 0) / queryDuration) * 100;
+                timelineRows.push({
+                  type: "worker",
+                  stageId: id,
+                  workerId,
+                  startPct: ((wt.relativeStartMs || 0) / queryDuration) * 100,
+                  endPct:
+                    ((wt.relativeEndMs || queryDuration) / queryDuration) * 100,
+                  activeStartPct,
+                  durationMs: wallMs,
+                  cpuMs,
+                  taskCount: wt.taskCount,
+                });
+              });
+            });
+
+            return { stageIds, stageColors, timelineRows };
+          },
         };
 
         // ==========================================================================
@@ -5538,6 +5663,60 @@
         // ==========================================================================
 
         const Views = {
+          /** Create an SVG with trackpad-friendly zoom/pan. Returns { svg, g, zoom }. */
+          createSvgWithZoom(container, width, height, opts = {}) {
+            const svg = d3.select(container).append("svg");
+            if (opts.viewBox) {
+              svg
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("viewBox", opts.viewBox);
+            } else {
+              svg.attr("width", width).attr("height", height);
+            }
+            const g = svg.append("g");
+            const scaleExtent = opts.scaleExtent || [0.1, 4];
+            const zoom = d3
+              .zoom()
+              .scaleExtent(scaleExtent)
+              .on("zoom", (event) => g.attr("transform", event.transform));
+            svg.call(zoom).on("wheel.zoom", (event) => {
+              event.preventDefault();
+              const k = d3.zoomTransform(svg.node()).k;
+              if (event.ctrlKey) {
+                zoom.scaleTo(
+                  svg,
+                  k * Math.pow(2, -event.deltaY * 0.01),
+                  d3.pointer(event),
+                );
+              } else {
+                zoom.translateBy(svg, -event.deltaX / k, -event.deltaY / k);
+              }
+            });
+            return { svg, g, zoom };
+          },
+
+          /** Create a tooltip div inside a container. Returns { show(event, html), hide() }. */
+          createTooltip(container) {
+            const tooltip = d3
+              .select(container)
+              .append("div")
+              .attr("class", "dag-tooltip");
+            return {
+              show(event, html) {
+                const rect = container.getBoundingClientRect();
+                tooltip
+                  .html(html)
+                  .classed("visible", true)
+                  .style("left", event.clientX - rect.left + 10 + "px")
+                  .style("top", event.clientY - rect.top + 10 + "px");
+              },
+              hide() {
+                tooltip.classed("visible", false);
+              },
+            };
+          },
+
           /**
            * Render the Overview view
            */
@@ -5550,13 +5729,9 @@
              <p class="view-subtitle">Execution summary and key metrics</p>
            </div>
 
-           <!-- Query Info Card -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Query Information</span>
-               <span class="badge ${this.getStateBadgeClass(q.state)}">${q.state}</span>
-             </div>
-             <div class="card-body">
+           ${Utils.card(
+             "Query Information",
+             `
                <div class="flex gap-md mb-md" style="flex-wrap: wrap;">
                  <div>
                    <span class="text-secondary">Query ID:</span>
@@ -5575,23 +5750,21 @@
                    <span>${Utils.escapeHtml(q.session.source || "N/A")}</span>
                  </div>
                </div>
-
                <div class="collapsible-header" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('expanded');">
                  <span>SQL Query</span>
                </div>
                <div class="collapsible-content">
                  <div class="sql-display">${Utils.highlightSQL(Utils.escapeHtml(q.sql))}</div>
-               </div>
-             </div>
-           </div>
+               </div>`,
+             {
+               mb: true,
+               badge: `<span class="badge ${this.getStateBadgeClass(q.state)}">${q.state}</span>`,
+             },
+           )}
 
-           <!-- Timing Card -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Timing</span>
-               <span class="font-mono">${Utils.escapeHtml(q.timing.elapsed || "N/A")}</span>
-             </div>
-             <div class="card-body">
+           ${Utils.card(
+             "Timing",
+             `
                ${this.renderTimeline(q.timing)}
                <div class="grid-3 mt-md" style="margin-top: 16px;">
                  <div>
@@ -5618,37 +5791,23 @@
                    <span class="text-secondary">Analysis:</span>
                    <span class="font-mono">${Utils.escapeHtml(q.timing.analysis || "0")}</span>
                  </div>
-               </div>
-             </div>
-           </div>
+               </div>`,
+             {
+               mb: true,
+               headerExtra: `<span class="font-mono">${Utils.escapeHtml(q.timing.elapsed || "N/A")}</span>`,
+             },
+           )}
 
-           <!-- Metrics Grid -->
            <div class="metric-grid mb-md">
-             <div class="metric-card">
-               <div class="metric-label">Stages</div>
-               <div class="metric-value">${model.stages.size}</div>
-             </div>
-             <div class="metric-card">
-               <div class="metric-label">Tasks</div>
-               <div class="metric-value">${model.tasks.size}</div>
-             </div>
-             <div class="metric-card">
-               <div class="metric-label">Workers</div>
-               <div class="metric-value">${model.workers.size}</div>
-             </div>
-             <div class="metric-card">
-               <div class="metric-label">Operators</div>
-               <div class="metric-value">${model.operators.length}</div>
-               <div class="metric-subvalue">${model.operators.filter((o) => o.isGpu).length} GPU</div>
-             </div>
+             ${Utils.metricCard("Stages", model.stages.size)}
+             ${Utils.metricCard("Tasks", model.tasks.size)}
+             ${Utils.metricCard("Workers", model.workers.size)}
+             ${Utils.metricCard("Operators", model.operators.length, `${model.operators.filter((o) => o.isGpu).length} GPU`)}
            </div>
 
-           <!-- Data Flow Card -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Data Flow</span>
-             </div>
-             <div class="card-body">
+           ${Utils.card(
+             "Data Flow",
+             `
                <div class="grid-2">
                  <div>
                    <div class="metric-label">Raw Input</div>
@@ -5670,16 +5829,13 @@
                    <div class="metric-value small">${Utils.escapeHtml(q.totals.outputSize || "0B")}</div>
                    <div class="metric-subvalue">${Utils.formatNumber(q.totals.outputPositions)} rows</div>
                  </div>
-               </div>
-             </div>
-           </div>
+               </div>`,
+             { mb: true },
+           )}
 
-           <!-- Memory Card -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Memory</span>
-             </div>
-             <div class="card-body">
+           ${Utils.card(
+             "Memory",
+             `
                <div class="grid-2">
                  <div>
                    <div class="metric-label">Peak User Memory</div>
@@ -5689,20 +5845,13 @@
                    <div class="metric-label">Peak Total Memory</div>
                    <div class="metric-value small">${Utils.escapeHtml(q.totals.peakTotalMemory || "0B")}</div>
                  </div>
-               </div>
-             </div>
-           </div>
+               </div>`,
+             { mb: true },
+           )}
 
-           <!-- Shuffle Breakdown Card -->
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Shuffle Details</span>
-               <span class="text-secondary font-mono">${Utils.escapeHtml(q.totals.shuffledSize || "0B")} total</span>
-             </div>
-             <div class="card-body">
-               ${this.renderShuffleBreakdown(model)}
-             </div>
-           </div>
+           ${Utils.card("Shuffle Details", this.renderShuffleBreakdown(model), {
+             subtitle: `<span class="font-mono">${Utils.escapeHtml(q.totals.shuffledSize || "0B")} total</span>`,
+           })}
          `;
           },
 
@@ -5862,53 +6011,8 @@
           renderPlan(model, container) {
             const nodes = model.planNodes;
             const edges = model.planEdges;
-
-            // Get unique stage IDs for coloring
-            const stageIds = [...new Set(nodes.map((n) => n.stageId))].sort(
-              (a, b) => a - b,
-            );
-            const stageColors = Derived.stageColors(model.stages, "rapids");
-
-            // Build stage timing data for timeline with per-worker rows
-            const queryDuration = model.queryTiming?.durationMs || 1;
-            const timelineRows = [];
-            stageIds.forEach((id) => {
-              const stage = model.stages.get(id);
-              const timing = stage.timing || {};
-              const workerIds = Array.from(stage.workerTiming.keys()).sort();
-
-              // Add stage header row
-              timelineRows.push({
-                type: "stage",
-                stageId: id,
-                startPct: ((timing.relativeStartMs || 0) / queryDuration) * 100,
-                endPct:
-                  ((timing.relativeEndMs || queryDuration) / queryDuration) *
-                  100,
-                workerCount: workerIds.length,
-              });
-
-              // Add worker rows
-              workerIds.forEach((workerId) => {
-                const wt = stage.workerTiming.get(workerId);
-                const cpuMs = (wt.cpuTimeNanos || 0) / 1e6;
-                const wallMs = wt.durationMs || 1;
-                const activeStartPct =
-                  ((wt.relativeActiveStartMs || 0) / queryDuration) * 100;
-                timelineRows.push({
-                  type: "worker",
-                  stageId: id,
-                  workerId,
-                  startPct: ((wt.relativeStartMs || 0) / queryDuration) * 100,
-                  endPct:
-                    ((wt.relativeEndMs || queryDuration) / queryDuration) * 100,
-                  activeStartPct, // When work actually started after blocking
-                  durationMs: wallMs,
-                  cpuMs,
-                  taskCount: wt.taskCount,
-                });
-              });
-            });
+            const { stageIds, stageColors, timelineRows } =
+              Derived.derivePlanViewData(model);
             const rowHeight = 20;
             const timelineHeight = timelineRows.length * rowHeight + 20;
 
@@ -5962,26 +6066,24 @@
              </div>
            </div>
 
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Plan Graph</span>
-               <div class="stage-legend" style="display: flex; gap: 12px; flex-wrap: wrap;">
+           ${Utils.card(
+             "Plan Graph",
+             `<div id="plan-dag-container" class="dag-container" style="height: 700px; overflow: hidden;"></div>`,
+             {
+               noPadding: true,
+               headerExtra: `<div class="stage-legend" style="display: flex; gap: 12px; flex-wrap: wrap;">
                  ${stageIds
                    .map(
                      (id) => `
                    <span class="badge stage-legend-item" data-stage-id="${id}" style="background: ${stageColors[id]}20; color: ${stageColors[id]}; border: 1px solid ${stageColors[id]}40; cursor: pointer; transition: transform 0.15s ease;"
                          onmouseenter="App.highlightPlanStage(${id})" onmouseleave="App.unhighlightPlanStage()">
                      Stage ${id}
-                   </span>
-                 `,
+                   </span>`,
                    )
                    .join("")}
-               </div>
-             </div>
-             <div class="card-body no-padding">
-               <div id="plan-dag-container" class="dag-container" style="height: 700px; overflow: hidden;"></div>
-             </div>
-           </div>
+               </div>`,
+             },
+           )}
          `;
 
             // Render the DAG
@@ -7222,63 +7324,13 @@
             // Clear previous content
             container.innerHTML = "";
 
-            // Create custom tooltip element
-            const tooltip = d3
-              .select(container)
-              .append("div")
-              .attr("class", "dag-tooltip");
-
-            const showTooltip = (event, html) => {
-              const containerRect = container.getBoundingClientRect();
-              const x = event.clientX - containerRect.left + 10;
-              const y = event.clientY - containerRect.top + 10;
-
-              tooltip
-                .html(html)
-                .style("left", `${x}px`)
-                .style("top", `${y}px`)
-                .classed("visible", true);
-            };
-
-            const hideTooltip = () => {
-              tooltip.classed("visible", false);
-            };
-
-            const svg = d3
-              .select(container)
-              .append("svg")
-              .attr("width", width)
-              .attr("height", height);
-
-            // Zoom/pan with trackpad-friendly behavior:
-            // - Mouse drag or two-finger trackpad scroll = pan
-            // - Trackpad pinch (ctrlKey) or Ctrl+wheel = zoom
-            const g = svg.append("g");
-
-            const zoom = d3
-              .zoom()
-              .scaleExtent([0.1, 4])
-              .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-              });
-
-            svg.call(zoom).on("wheel.zoom", (event) => {
-              event.preventDefault();
-              const currentZoom = d3.zoomTransform(svg.node()).k;
-              if (event.ctrlKey) {
-                // Pinch or Ctrl+wheel = zoom under cursor
-                const nextZoom =
-                  currentZoom * Math.pow(2, -event.deltaY * 0.01);
-                zoom.scaleTo(svg, nextZoom, d3.pointer(event));
-              } else {
-                // Two-finger trackpad scroll or mouse wheel = pan
-                zoom.translateBy(
-                  svg,
-                  -event.deltaX / currentZoom,
-                  -event.deltaY / currentZoom,
-                );
-              }
-            });
+            const { show: showTooltip, hide: hideTooltip } =
+              this.createTooltip(container);
+            const { svg, g, zoom } = this.createSvgWithZoom(
+              container,
+              width,
+              height,
+            );
 
             // Helper to get operator details for display
             const getNodeDetails = (n) => {
@@ -7887,41 +7939,11 @@
             // Clear previous content
             container.innerHTML = "";
 
-            const svg = d3
-              .select(container)
-              .append("svg")
-              .attr("width", width)
-              .attr("height", height);
-
-            // Zoom/pan with trackpad-friendly behavior:
-            // - Mouse drag or two-finger trackpad scroll = pan
-            // - Trackpad pinch (ctrlKey) or Ctrl+wheel = zoom
-            const g = svg.append("g");
-
-            const zoom = d3
-              .zoom()
-              .scaleExtent([0.1, 4])
-              .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-              });
-
-            svg.call(zoom).on("wheel.zoom", (event) => {
-              event.preventDefault();
-              const currentZoom = d3.zoomTransform(svg.node()).k;
-              if (event.ctrlKey) {
-                // Pinch or Ctrl+wheel = zoom under cursor
-                const nextZoom =
-                  currentZoom * Math.pow(2, -event.deltaY * 0.01);
-                zoom.scaleTo(svg, nextZoom, d3.pointer(event));
-              } else {
-                // Two-finger trackpad scroll or mouse wheel = pan
-                zoom.translateBy(
-                  svg,
-                  -event.deltaX / currentZoom,
-                  -event.deltaY / currentZoom,
-                );
-              }
-            });
+            const { svg, g, zoom } = this.createSvgWithZoom(
+              container,
+              width,
+              height,
+            );
 
             // Build node map for quick lookup
             const nodeMap = new Map(model.planNodes.map((n) => [n.id, n]));
@@ -8543,58 +8565,40 @@
              <p class="view-subtitle">${stages.length} stages in query execution DAG</p>
            </div>
 
-           <!-- DAG Visualization -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Stage DAG</span>
-             </div>
-             <div class="card-body no-padding">
-               <div id="dag-container" class="dag-container"></div>
-             </div>
-           </div>
+           ${Utils.card("Stage DAG", `<div id="dag-container" class="dag-container"></div>`, { mb: true, noPadding: true })}
 
-           <!-- Stages Table -->
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Stage Details</span>
-             </div>
-             <div class="card-body no-padding">
-               <div class="table-container">
-                 <table class="data-table" id="stages-table">
-                   <thead>
-                     <tr>
-                       <th data-sort="id">Stage</th>
-                       <th data-sort="rootNodeType">Type</th>
-                       <th data-sort="taskCount">Tasks</th>
-                       <th data-sort="cpuTimeNanos">CPU Time</th>
-                       <th data-sort="blockedTimeNanos">Blocked</th>
-                       <th data-sort="inputRows">Input Rows</th>
-                       <th data-sort="outputRows">Output Rows</th>
-                       <th data-sort="inputBytes">Input Size</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     ${stages
-                       .map(
-                         (stage) => `
-                       <tr data-stage-id="${stage.id}">
-                         <td><span class="badge primary">S${stage.id}</span></td>
-                         <td>${Utils.escapeHtml(stage.rootNodeType)}</td>
-                         <td class="numeric">${stage.metrics.taskCount}</td>
-                         <td class="numeric">${Utils.formatDuration(stage.metrics.cpuTimeNanos)}</td>
-                         <td class="numeric">${Utils.formatDuration(stage.metrics.blockedTimeNanos)}</td>
-                         <td class="numeric">${Utils.formatNumber(stage.metrics.inputRows)}</td>
-                         <td class="numeric">${Utils.formatNumber(stage.metrics.outputRows)}</td>
-                         <td class="numeric">${Utils.formatBytes(stage.metrics.inputBytes)}</td>
-                       </tr>
-                     `,
-                       )
-                       .join("")}
-                   </tbody>
-                 </table>
-               </div>
-             </div>
-           </div>
+           ${Utils.card(
+             "Stage Details",
+             Utils.dataTable(
+               "stages-table",
+               [
+                 { label: "Stage", sort: "id" },
+                 { label: "Type", sort: "rootNodeType" },
+                 { label: "Tasks", sort: "taskCount" },
+                 { label: "CPU Time", sort: "cpuTimeNanos" },
+                 { label: "Blocked", sort: "blockedTimeNanos" },
+                 { label: "Input Rows", sort: "inputRows" },
+                 { label: "Output Rows", sort: "outputRows" },
+                 { label: "Input Size", sort: "inputBytes" },
+               ],
+               stages
+                 .map(
+                   (stage) => `
+               <tr data-stage-id="${stage.id}">
+                 <td><span class="badge primary">S${stage.id}</span></td>
+                 <td>${Utils.escapeHtml(stage.rootNodeType)}</td>
+                 <td class="numeric">${stage.metrics.taskCount}</td>
+                 <td class="numeric">${Utils.formatDuration(stage.metrics.cpuTimeNanos)}</td>
+                 <td class="numeric">${Utils.formatDuration(stage.metrics.blockedTimeNanos)}</td>
+                 <td class="numeric">${Utils.formatNumber(stage.metrics.inputRows)}</td>
+                 <td class="numeric">${Utils.formatNumber(stage.metrics.outputRows)}</td>
+                 <td class="numeric">${Utils.formatBytes(stage.metrics.inputBytes)}</td>
+               </tr>`,
+                 )
+                 .join(""),
+             ),
+             { noPadding: true },
+           )}
          `;
 
             // Render DAG
@@ -8631,12 +8635,12 @@
             const width = container.clientWidth;
             const height = container.clientHeight || 500;
 
-            // Create SVG
-            const svg = d3
-              .select(container)
-              .append("svg")
-              .attr("width", width)
-              .attr("height", height);
+            const { svg, g, zoom } = this.createSvgWithZoom(
+              container,
+              width,
+              height,
+              { scaleExtent: [0.3, 3] },
+            );
 
             // Add arrow marker definition
             svg
@@ -8660,37 +8664,6 @@
               width,
               height,
             );
-
-            // Create a group for zoom/pan
-            const g = svg.append("g");
-
-            // Zoom/pan with trackpad-friendly behavior:
-            // - Mouse drag or two-finger trackpad scroll = pan
-            // - Trackpad pinch (ctrlKey) or Ctrl+wheel = zoom
-            const zoom = d3
-              .zoom()
-              .scaleExtent([0.3, 3])
-              .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-              });
-
-            svg.call(zoom).on("wheel.zoom", (event) => {
-              event.preventDefault();
-              const currentZoom = d3.zoomTransform(svg.node()).k;
-              if (event.ctrlKey) {
-                // Pinch or Ctrl+wheel = zoom under cursor
-                const nextZoom =
-                  currentZoom * Math.pow(2, -event.deltaY * 0.01);
-                zoom.scaleTo(svg, nextZoom, d3.pointer(event));
-              } else {
-                // Two-finger trackpad scroll or mouse wheel = pan
-                zoom.translateBy(
-                  svg,
-                  -event.deltaX / currentZoom,
-                  -event.deltaY / currentZoom,
-                );
-              }
-            });
 
             // Draw edges
             const edgeSelection = g
@@ -8860,10 +8833,7 @@
            * Render the Tasks view
            */
           renderTasks(model, container) {
-            const tasks = Array.from(model.tasks.values()).sort((a, b) => {
-              if (a.stageId !== b.stageId) return a.stageId - b.stageId;
-              return a.partitionId - b.partitionId;
-            });
+            const { tasks } = Derived.deriveTasksData(model);
 
             container.innerHTML = `
            <div class="view-header">
@@ -8871,54 +8841,46 @@
              <p class="view-subtitle">${tasks.length} tasks across ${model.stages.size} stages</p>
            </div>
 
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Task List</span>
-             </div>
-             <div class="card-body no-padding">
-               <div class="table-container" style="max-height: 600px; overflow-y: auto;">
-                 <table class="data-table" id="tasks-table">
-                   <thead>
-                     <tr>
-                       <th>Task ID</th>
-                       <th>Stage</th>
-                       <th>Worker</th>
-                       <th>Pipelines</th>
-                       <th>CPU Time</th>
-                       <th>Blocked</th>
-                       <th>Input</th>
-                       <th>Output</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     ${tasks
-                       .map((task) => {
-                         const stats = task.stats || {};
-                         const cpuTime = Utils.formatDuration(
-                           stats.totalCpuTimeInNanos || 0,
-                         );
-                         const blockedTime = Utils.formatDuration(
-                           stats.totalBlockedTimeInNanos || 0,
-                         );
-                         return `
-                         <tr data-task-id="${task.id}">
-                           <td class="truncate font-mono" title="${task.id}">${task.id.split(".").slice(-3).join(".")}</td>
-                           <td><span class="badge primary">S${task.stageId}</span></td>
-                           <td class="truncate" title="${task.workerHost}">${task.workerHost}</td>
-                           <td class="numeric">${task.pipelines.length}</td>
-                           <td class="numeric">${cpuTime}</td>
-                           <td class="numeric">${blockedTime}</td>
-                           <td class="numeric">${Utils.formatBytes(stats.rawInputDataSizeInBytes || 0)}</td>
-                           <td class="numeric">${Utils.formatBytes(stats.outputDataSizeInBytes || 0)}</td>
-                         </tr>
-                       `;
-                       })
-                       .join("")}
-                   </tbody>
-                 </table>
-               </div>
-             </div>
-           </div>
+           ${Utils.card(
+             "Task List",
+             Utils.dataTable(
+               "tasks-table",
+               [
+                 "Task ID",
+                 "Stage",
+                 "Worker",
+                 "Pipelines",
+                 "CPU Time",
+                 "Blocked",
+                 "Input",
+                 "Output",
+               ],
+               tasks
+                 .map((task) => {
+                   const stats = task.stats || {};
+                   const cpuTime = Utils.formatDuration(
+                     stats.totalCpuTimeInNanos || 0,
+                   );
+                   const blockedTime = Utils.formatDuration(
+                     stats.totalBlockedTimeInNanos || 0,
+                   );
+                   return `
+                 <tr data-task-id="${task.id}">
+                   <td class="truncate font-mono" title="${task.id}">${task.id.split(".").slice(-3).join(".")}</td>
+                   <td><span class="badge primary">S${task.stageId}</span></td>
+                   <td class="truncate" title="${task.workerHost}">${task.workerHost}</td>
+                   <td class="numeric">${task.pipelines.length}</td>
+                   <td class="numeric">${cpuTime}</td>
+                   <td class="numeric">${blockedTime}</td>
+                   <td class="numeric">${Utils.formatBytes(stats.rawInputDataSizeInBytes || 0)}</td>
+                   <td class="numeric">${Utils.formatBytes(stats.outputDataSizeInBytes || 0)}</td>
+                 </tr>`;
+                 })
+                 .join(""),
+               { maxHeight: "600px" },
+             ),
+             { noPadding: true },
+           )}
          `;
 
             // Add click handlers
@@ -8945,12 +8907,9 @@
              <p class="view-subtitle">${operators.length} operators (${gpuCount} GPU-accelerated)</p>
            </div>
 
-           <!-- Type Summary -->
-           <div class="card mb-md">
-             <div class="card-header">
-               <span class="card-title">Operator Types</span>
-             </div>
-             <div class="card-body">
+           ${Utils.card(
+             "Operator Types",
+             `
                <div class="flex gap-sm" style="flex-wrap: wrap;">
                  ${Array.from(typeCounts.entries())
                    .sort((a, b) => b[1] - a[1])
@@ -8959,57 +8918,48 @@
                      return `<span class="badge ${isGpu ? "gpu" : ""}">${Utils.getOperatorDisplayName(type)}: ${count}</span>`;
                    })
                    .join("")}
-               </div>
-             </div>
-           </div>
+               </div>`,
+             { mb: true },
+           )}
 
-           <!-- Operators Table -->
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Operator Details</span>
-             </div>
-             <div class="card-body no-padding">
-               <div class="table-container" style="max-height: 500px; overflow-y: auto;">
-                 <table class="data-table" id="operators-table">
-                   <thead>
-                     <tr>
-                       <th>Stage</th>
-                       <th>Pipeline</th>
-                       <th>Type</th>
-                       <th>Plan Node</th>
-                       <th>Input Rows</th>
-                       <th>Output Rows</th>
-                       <th>CPU Time</th>
-                       <th>Blocked</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     ${operators
-                       .map(
-                         (op) => `
-                       <tr data-operator-key="${op.key}" data-plan-node-id="${Utils.normalizePlanNodeId(op.planNodeId)}"
-                           onmouseenter="App.highlightPlanNode('${Utils.normalizePlanNodeId(op.planNodeId)}')"
-                           onmouseleave="App.unhighlightPlanNode()">
-                         <td><span class="badge primary">S${op.stageId}</span></td>
-                         <td class="numeric">P${op.pipelineId}</td>
-                         <td>
-                           ${op.isGpu ? '<span class="badge gpu">GPU</span>' : ""}
-                           ${Utils.escapeHtml(Utils.getOperatorDisplayName(op.type))}
-                         </td>
-                         <td class="font-mono">${Utils.escapeHtml(op.planNodeId)}</td>
-                         <td class="numeric">${Utils.formatNumber(op.metrics.inputPositions)}</td>
-                         <td class="numeric">${Utils.formatNumber(op.metrics.outputPositions)}</td>
-                         <td class="numeric">${Utils.formatDuration(op.metrics.getOutputCpuNanos + op.metrics.addInputCpuNanos)}</td>
-                         <td class="numeric">${Utils.formatDuration(op.metrics.blockedWallNanos)}</td>
-                       </tr>
-                     `,
-                       )
-                       .join("")}
-                   </tbody>
-                 </table>
-               </div>
-             </div>
-           </div>
+           ${Utils.card(
+             "Operator Details",
+             Utils.dataTable(
+               "operators-table",
+               [
+                 "Stage",
+                 "Pipeline",
+                 "Type",
+                 "Plan Node",
+                 "Input Rows",
+                 "Output Rows",
+                 "CPU Time",
+                 "Blocked",
+               ],
+               operators
+                 .map(
+                   (op) => `
+               <tr data-operator-key="${op.key}" data-plan-node-id="${Utils.normalizePlanNodeId(op.planNodeId)}"
+                   onmouseenter="App.highlightPlanNode('${Utils.normalizePlanNodeId(op.planNodeId)}')"
+                   onmouseleave="App.unhighlightPlanNode()">
+                 <td><span class="badge primary">S${op.stageId}</span></td>
+                 <td class="numeric">P${op.pipelineId}</td>
+                 <td>
+                   ${op.isGpu ? '<span class="badge gpu">GPU</span>' : ""}
+                   ${Utils.escapeHtml(Utils.getOperatorDisplayName(op.type))}
+                 </td>
+                 <td class="font-mono">${Utils.escapeHtml(op.planNodeId)}</td>
+                 <td class="numeric">${Utils.formatNumber(op.metrics.inputPositions)}</td>
+                 <td class="numeric">${Utils.formatNumber(op.metrics.outputPositions)}</td>
+                 <td class="numeric">${Utils.formatDuration(op.metrics.getOutputCpuNanos + op.metrics.addInputCpuNanos)}</td>
+                 <td class="numeric">${Utils.formatDuration(op.metrics.blockedWallNanos)}</td>
+               </tr>`,
+                 )
+                 .join(""),
+               { maxHeight: "500px" },
+             ),
+             { noPadding: true },
+           )}
          `;
 
             // Add click handlers
@@ -9027,26 +8977,7 @@
            * Render the Workers view
            */
           renderWorkers(model, container) {
-            const workers = Array.from(model.workers.values());
-
-            // Calculate per-worker task counts and metrics
-            const workerStats = new Map();
-            workers.forEach((w) => {
-              workerStats.set(w.id, {
-                taskCount: 0,
-                cpuTimeNanos: 0,
-                inputBytes: 0,
-              });
-            });
-
-            model.tasks.forEach((task) => {
-              const stats = workerStats.get(task.workerId);
-              if (stats) {
-                stats.taskCount++;
-                stats.cpuTimeNanos += task.stats?.totalCpuTimeInNanos || 0;
-                stats.inputBytes += task.stats?.rawInputDataSizeInBytes || 0;
-              }
-            });
+            const { workers, workerStats } = Derived.deriveWorkersData(model);
 
             container.innerHTML = `
            <div class="view-header">
@@ -9054,48 +8985,32 @@
              <p class="view-subtitle">${workers.length} worker nodes</p>
            </div>
 
-           <div class="card">
-             <div class="card-header">
-               <span class="card-title">Worker Summary</span>
-             </div>
-             <div class="card-body no-padding">
-               <div class="table-container">
-                 <table class="data-table" id="workers-table">
-                   <thead>
-                     <tr>
-                       <th>Worker</th>
-                       <th>Tasks</th>
-                       <th>CPU Time</th>
-                       <th>Input Data</th>
-                       <th>Status</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     ${workers
-                       .map((worker) => {
-                         const stats = workerStats.get(worker.id);
-                         const hasFailures =
-                           (worker.status?.recentFailures || 0) > 0;
-                         return `
-                         <tr data-worker-id="${worker.id}">
-                           <td>${Utils.escapeHtml(worker.host || worker.id)}</td>
-                           <td class="numeric">${stats?.taskCount || 0}</td>
-                           <td class="numeric">${Utils.formatDuration(stats?.cpuTimeNanos || 0)}</td>
-                           <td class="numeric">${Utils.formatBytes(stats?.inputBytes || 0)}</td>
-                           <td>
-                             <span class="badge ${hasFailures ? "warning" : "success"}">
-                               ${hasFailures ? "Issues" : "Healthy"}
-                             </span>
-                           </td>
-                         </tr>
-                       `;
-                       })
-                       .join("")}
-                   </tbody>
-                 </table>
-               </div>
-             </div>
-           </div>
+           ${Utils.card(
+             "Worker Summary",
+             Utils.dataTable(
+               "workers-table",
+               ["Worker", "Tasks", "CPU Time", "Input Data", "Status"],
+               workers
+                 .map((worker) => {
+                   const stats = workerStats.get(worker.id);
+                   const hasFailures = (worker.status?.recentFailures || 0) > 0;
+                   return `
+                 <tr data-worker-id="${worker.id}">
+                   <td>${Utils.escapeHtml(worker.host || worker.id)}</td>
+                   <td class="numeric">${stats?.taskCount || 0}</td>
+                   <td class="numeric">${Utils.formatDuration(stats?.cpuTimeNanos || 0)}</td>
+                   <td class="numeric">${Utils.formatBytes(stats?.inputBytes || 0)}</td>
+                   <td>
+                     <span class="badge ${hasFailures ? "warning" : "success"}">
+                       ${hasFailures ? "Issues" : "Healthy"}
+                     </span>
+                   </td>
+                 </tr>`;
+                 })
+                 .join(""),
+             ),
+             { noPadding: true },
+           )}
          `;
 
             // Add click handlers
@@ -9113,10 +9028,6 @@
            * Render the Execution view - multiple execution-oriented visualizations
            */
           renderExecution(model, container) {
-            const workers = Array.from(model.workers.values());
-            const stages = Array.from(model.stages.entries());
-            const queryDuration = model.queryTiming?.durationMs || 1;
-
             container.innerHTML = `
               <div class="view-header">
                 <h1 class="view-title">Execution Analysis</h1>
@@ -9220,13 +9131,9 @@
               });
             });
 
-            container.innerHTML = `
-              <div class="card">
-                <div class="card-header">
-                  <span class="card-title">Timeline Waterfall</span>
-                  <span class="text-secondary">Worker × Stage execution over time</span>
-                </div>
-                <div class="card-body">
+            container.innerHTML = Utils.card(
+              "Timeline Waterfall",
+              `
                   <div class="waterfall-container" style="height: ${totalHeight}px;">
                     <div class="waterfall-time-axis">
                       ${timeMarkers.map((m) => `<span style="left: ${m.pct}%;">${m.label}</span>`).join("")}
@@ -9247,10 +9154,9 @@
                     `,
                       )
                       .join("")}
-                  </div>
-                </div>
-              </div>
-            `;
+                  </div>`,
+              { subtitle: "Worker × Stage execution over time" },
+            );
           },
 
           /**
@@ -9305,13 +9211,9 @@
               })
               .join("");
 
-            container.innerHTML = `
-              <div class="card">
-                <div class="card-header">
-                  <span class="card-title">Worker Heatmap</span>
-                  <span class="text-secondary">CPU time per worker × stage (darker = more time)</span>
-                </div>
-                <div class="card-body">
+            container.innerHTML = Utils.card(
+              "Worker Heatmap",
+              `
                   <div class="heatmap-container">
                     <table class="heatmap-table">
                       <thead>
@@ -9329,10 +9231,9 @@
                     <span>Low CPU</span>
                     <div class="heatmap-gradient"></div>
                     <span>High CPU</span>
-                  </div>
-                </div>
-              </div>
-            `;
+                  </div>`,
+              { subtitle: "CPU time per worker × stage (darker = more time)" },
+            );
           },
 
           /**
@@ -9388,13 +9289,9 @@
               })
               .join("");
 
-            container.innerHTML = `
-              <div class="card">
-                <div class="card-header">
-                  <span class="card-title">Shuffle Matrix</span>
-                  <span class="text-secondary">Data flow from stage (row) to stage (column) - Total: ${Utils.formatBytes(totalShuffleBytes)}</span>
-                </div>
-                <div class="card-body">
+            container.innerHTML = Utils.card(
+              "Shuffle Matrix",
+              `
                   <div class="matrix-container">
                     <table class="matrix-table">
                       <thead>
@@ -9415,10 +9312,11 @@
                     <span class="matrix-legend-item">
                       <span class="matrix-bubble large"></span> Large shuffle
                     </span>
-                  </div>
-                </div>
-              </div>
-            `;
+                  </div>`,
+              {
+                subtitle: `Data flow from stage (row) to stage (column) - Total: ${Utils.formatBytes(totalShuffleBytes)}`,
+              },
+            );
           },
 
           /**
@@ -9935,19 +9833,15 @@
 
             d3.select(container).selectAll("*").remove();
 
-            const svg = d3
-              .select(container)
-              .append("svg")
-              .attr("width", "100%")
-              .attr("height", "100%")
-              .attr("viewBox", [0, 0, width, height]);
-
-            const g = svg.append("g");
+            const { svg, g, zoom } = this.createSvgWithZoom(
+              container,
+              width,
+              height,
+              { viewBox: [0, 0, width, height] },
+            );
 
             // Add gradient definitions for GPU/CPU transitions
             const defs = svg.append("defs");
-
-            // CPU to GPU gradient (default color to green, top to bottom)
             const cpuToGpuGradient = defs
               .append("linearGradient")
               .attr("id", "cpu-to-gpu-gradient")
@@ -9963,8 +9857,6 @@
               .append("stop")
               .attr("offset", "100%")
               .attr("stop-color", "#22c55e");
-
-            // GPU to CPU gradient (green to default color, top to bottom)
             const gpuToCpuGradient = defs
               .append("linearGradient")
               .attr("id", "gpu-to-cpu-gradient")
@@ -9980,29 +9872,6 @@
               .append("stop")
               .attr("offset", "100%")
               .attr("stop-color", "#6b7280");
-
-            const zoom = d3
-              .zoom()
-              .scaleExtent([0.1, 4])
-              .on("zoom", (event) => g.attr("transform", event.transform));
-
-            svg.call(zoom).on("wheel.zoom", (event) => {
-              event.preventDefault();
-              const currentZoom = d3.zoomTransform(svg.node()).k;
-              if (event.ctrlKey) {
-                zoom.scaleTo(
-                  svg,
-                  currentZoom * Math.pow(2, -event.deltaY * 0.01),
-                  d3.pointer(event),
-                );
-              } else {
-                zoom.translateBy(
-                  svg,
-                  -event.deltaX / currentZoom,
-                  -event.deltaY / currentZoom,
-                );
-              }
-            });
 
             document
               .getElementById("pipeline-zoom-in")
@@ -12093,79 +11962,51 @@
             const operators = this.operatorsForStage(model, stageId);
             const opTypes = this.countByType(operators);
 
-            const content = `
-           <div class="detail-section">
-             <div class="detail-section-title">Stage Info</div>
-             <div class="detail-row">
-               <span class="detail-label">Stage ID</span>
-               <span class="detail-value">${stage.id}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Root Type</span>
-               <span class="detail-value">${stage.rootNodeType}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Tasks</span>
-               <span class="detail-value">${stage.tasks.length}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Child Stages</span>
-               <span class="detail-value">${stage.childStageIds.join(", ") || "None"}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Metrics</div>
-             <div class="detail-row">
-               <span class="detail-label">CPU Time</span>
-               <span class="detail-value">${Utils.formatDuration(stage.metrics.cpuTimeNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Blocked Time</span>
-               <span class="detail-value">${Utils.formatDuration(stage.metrics.blockedTimeNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Input</span>
-               <span class="detail-value">${Utils.formatBytes(stage.metrics.inputBytes)} / ${Utils.formatNumber(stage.metrics.inputRows)} rows</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Output</span>
-               <span class="detail-value">${Utils.formatBytes(stage.metrics.outputBytes)} / ${Utils.formatNumber(stage.metrics.outputRows)} rows</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Peak Memory</span>
-               <span class="detail-value">${Utils.formatBytes(stage.metrics.peakMemoryBytes)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Operator Types</div>
-             ${Array.from(opTypes.entries())
-               .map(
-                 ([type, count]) => `
-               <div class="detail-row">
-                 <span class="detail-label">${Utils.getOperatorDisplayName(type)}</span>
-                 <span class="detail-value">${count}</span>
-               </div>
-             `,
-               )
-               .join("")}
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Tasks</div>
-             ${tasks
-               .map(
-                 (task) => `
-               <div class="detail-row" style="cursor: pointer;" onclick="App.showTaskDetail('${task.id}')">
-                 <span class="detail-label">${task.workerHost}</span>
-                 <span class="detail-value">P${task.partitionId}</span>
-               </div>
-             `,
-               )
-               .join("")}
-           </div>
-         `;
+            const R = Utils.detailRow,
+              S = Utils.detailSection;
+            const m = stage.metrics;
+            const content =
+              S(
+                "Stage Info",
+                R("Stage ID", stage.id) +
+                  R("Root Type", stage.rootNodeType) +
+                  R("Tasks", stage.tasks.length) +
+                  R("Child Stages", stage.childStageIds.join(", ") || "None"),
+              ) +
+              S(
+                "Metrics",
+                R("CPU Time", Utils.formatDuration(m.cpuTimeNanos)) +
+                  R("Blocked Time", Utils.formatDuration(m.blockedTimeNanos)) +
+                  R(
+                    "Input",
+                    `${Utils.formatBytes(m.inputBytes)} / ${Utils.formatNumber(m.inputRows)} rows`,
+                  ) +
+                  R(
+                    "Output",
+                    `${Utils.formatBytes(m.outputBytes)} / ${Utils.formatNumber(m.outputRows)} rows`,
+                  ) +
+                  R("Peak Memory", Utils.formatBytes(m.peakMemoryBytes)),
+              ) +
+              S(
+                "Operator Types",
+                Array.from(opTypes.entries())
+                  .map(([type, count]) =>
+                    R(Utils.getOperatorDisplayName(type), count),
+                  )
+                  .join(""),
+              ) +
+              S(
+                "Tasks",
+                tasks
+                  .map((task) =>
+                    R(
+                      task.workerHost,
+                      `P${task.partitionId}`,
+                      ` style="cursor:pointer" onclick="App.showTaskDetail('${task.id}')"`,
+                    ),
+                  )
+                  .join(""),
+              );
 
             this.show(`Stage ${stageId}`, content);
           },
@@ -12177,103 +12018,87 @@
             const stats = task.stats || {};
             const operators = this.operatorsForTask(model, taskId);
 
-            const content = `
-           <div class="detail-section">
-             <div class="detail-section-title">Task Info</div>
-             <div class="detail-row">
-               <span class="detail-label">Task ID</span>
-               <span class="detail-value font-mono" style="font-size: 10px;">${task.id}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Stage</span>
-               <span class="detail-value">${task.stageId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Partition</span>
-               <span class="detail-value">${task.partitionId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Worker</span>
-               <span class="detail-value">${task.workerHost}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Timing</div>
-             <div class="detail-row">
-               <span class="detail-label">CPU Time</span>
-               <span class="detail-value">${Utils.formatDuration(stats.totalCpuTimeInNanos || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Blocked Time</span>
-               <span class="detail-value">${Utils.formatDuration(stats.totalBlockedTimeInNanos || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Elapsed</span>
-               <span class="detail-value">${Utils.formatDuration(stats.elapsedTimeInNanos || 0)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Data</div>
-             <div class="detail-row">
-               <span class="detail-label">Raw Input</span>
-               <span class="detail-value">${Utils.formatBytes(stats.rawInputDataSizeInBytes || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Input Rows</span>
-               <span class="detail-value">${Utils.formatNumber(stats.rawInputPositions || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Output</span>
-               <span class="detail-value">${Utils.formatBytes(stats.outputDataSizeInBytes || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Output Rows</span>
-               <span class="detail-value">${Utils.formatNumber(stats.outputPositions || 0)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Memory</div>
-             <div class="detail-row">
-               <span class="detail-label">Peak User</span>
-               <span class="detail-value">${Utils.formatBytes(stats.peakUserMemoryInBytes || 0)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Peak Total</span>
-               <span class="detail-value">${Utils.formatBytes(stats.peakTotalMemoryInBytes || 0)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Pipelines (${task.pipelines.length})</div>
-             ${task.pipelines
-               .map(
-                 (p) => `
-               <div class="detail-row">
-                 <span class="detail-label">Pipeline ${p.id}</span>
-                 <span class="detail-value">${p.operators.length} ops ${p.isInput ? "(input)" : ""} ${p.isOutput ? "(output)" : ""}</span>
-               </div>
-             `,
-               )
-               .join("")}
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Operators (${operators.length})</div>
-             ${operators
-               .map(
-                 (op) => `
-               <div class="detail-row" style="cursor: pointer;" onclick="App.showOperatorDetail('${op.key}')">
-                 <span class="detail-label">${op.isGpu ? "🟣 " : ""}${Utils.getOperatorDisplayName(op.type)}</span>
-                 <span class="detail-value">P${op.pipelineId}:${op.operatorId}</span>
-               </div>
-             `,
-               )
-               .join("")}
-           </div>
-         `;
+            const R = Utils.detailRow,
+              S = Utils.detailSection;
+            const content =
+              S(
+                "Task Info",
+                R(
+                  "Task ID",
+                  `<span class="font-mono" style="font-size:10px">${task.id}</span>`,
+                ) +
+                  R("Stage", task.stageId) +
+                  R("Partition", task.partitionId) +
+                  R("Worker", task.workerHost),
+              ) +
+              S(
+                "Timing",
+                R(
+                  "CPU Time",
+                  Utils.formatDuration(stats.totalCpuTimeInNanos || 0),
+                ) +
+                  R(
+                    "Blocked Time",
+                    Utils.formatDuration(stats.totalBlockedTimeInNanos || 0),
+                  ) +
+                  R(
+                    "Elapsed",
+                    Utils.formatDuration(stats.elapsedTimeInNanos || 0),
+                  ),
+              ) +
+              S(
+                "Data",
+                R(
+                  "Raw Input",
+                  Utils.formatBytes(stats.rawInputDataSizeInBytes || 0),
+                ) +
+                  R(
+                    "Input Rows",
+                    Utils.formatNumber(stats.rawInputPositions || 0),
+                  ) +
+                  R(
+                    "Output",
+                    Utils.formatBytes(stats.outputDataSizeInBytes || 0),
+                  ) +
+                  R(
+                    "Output Rows",
+                    Utils.formatNumber(stats.outputPositions || 0),
+                  ),
+              ) +
+              S(
+                "Memory",
+                R(
+                  "Peak User",
+                  Utils.formatBytes(stats.peakUserMemoryInBytes || 0),
+                ) +
+                  R(
+                    "Peak Total",
+                    Utils.formatBytes(stats.peakTotalMemoryInBytes || 0),
+                  ),
+              ) +
+              S(
+                `Pipelines (${task.pipelines.length})`,
+                task.pipelines
+                  .map((p) =>
+                    R(
+                      `Pipeline ${p.id}`,
+                      `${p.operators.length} ops ${p.isInput ? "(input)" : ""} ${p.isOutput ? "(output)" : ""}`,
+                    ),
+                  )
+                  .join(""),
+              ) +
+              S(
+                `Operators (${operators.length})`,
+                operators
+                  .map((op) =>
+                    R(
+                      `${op.isGpu ? "🟣 " : ""}${Utils.getOperatorDisplayName(op.type)}`,
+                      `P${op.pipelineId}:${op.operatorId}`,
+                      ` style="cursor:pointer" onclick="App.showOperatorDetail('${op.key}')"`,
+                    ),
+                  )
+                  .join(""),
+              );
 
             this.show(`Task ${task.partitionId}`, content);
           },
@@ -12282,140 +12107,82 @@
             const op = model.operators.find((o) => o.key === operatorKey);
             if (!op) return;
 
+            const R = Utils.detailRow,
+              S = Utils.detailSection;
             const m = op.metrics;
 
-            // Calculate timing breakdown
-            const totalTime =
-              m.getOutputWallNanos +
-              m.addInputWallNanos +
-              m.blockedWallNanos +
-              m.finishWallNanos;
-
-            const content = `
-           <div class="detail-section">
-             <div class="detail-section-title">Operator Info</div>
-             <div class="detail-row">
-               <span class="detail-label">Type</span>
-               <span class="detail-value">${op.isGpu ? "🟣 GPU " : ""}${op.type}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Plan Node ID</span>
-               <span class="detail-value font-mono">${op.planNodeId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Stage / Pipeline</span>
-               <span class="detail-value">S${op.stageId} / P${op.pipelineId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Operator ID</span>
-               <span class="detail-value">${op.operatorId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Drivers</span>
-               <span class="detail-value">${op.totalDrivers}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Data Flow</div>
-             <div class="detail-row">
-               <span class="detail-label">Input</span>
-               <span class="detail-value">${Utils.formatBytes(m.inputBytes)} / ${Utils.formatNumber(m.inputPositions)} rows</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Output</span>
-               <span class="detail-value">${Utils.formatBytes(m.outputBytes)} / ${Utils.formatNumber(m.outputPositions)} rows</span>
-             </div>
-             ${
-               m.inputPositions > 0
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Selectivity</span>
-               <span class="detail-value">${((m.outputPositions / m.inputPositions) * 100).toFixed(1)}%</span>
-             </div>
-             `
-                 : ""
-             }
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Timing</div>
-             <div class="detail-row">
-               <span class="detail-label">getOutput (work)</span>
-               <span class="detail-value">${Utils.formatDuration(m.getOutputWallNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">addInput</span>
-               <span class="detail-value">${Utils.formatDuration(m.addInputWallNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Blocked</span>
-               <span class="detail-value">${Utils.formatDuration(m.blockedWallNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Finish</span>
-               <span class="detail-value">${Utils.formatDuration(m.finishWallNanos)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">CPU (getOutput)</span>
-               <span class="detail-value">${Utils.formatDuration(m.getOutputCpuNanos)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Calls</div>
-             <div class="detail-row">
-               <span class="detail-label">getOutput calls</span>
-               <span class="detail-value">${Utils.formatNumber(m.getOutputCalls)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">addInput calls</span>
-               <span class="detail-value">${Utils.formatNumber(m.addInputCalls)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">finish calls</span>
-               <span class="detail-value">${Utils.formatNumber(m.finishCalls)}</span>
-             </div>
-           </div>
-
-           <div class="detail-section">
-             <div class="detail-section-title">Memory</div>
-             <div class="detail-row">
-               <span class="detail-label">Peak User</span>
-               <span class="detail-value">${Utils.formatBytes(m.peakUserMemoryBytes)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Peak Total</span>
-               <span class="detail-value">${Utils.formatBytes(m.peakTotalMemoryBytes)}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Spilled</span>
-               <span class="detail-value">${Utils.formatBytes(m.spilledBytes)}</span>
-             </div>
-           </div>
-
-           ${
-             Object.keys(op.runtimeStats).length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Runtime Stats</div>
-             ${Object.entries(op.runtimeStats)
-               .slice(0, 10)
-               .map(
-                 ([key, stat]) => `
-               <div class="detail-row">
-                 <span class="detail-label" style="font-size: 11px;">${key.split(".").pop()}</span>
-                 <span class="detail-value">${Utils.formatNumber(stat.sum)}</span>
-               </div>
-             `,
-               )
-               .join("")}
-             ${Object.keys(op.runtimeStats).length > 10 ? `<div class="text-muted">... and ${Object.keys(op.runtimeStats).length - 10} more</div>` : ""}
-           </div>
-           `
-               : ""
-           }
-         `;
+            const content =
+              S(
+                "Operator Info",
+                R("Type", `${op.isGpu ? "🟣 GPU " : ""}${op.type}`) +
+                  R(
+                    "Plan Node ID",
+                    `<span class="font-mono">${op.planNodeId}</span>`,
+                  ) +
+                  R("Stage / Pipeline", `S${op.stageId} / P${op.pipelineId}`) +
+                  R("Operator ID", op.operatorId) +
+                  R("Drivers", op.totalDrivers),
+              ) +
+              S(
+                "Data Flow",
+                R(
+                  "Input",
+                  `${Utils.formatBytes(m.inputBytes)} / ${Utils.formatNumber(m.inputPositions)} rows`,
+                ) +
+                  R(
+                    "Output",
+                    `${Utils.formatBytes(m.outputBytes)} / ${Utils.formatNumber(m.outputPositions)} rows`,
+                  ) +
+                  (m.inputPositions > 0
+                    ? R(
+                        "Selectivity",
+                        `${((m.outputPositions / m.inputPositions) * 100).toFixed(1)}%`,
+                      )
+                    : ""),
+              ) +
+              S(
+                "Timing",
+                R(
+                  "getOutput (work)",
+                  Utils.formatDuration(m.getOutputWallNanos),
+                ) +
+                  R("addInput", Utils.formatDuration(m.addInputWallNanos)) +
+                  R("Blocked", Utils.formatDuration(m.blockedWallNanos)) +
+                  R("Finish", Utils.formatDuration(m.finishWallNanos)) +
+                  R(
+                    "CPU (getOutput)",
+                    Utils.formatDuration(m.getOutputCpuNanos),
+                  ),
+              ) +
+              S(
+                "Calls",
+                R("getOutput calls", Utils.formatNumber(m.getOutputCalls)) +
+                  R("addInput calls", Utils.formatNumber(m.addInputCalls)) +
+                  R("finish calls", Utils.formatNumber(m.finishCalls)),
+              ) +
+              S(
+                "Memory",
+                R("Peak User", Utils.formatBytes(m.peakUserMemoryBytes)) +
+                  R("Peak Total", Utils.formatBytes(m.peakTotalMemoryBytes)) +
+                  R("Spilled", Utils.formatBytes(m.spilledBytes)),
+              ) +
+              (Object.keys(op.runtimeStats).length > 0
+                ? S(
+                    "Runtime Stats",
+                    Object.entries(op.runtimeStats)
+                      .slice(0, 10)
+                      .map(([key, stat]) =>
+                        R(
+                          `<span style="font-size: 11px;">${key.split(".").pop()}</span>`,
+                          Utils.formatNumber(stat.sum),
+                        ),
+                      )
+                      .join("") +
+                      (Object.keys(op.runtimeStats).length > 10
+                        ? `<div class="text-muted">... and ${Object.keys(op.runtimeStats).length - 10} more</div>`
+                        : ""),
+                  )
+                : "");
 
             this.show(Utils.getOperatorDisplayName(op.type), content);
           },
@@ -12424,6 +12191,8 @@
             const worker = model.workers.get(workerId);
             if (!worker) return;
 
+            const R = Utils.detailRow,
+              S = Utils.detailSection;
             const tasks = Array.from(model.tasks.values()).filter(
               (t) => t.workerId === workerId,
             );
@@ -12431,133 +12200,71 @@
             const prestoCpp = metrics.presto_cpp || {};
             const velox = metrics.velox || {};
 
-            const content = `
-           <div class="detail-section">
-             <div class="detail-section-title">Worker Info</div>
-             <div class="detail-row">
-               <span class="detail-label">Host</span>
-               <span class="detail-value">${worker.host || workerId}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Tasks</span>
-               <span class="detail-value">${tasks.length}</span>
-             </div>
-             ${
-               worker.status?.age
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Age</span>
-               <span class="detail-value">${worker.status.age}</span>
-             </div>
-             `
-                 : ""
-             }
-           </div>
-
-           ${
-             Object.keys(prestoCpp).length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Presto C++ Metrics</div>
-             ${
-               prestoCpp.num_tasks !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Total Tasks</span>
-               <span class="detail-value">${prestoCpp.num_tasks}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               prestoCpp.num_tasks_finished !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Finished Tasks</span>
-               <span class="detail-value">${prestoCpp.num_tasks_finished}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               prestoCpp.memory_manager_total_bytes !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Memory Used</span>
-               <span class="detail-value">${Utils.formatBytes(prestoCpp.memory_manager_total_bytes)}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               prestoCpp.num_on_thread_drivers !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Active Drivers</span>
-               <span class="detail-value">${prestoCpp.num_on_thread_drivers}</span>
-             </div>
-             `
-                 : ""
-             }
-           </div>
-           `
-               : ""
-           }
-
-           ${
-             Object.keys(velox).length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Velox Metrics</div>
-             ${
-               velox.memory_allocator_allocated_bytes !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Allocated Memory</span>
-               <span class="detail-value">${Utils.formatBytes(velox.memory_allocator_allocated_bytes)}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               velox.spill_bytes !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Spilled</span>
-               <span class="detail-value">${Utils.formatBytes(velox.spill_bytes)}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               velox.exchange_data_bytes !== undefined
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Exchange Data</span>
-               <span class="detail-value">${Utils.formatBytes(velox.exchange_data_bytes)}</span>
-             </div>
-             `
-                 : ""
-             }
-           </div>
-           `
-               : ""
-           }
-
-           <div class="detail-section">
-             <div class="detail-section-title">Tasks on this Worker</div>
-             ${tasks
-               .map(
-                 (task) => `
-               <div class="detail-row" style="cursor: pointer;" onclick="App.showTaskDetail('${task.id}')">
-                 <span class="detail-label">Stage ${task.stageId}, Partition ${task.partitionId}</span>
-                 <span class="detail-value">${Utils.formatDuration(task.stats?.totalCpuTimeInNanos || 0)}</span>
-               </div>
-             `,
-               )
-               .join("")}
-           </div>
-         `;
+            const content =
+              S(
+                "Worker Info",
+                R("Host", worker.host || workerId) +
+                  R("Tasks", tasks.length) +
+                  (worker.status?.age ? R("Age", worker.status.age) : ""),
+              ) +
+              (Object.keys(prestoCpp).length > 0
+                ? S(
+                    "Presto C++ Metrics",
+                    (prestoCpp.num_tasks !== undefined
+                      ? R("Total Tasks", prestoCpp.num_tasks)
+                      : "") +
+                      (prestoCpp.num_tasks_finished !== undefined
+                        ? R("Finished Tasks", prestoCpp.num_tasks_finished)
+                        : "") +
+                      (prestoCpp.memory_manager_total_bytes !== undefined
+                        ? R(
+                            "Memory Used",
+                            Utils.formatBytes(
+                              prestoCpp.memory_manager_total_bytes,
+                            ),
+                          )
+                        : "") +
+                      (prestoCpp.num_on_thread_drivers !== undefined
+                        ? R("Active Drivers", prestoCpp.num_on_thread_drivers)
+                        : ""),
+                  )
+                : "") +
+              (Object.keys(velox).length > 0
+                ? S(
+                    "Velox Metrics",
+                    (velox.memory_allocator_allocated_bytes !== undefined
+                      ? R(
+                          "Allocated Memory",
+                          Utils.formatBytes(
+                            velox.memory_allocator_allocated_bytes,
+                          ),
+                        )
+                      : "") +
+                      (velox.spill_bytes !== undefined
+                        ? R("Spilled", Utils.formatBytes(velox.spill_bytes))
+                        : "") +
+                      (velox.exchange_data_bytes !== undefined
+                        ? R(
+                            "Exchange Data",
+                            Utils.formatBytes(velox.exchange_data_bytes),
+                          )
+                        : ""),
+                  )
+                : "") +
+              S(
+                "Tasks on this Worker",
+                tasks
+                  .map((task) =>
+                    R(
+                      `Stage ${task.stageId}, Partition ${task.partitionId}`,
+                      Utils.formatDuration(
+                        task.stats?.totalCpuTimeInNanos || 0,
+                      ),
+                      ` style="cursor: pointer;" onclick="App.showTaskDetail('${task.id}')"`,
+                    ),
+                  )
+                  .join(""),
+              );
 
             this.show(`Worker ${worker.host || workerId}`, content);
           },
@@ -12643,6 +12350,9 @@
             const node = model.planNodes.find((n) => n.id === nodeId);
             if (!node) return;
 
+            const R = Utils.detailRow,
+              S = Utils.detailSection;
+
             // Find connected nodes (sources and targets)
             const incomingEdges = model.planEdges.filter(
               (e) => e.target === nodeId,
@@ -12658,13 +12368,13 @@
             if (node.type === "TableScan" || node.type.includes("TableScan")) {
               const tableName = this.getTableName(node);
               if (tableName) {
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Table</div>
-                     <div class="detail-row">
-                       <span class="detail-value" style="font-family: var(--font-mono);">${Utils.escapeHtml(tableName)}</span>
-                     </div>
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Table",
+                  R(
+                    "",
+                    `<span style="font-family: var(--font-mono);">${Utils.escapeHtml(tableName)}</span>`,
+                  ),
+                );
               }
             }
 
@@ -12672,61 +12382,55 @@
             if (node.predicate) {
               const predicateStr = this.formatExpression(node.predicate);
               if (predicateStr) {
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Filter Predicate</div>
-                     <div class="sql-display" style="font-size: 11px; max-height: 150px; overflow-y: auto;">${predicateStr}</div>
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Filter Predicate",
+                  `<div class="sql-display" style="font-size: 11px; max-height: 150px; overflow-y: auto;">${predicateStr}</div>`,
+                );
               }
             }
 
             // Project: show assignments
             if (node.assignments && Object.keys(node.assignments).length > 0) {
               const assignments = Object.entries(node.assignments);
-              nodeSpecificHtml += `
-                 <div class="detail-section">
-                   <div class="detail-section-title">Projections (${assignments.length})</div>
-                   <div style="max-height: 200px; overflow-y: auto;">
-                     ${assignments
-                       .map(([varName, expr]) => {
-                         const exprStr = this.formatExpression(expr);
-                         return `
-                       <div style="margin-bottom: 8px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
-                         <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
-                         <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px; word-break: break-all;">${exprStr}</div>
-                       </div>`;
-                       })
-                       .join("")}
-                   </div>
-                 </div>`;
+              nodeSpecificHtml += S(
+                `Projections (${assignments.length})`,
+                `<div style="max-height: 200px; overflow-y: auto;">
+                  ${assignments
+                    .map(([varName, expr]) => {
+                      const exprStr = this.formatExpression(expr);
+                      return `<div style="margin-bottom: 8px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
+                      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
+                      <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px; word-break: break-all;">${exprStr}</div>
+                    </div>`;
+                    })
+                    .join("")}
+                </div>`,
+              );
             }
 
             // Join: show criteria and filter
             if (node.type === "Join" || node.type.includes("Join")) {
               if (node.joinCriteria && node.joinCriteria.length > 0) {
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Join Criteria</div>
-                     ${node.joinCriteria
-                       .map((c) => {
-                         const left = c.left
-                           ? c.left.name || this.formatExpression(c.left)
-                           : "?";
-                         const right = c.right
-                           ? c.right.name || this.formatExpression(c.right)
-                           : "?";
-                         return `<div class="sql-display" style="font-size: 11px; margin-bottom: 4px;">${left} = ${right}</div>`;
-                       })
-                       .join("")}
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Join Criteria",
+                  node.joinCriteria
+                    .map((c) => {
+                      const left = c.left
+                        ? c.left.name || this.formatExpression(c.left)
+                        : "?";
+                      const right = c.right
+                        ? c.right.name || this.formatExpression(c.right)
+                        : "?";
+                      return `<div class="sql-display" style="font-size: 11px; margin-bottom: 4px;">${left} = ${right}</div>`;
+                    })
+                    .join(""),
+                );
               }
               if (node.joinFilter) {
-                const filterStr = this.formatExpression(node.joinFilter);
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Join Filter</div>
-                     <div class="sql-display" style="font-size: 11px;">${filterStr}</div>
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Join Filter",
+                  `<div class="sql-display" style="font-size: 11px;">${this.formatExpression(node.joinFilter)}</div>`,
+                );
               }
             }
 
@@ -12736,45 +12440,40 @@
               Object.keys(node.aggregations).length > 0
             ) {
               const aggs = Object.entries(node.aggregations);
-              nodeSpecificHtml += `
-                 <div class="detail-section">
-                   <div class="detail-section-title">Aggregations (${aggs.length})</div>
-                   <div style="max-height: 200px; overflow-y: auto;">
-                     ${aggs
-                       .map(([varName, agg]) => {
-                         let aggStr = "";
-                         if (agg.call) {
-                           const funcName =
-                             agg.call.displayName ||
-                             agg.call.functionName ||
-                             "?";
-                           const args = (agg.call.arguments || [])
-                             .map((a) => this.formatExpression(a))
-                             .join(", ");
-                           aggStr = `${funcName}(${args})`;
-                         } else {
-                           aggStr = this.formatExpression(agg);
-                         }
-                         return `
-                       <div style="margin-bottom: 6px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
-                         <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
-                         <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px;">${aggStr}</div>
-                       </div>`;
-                       })
-                       .join("")}
-                   </div>
-                 </div>`;
+              nodeSpecificHtml += S(
+                `Aggregations (${aggs.length})`,
+                `<div style="max-height: 200px; overflow-y: auto;">
+                  ${aggs
+                    .map(([varName, agg]) => {
+                      let aggStr = "";
+                      if (agg.call) {
+                        const funcName =
+                          agg.call.displayName || agg.call.functionName || "?";
+                        const args = (agg.call.arguments || [])
+                          .map((a) => this.formatExpression(a))
+                          .join(", ");
+                        aggStr = `${funcName}(${args})`;
+                      } else {
+                        aggStr = this.formatExpression(agg);
+                      }
+                      return `<div style="margin-bottom: 6px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
+                      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
+                      <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px;">${aggStr}</div>
+                    </div>`;
+                    })
+                    .join("")}
+                </div>`,
+              );
             }
             if (node.groupingKeys && node.groupingKeys.length > 0) {
               const keys = node.groupingKeys
                 .map((k) => (typeof k === "object" ? k.name : k))
                 .filter(Boolean);
               if (keys.length > 0) {
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Grouping Keys</div>
-                     <div class="sql-display" style="font-size: 11px;">${keys.map((k) => Utils.escapeHtml(k)).join(", ")}</div>
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Grouping Keys",
+                  `<div class="sql-display" style="font-size: 11px;">${keys.map((k) => Utils.escapeHtml(k)).join(", ")}</div>`,
+                );
               }
             }
 
@@ -12783,33 +12482,24 @@
               const orderBy = node.orderingScheme.orderBy || [];
               const orderings = node.orderingScheme.orderings || {};
               if (orderBy.length > 0) {
-                nodeSpecificHtml += `
-                   <div class="detail-section">
-                     <div class="detail-section-title">Order By</div>
-                     <div class="sql-display" style="font-size: 11px;">
-                       ${orderBy
-                         .map((col) => {
-                           const colName =
-                             typeof col === "object" ? col.name : col;
-                           const order = orderings[colName] || "ASC";
-                           return `${Utils.escapeHtml(colName)} ${order}`;
-                         })
-                         .join(", ")}
-                     </div>
-                   </div>`;
+                nodeSpecificHtml += S(
+                  "Order By",
+                  `<div class="sql-display" style="font-size: 11px;">
+                    ${orderBy
+                      .map((col) => {
+                        const colName =
+                          typeof col === "object" ? col.name : col;
+                        return `${Utils.escapeHtml(colName)} ${orderings[colName] || "ASC"}`;
+                      })
+                      .join(", ")}
+                  </div>`,
+                );
               }
             }
 
             // Limit: show count
             if (node.count !== null && node.count !== undefined) {
-              nodeSpecificHtml += `
-                 <div class="detail-section">
-                   <div class="detail-section-title">Limit</div>
-                   <div class="detail-row">
-                     <span class="detail-label">Count</span>
-                     <span class="detail-value">${node.count}</span>
-                   </div>
-                 </div>`;
+              nodeSpecificHtml += S("Limit", R("Count", node.count));
             }
 
             // Window: show window functions
@@ -12818,186 +12508,123 @@
               Object.keys(node.windowFunctions).length > 0
             ) {
               const funcs = Object.entries(node.windowFunctions);
-              nodeSpecificHtml += `
-                 <div class="detail-section">
-                   <div class="detail-section-title">Window Functions (${funcs.length})</div>
-                   <div style="max-height: 200px; overflow-y: auto;">
-                     ${funcs
-                       .map(([varName, wf]) => {
-                         let funcStr = "";
-                         if (wf.functionCall) {
-                           const funcName =
-                             wf.functionCall.displayName ||
-                             wf.functionCall.functionName ||
-                             "?";
-                           const args = (wf.functionCall.arguments || [])
-                             .map((a) => this.formatExpression(a))
-                             .join(", ");
-                           funcStr = `${funcName}(${args})`;
-                         }
-                         return `
-                       <div style="margin-bottom: 6px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
-                         <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
-                         <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px;">${funcStr}</div>
-                       </div>`;
-                       })
-                       .join("")}
-                   </div>
-                 </div>`;
+              nodeSpecificHtml += S(
+                `Window Functions (${funcs.length})`,
+                `<div style="max-height: 200px; overflow-y: auto;">
+                  ${funcs
+                    .map(([varName, wf]) => {
+                      let funcStr = "";
+                      if (wf.functionCall) {
+                        const funcName =
+                          wf.functionCall.displayName ||
+                          wf.functionCall.functionName ||
+                          "?";
+                        const args = (wf.functionCall.arguments || [])
+                          .map((a) => this.formatExpression(a))
+                          .join(", ");
+                        funcStr = `${funcName}(${args})`;
+                      }
+                      return `<div style="margin-bottom: 6px; padding: 6px; background: var(--bg-secondary); border-radius: 4px;">
+                      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-primary);">${Utils.escapeHtml(varName)}</div>
+                      <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px;">${funcStr}</div>
+                    </div>`;
+                    })
+                    .join("")}
+                </div>`,
+              );
             }
 
             // SemiJoin: show join variables
             if (node.sourceJoinVariable || node.filteringSourceJoinVariable) {
-              nodeSpecificHtml += `
-                 <div class="detail-section">
-                   <div class="detail-section-title">Semi Join Variables</div>
-                   ${
-                     node.sourceJoinVariable
-                       ? `
-                   <div class="detail-row">
-                     <span class="detail-label">Source</span>
-                     <span class="detail-value font-mono">${typeof node.sourceJoinVariable === "object" ? node.sourceJoinVariable.name : node.sourceJoinVariable}</span>
-                   </div>`
-                       : ""
-                   }
-                   ${
-                     node.filteringSourceJoinVariable
-                       ? `
-                   <div class="detail-row">
-                     <span class="detail-label">Filtering</span>
-                     <span class="detail-value font-mono">${typeof node.filteringSourceJoinVariable === "object" ? node.filteringSourceJoinVariable.name : node.filteringSourceJoinVariable}</span>
-                   </div>`
-                       : ""
-                   }
-                 </div>`;
+              nodeSpecificHtml += S(
+                "Semi Join Variables",
+                (node.sourceJoinVariable
+                  ? R(
+                      "Source",
+                      `<span class="font-mono">${typeof node.sourceJoinVariable === "object" ? node.sourceJoinVariable.name : node.sourceJoinVariable}</span>`,
+                    )
+                  : "") +
+                  (node.filteringSourceJoinVariable
+                    ? R(
+                        "Filtering",
+                        `<span class="font-mono">${typeof node.filteringSourceJoinVariable === "object" ? node.filteringSourceJoinVariable.name : node.filteringSourceJoinVariable}</span>`,
+                      )
+                    : ""),
+              );
             }
 
-            const content = `
-           <div class="detail-section">
-             <div class="detail-section-title">Plan Node Info</div>
-             <div class="detail-row">
-               <span class="detail-label">Node ID</span>
-               <span class="detail-value">${node.id}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Type</span>
-               <span class="detail-value">${node.type}</span>
-             </div>
-             <div class="detail-row">
-               <span class="detail-label">Stage</span>
-               <span class="detail-value">${node.stageId}</span>
-             </div>
-             ${
-               node.isStageRoot
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Role</span>
-               <span class="detail-value"><span class="badge">Stage Root</span></span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               node.isRemoteSource
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Exchange From</span>
-               <span class="detail-value">Stage ${node.sourceFragmentIds.join(", ")}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               node.joinType && node.type === "Join"
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Join Type</span>
-               <span class="detail-value">${node.joinType}</span>
-             </div>
-             `
-                 : ""
-             }
-             ${
-               node.aggregationType
-                 ? `
-             <div class="detail-row">
-               <span class="detail-label">Aggregation Step</span>
-               <span class="detail-value">${node.aggregationType}</span>
-             </div>
-             `
-                 : ""
-             }
-           </div>
-
-           ${nodeSpecificHtml}
-
-           ${
-             incomingEdges.length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Data Sources (${incomingEdges.length})</div>
-             ${incomingEdges
-               .map((e) => {
-                 const sourceNode = model.planNodes.find(
-                   (n) => n.id === e.source,
-                 );
-                 return `
-               <div class="detail-row" style="cursor: pointer;" onclick="App.showPlanNodeDetail('${e.source}')">
-                 <span class="detail-label">${sourceNode ? sourceNode.type : "Unknown"}</span>
-                 <span class="detail-value">Node ${e.source} ${e.type === "exchange" ? '<span class="badge primary">exchange</span>' : ""}</span>
-               </div>
-               `;
-               })
-               .join("")}
-           </div>
-           `
-               : ""
-           }
-
-           ${
-             outgoingEdges.length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Data Targets (${outgoingEdges.length})</div>
-             ${outgoingEdges
-               .map((e) => {
-                 const targetNode = model.planNodes.find(
-                   (n) => n.id === e.target,
-                 );
-                 return `
-               <div class="detail-row" style="cursor: pointer;" onclick="App.showPlanNodeDetail('${e.target}')">
-                 <span class="detail-label">${targetNode ? targetNode.type : "Unknown"}</span>
-                 <span class="detail-value">Node ${e.target} ${e.type === "exchange" ? '<span class="badge primary">exchange</span>' : ""}</span>
-               </div>
-               `;
-               })
-               .join("")}
-           </div>
-           `
-               : ""
-           }
-
-           ${
-             node.outputVariables.length > 0
-               ? `
-           <div class="detail-section">
-             <div class="detail-section-title">Output Variables (${node.outputVariables.length})</div>
-             <div style="max-height: 150px; overflow-y: auto;">
-               ${node.outputVariables
-                 .map(
-                   (v) => `
-               <div class="detail-row">
-                 <span class="detail-value" style="font-family: var(--font-mono); font-size: var(--font-size-sm);">${Utils.escapeHtml(v)}</span>
-               </div>
-               `,
-                 )
-                 .join("")}
-             </div>
-           </div>
-           `
-               : ""
-           }
-         `;
+            const content =
+              S(
+                "Plan Node Info",
+                R("Node ID", node.id) +
+                  R("Type", node.type) +
+                  R("Stage", node.stageId) +
+                  (node.isStageRoot
+                    ? R("Role", '<span class="badge">Stage Root</span>')
+                    : "") +
+                  (node.isRemoteSource
+                    ? R(
+                        "Exchange From",
+                        `Stage ${node.sourceFragmentIds.join(", ")}`,
+                      )
+                    : "") +
+                  (node.joinType && node.type === "Join"
+                    ? R("Join Type", node.joinType)
+                    : "") +
+                  (node.aggregationType
+                    ? R("Aggregation Step", node.aggregationType)
+                    : ""),
+              ) +
+              nodeSpecificHtml +
+              (incomingEdges.length > 0
+                ? S(
+                    `Data Sources (${incomingEdges.length})`,
+                    incomingEdges
+                      .map((e) => {
+                        const sourceNode = model.planNodes.find(
+                          (n) => n.id === e.source,
+                        );
+                        return R(
+                          sourceNode ? sourceNode.type : "Unknown",
+                          `Node ${e.source} ${e.type === "exchange" ? '<span class="badge primary">exchange</span>' : ""}`,
+                          ` style="cursor: pointer;" onclick="App.showPlanNodeDetail('${e.source}')"`,
+                        );
+                      })
+                      .join(""),
+                  )
+                : "") +
+              (outgoingEdges.length > 0
+                ? S(
+                    `Data Targets (${outgoingEdges.length})`,
+                    outgoingEdges
+                      .map((e) => {
+                        const targetNode = model.planNodes.find(
+                          (n) => n.id === e.target,
+                        );
+                        return R(
+                          targetNode ? targetNode.type : "Unknown",
+                          `Node ${e.target} ${e.type === "exchange" ? '<span class="badge primary">exchange</span>' : ""}`,
+                          ` style="cursor: pointer;" onclick="App.showPlanNodeDetail('${e.target}')"`,
+                        );
+                      })
+                      .join(""),
+                  )
+                : "") +
+              (node.outputVariables.length > 0
+                ? S(
+                    `Output Variables (${node.outputVariables.length})`,
+                    `<div style="max-height: 150px; overflow-y: auto;">
+                      ${node.outputVariables
+                        .map((v) =>
+                          R(
+                            "",
+                            `<span style="font-family: var(--font-mono); font-size: var(--font-size-sm);">${Utils.escapeHtml(v)}</span>`,
+                          ),
+                        )
+                        .join("")}
+                    </div>`,
+                  )
+                : "");
 
             this.show(`${node.type} (Node ${node.id})`, content);
           },
@@ -13708,6 +13335,9 @@
           // Stage highlighting for Explain view - linked across timeline, tree, and DAG
           // source: 'timeline', 'tree', or 'dag' - indicates which view triggered the highlight
           highlightStage(stageId, source = null) {
+            // Clear any existing node highlight first
+            this.unhighlightPlanNode();
+
             // Check if source view has "out" linking enabled
             const sourceOutEnabled =
               !source || this.viewLinks[source]?.out !== false;
@@ -13879,6 +13509,10 @@
           // linkedStageIds: optional array of source stage IDs for RemoteSource exchange linking
           highlightPlanNode(nodeId, source = null, linkedStageIds = null) {
             if (!nodeId) return;
+
+            // Clear any existing stage highlight first
+            this.unhighlightStage();
+
             const nodeIdStr = String(nodeId);
             let stageId = null;
 
