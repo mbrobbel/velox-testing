@@ -2477,6 +2477,44 @@
         flex-direction: column;
       }
 
+      .explain-dag-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px;
+        border-bottom: 1px solid var(--border-color);
+        gap: 8px;
+        flex-shrink: 0;
+        background: var(--bg-card);
+      }
+
+      .explain-dag-toolbar .view-link-toggle {
+        border-bottom: none;
+        padding: 0;
+      }
+
+      .dag-color-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .dag-color-legend {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-family: var(--font-mono);
+        color: var(--text-secondary);
+      }
+
+      .dag-legend-gradient {
+        width: 80px;
+        height: 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+      }
+
       .explain-dag-pane #explain-dag-container {
         flex: 1;
         overflow: hidden;
@@ -7866,13 +7904,36 @@
                        </div>
                        <div class="explain-divider-v" id="explain-divider-v"></div>
                        <div class="explain-dag-pane">
-                         <div class="view-link-toggle">
-                           <button class="view-link-btn active" id="dag-link-in" title="Receive: highlight this view when other views are interacted with">
-                             <span class="link-icon">&#8592;</span>IN
-                           </button>
-                           <button class="view-link-btn active" id="dag-link-out" title="Send: highlight other views when this view is interacted with">
-                             OUT<span class="link-icon">&#8594;</span>
-                           </button>
+                         <div class="explain-dag-toolbar">
+                           <div class="view-link-toggle">
+                             <button class="view-link-btn active" id="dag-link-in" title="Receive: highlight this view when other views are interacted with">
+                               <span class="link-icon">&#8592;</span>IN
+                             </button>
+                             <button class="view-link-btn active" id="dag-link-out" title="Send: highlight other views when this view is interacted with">
+                               OUT<span class="link-icon">&#8594;</span>
+                             </button>
+                           </div>
+                           <div class="dag-color-controls">
+                             <div class="pipeline-color-menu">
+                               <label for="dag-node-color-mode">Color:</label>
+                               <select id="dag-node-color-mode">
+                                 <option value="none" selected>None</option>
+                                 <option value="duration">Wall Time</option>
+                                 <option value="blocked">Blocked Time</option>
+                                 <option value="output-rows">Output Rows</option>
+                                 <option value="output-bytes">Output Bytes</option>
+                                 <option value="input-rows">Input Rows</option>
+                                 <option value="input-bytes">Input Bytes</option>
+                                 <option value="skew">Worker Skew</option>
+                                 <option value="workers">Worker Count</option>
+                               </select>
+                             </div>
+                             <div class="dag-color-legend" id="dag-color-legend" style="display: none;">
+                               <span class="dag-legend-min" id="dag-legend-min"></span>
+                               <div class="dag-legend-gradient" id="dag-legend-gradient"></div>
+                               <span class="dag-legend-max" id="dag-legend-max"></span>
+                             </div>
+                           </div>
                          </div>
                          <div id="explain-dag-container"></div>
                        </div>
@@ -7888,7 +7949,10 @@
             this.setupViewLinkToggles();
 
             // Render the DAG in the right pane
-            this.renderExplainDag(model, stageColors);
+            this.renderExplainDag(model, stageColors, {
+              timingByNode,
+              operatorInfoByNode,
+            });
           },
 
           setupViewLinkToggles() {
@@ -8071,9 +8135,11 @@
             }
           },
 
-          renderExplainDag(model, stageColors) {
+          renderExplainDag(model, stageColors, explainData = {}) {
             const container = document.getElementById("explain-dag-container");
             if (!container || typeof d3 === "undefined") return;
+
+            const { timingByNode, operatorInfoByNode } = explainData;
 
             const width = container.clientWidth || 500;
             const height = container.clientHeight || 600;
@@ -8168,12 +8234,62 @@
 
             // SVG stays at container size; zoom/pan handles overflow
 
+            // Compute per-node metrics for coloring
+            const nodeMetrics = new Map();
+            if (timingByNode && operatorInfoByNode) {
+              model.planNodes.forEach((n) => {
+                const timing = timingByNode.get(n.id);
+                const ops = operatorInfoByNode.get(n.id) || [];
+
+                // Aggregate operator stats for this node
+                let outputRows = 0,
+                  outputBytes = 0,
+                  inputRows = 0,
+                  inputBytes = 0,
+                  workerCount = 0;
+                let maxWorkerRows = 0,
+                  minWorkerRows = Infinity;
+
+                ops.forEach((op) => {
+                  outputRows += op.outputRows || 0;
+                  outputBytes += op.outputBytes || 0;
+                  inputRows += op.inputRows || 0;
+                  inputBytes += op.inputBytes || 0;
+                  if (op.workerCount > workerCount) workerCount = op.workerCount;
+                  // Track per-worker row distribution for skew
+                  if (op.workerDetails) {
+                    op.workerDetails.forEach((w) => {
+                      if (w.outputRows > maxWorkerRows) maxWorkerRows = w.outputRows;
+                      if (w.outputRows < minWorkerRows) minWorkerRows = w.outputRows;
+                    });
+                  }
+                });
+
+                // Skew ratio: max/avg (1.0 = perfectly balanced, higher = more skewed)
+                const avgWorkerRows = workerCount > 0 ? outputRows / workerCount : 0;
+                const skew =
+                  avgWorkerRows > 0 ? maxWorkerRows / avgWorkerRows : 0;
+
+                nodeMetrics.set(n.id, {
+                  duration: timing?.totalActiveNanos || 0,
+                  blocked: timing?.totalBlockedNanos || 0,
+                  "output-rows": outputRows,
+                  "output-bytes": outputBytes,
+                  "input-rows": inputRows,
+                  "input-bytes": inputBytes,
+                  skew: skew,
+                  workers: workerCount,
+                });
+              });
+            }
+
             // Create nodes data with computed positions and details
             const nodes = model.planNodes.map((n) => ({
               ...n,
               x: nodePositions.get(n.id)?.x || layoutWidth / 2,
               y: nodePositions.get(n.id)?.y || layoutHeight / 2,
               details: getNodeDetails(n),
+              colorMetrics: nodeMetrics.get(n.id) || {},
             }));
 
             // Create a map for quick node lookup by id
@@ -8519,8 +8635,29 @@
               .join("g")
               .attr("class", "explain-dag-node")
               .attr("data-node-id", (d) => d.id)
+              .attr("data-duration", (d) => d.colorMetrics.duration || 0)
+              .attr("data-blocked", (d) => d.colorMetrics.blocked || 0)
+              .attr("data-output-rows", (d) => d.colorMetrics["output-rows"] || 0)
+              .attr("data-output-bytes", (d) => d.colorMetrics["output-bytes"] || 0)
+              .attr("data-input-rows", (d) => d.colorMetrics["input-rows"] || 0)
+              .attr("data-input-bytes", (d) => d.colorMetrics["input-bytes"] || 0)
+              .attr("data-skew", (d) => d.colorMetrics.skew || 0)
+              .attr("data-workers", (d) => d.colorMetrics.workers || 0)
               .attr("cursor", "pointer")
               .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+            // Clip path for metric bars (so they respect the rounded corners)
+            const defs = svg.select("defs");
+            defs
+              .append("clipPath")
+              .attr("id", "dag-node-clip")
+              .append("rect")
+              .attr("x", -nodeHalfWidth)
+              .attr("y", -nodeHalfHeight)
+              .attr("width", nodeWidth)
+              .attr("height", nodeHeight)
+              .attr("rx", 6)
+              .attr("ry", 6);
 
             // Node rounded rectangles - larger to fit details
             node
@@ -8534,7 +8671,20 @@
               .attr("ry", 6)
               .attr("fill", "var(--bg-card)")
               .attr("stroke", (d) => stageColors[d.stageId] || "#4a9eff")
+              .attr("data-default-stroke", (d) => stageColors[d.stageId] || "#4a9eff")
+              .attr("data-default-stroke-width", (d) => (d.isRemoteSource ? 3 : 2))
               .attr("stroke-width", (d) => (d.isRemoteSource ? 3 : 2));
+
+            // Metric bar (hidden by default, shown when a color mode is active)
+            node
+              .append("rect")
+              .attr("class", "node-metric-bar")
+              .attr("clip-path", "url(#dag-node-clip)")
+              .attr("x", -nodeHalfWidth)
+              .attr("y", nodeHalfHeight - 5)
+              .attr("width", 0)
+              .attr("height", 5)
+              .attr("fill", "transparent");
 
             // Node type label
             node
@@ -8566,6 +8716,7 @@
             // Node details (filter, join type, etc.)
             node
               .append("text")
+              .attr("class", "node-detail-label")
               .attr("dy", 12)
               .attr("text-anchor", "middle")
               .attr("fill", "var(--text-secondary)")
@@ -8582,6 +8733,17 @@
                 html += `<div>Stage: ${d.stageId}</div>`;
                 if (d.details) {
                   html += `<div class="dag-tooltip-section"><span class="dag-tooltip-label">Details:</span><br>${Utils.escapeHtml(d.details)}</div>`;
+                }
+                // Show metrics in tooltip
+                const m = d.colorMetrics;
+                if (m && (m.duration || m.blocked || m["output-rows"] || m["input-rows"])) {
+                  html += `<div class="dag-tooltip-section">`;
+                  if (m.duration) html += `<div><span class="dag-tooltip-label">Wall Time:</span> ${Utils.formatDuration(m.duration)}</div>`;
+                  if (m.blocked) html += `<div><span class="dag-tooltip-label">Blocked:</span> ${Utils.formatDuration(m.blocked)}</div>`;
+                  if (m["output-rows"]) html += `<div><span class="dag-tooltip-label">Output:</span> ${Utils.formatNumber(m["output-rows"])} rows, ${Utils.formatBytes(m["output-bytes"])}</div>`;
+                  if (m["input-rows"]) html += `<div><span class="dag-tooltip-label">Input:</span> ${Utils.formatNumber(m["input-rows"])} rows, ${Utils.formatBytes(m["input-bytes"])}</div>`;
+                  if (m.workers > 0) html += `<div><span class="dag-tooltip-label">Workers:</span> ${m.workers}${m.skew > 1.1 ? ` (skew: ${m.skew.toFixed(1)}x)` : ""}</div>`;
+                  html += `</div>`;
                 }
                 if (d.predicate) {
                   const expr = DetailPanel.formatExpression(d.predicate);
@@ -8667,6 +8829,135 @@
               height,
               stageColors,
             };
+
+            // ── DAG node coloring by metric ──
+            const metricColors = {
+              duration: { h: 270, s: 70 },
+              blocked: { h: 30, s: 80 },
+              "output-rows": { h: 180, s: 70 },
+              "output-bytes": { h: 210, s: 70 },
+              "input-rows": { h: 160, s: 70 },
+              "input-bytes": { h: 240, s: 70 },
+              skew: { h: 0, s: 80 },
+              workers: { h: 145, s: 70 },
+            };
+
+            const getDagColor = (normalized, metric) => {
+              const colorDef = metricColors[metric] || { h: 0, s: 0 };
+              const saturation = 40 + normalized * 60;
+              const lightness = 82 - normalized * 57;
+              return `hsl(${colorDef.h}, ${saturation}%, ${lightness}%)`;
+            };
+
+            const formatMetricValue = (value, mode) => {
+              if (mode === "duration" || mode === "blocked")
+                return Utils.formatDuration(value);
+              if (mode.includes("bytes"))
+                return Utils.formatBytes(value);
+              if (mode.includes("rows"))
+                return Utils.formatNumber(value);
+              if (mode === "skew") return value.toFixed(1) + "x";
+              if (mode === "workers") return String(Math.round(value));
+              return String(value);
+            };
+
+            const legendEl = document.getElementById("dag-color-legend");
+            const legendGradient = document.getElementById(
+              "dag-legend-gradient",
+            );
+            const legendMin = document.getElementById("dag-legend-min");
+            const legendMax = document.getElementById("dag-legend-max");
+
+            const dagColorSelect = document.getElementById(
+              "dag-node-color-mode",
+            );
+            if (dagColorSelect) {
+              const updateDagNodeColors = (mode) => {
+                if (mode === "none") {
+                  // Reset strokes to stage colors
+                  node.each(function () {
+                    const el = d3.select(this);
+                    const rect = el.select(".node-rect");
+                    rect
+                      .attr("stroke", rect.attr("data-default-stroke"))
+                      .attr(
+                        "stroke-width",
+                        rect.attr("data-default-stroke-width"),
+                      );
+                    el.select(".node-metric-bar")
+                      .attr("width", 0)
+                      .attr("fill", "transparent");
+                  });
+                  if (legendEl) legendEl.style.display = "none";
+                  return;
+                }
+
+                // Gather values
+                const values = [];
+                node.each(function () {
+                  const value =
+                    parseFloat(d3.select(this).attr(`data-${mode}`)) ||
+                    0;
+                  values.push(value);
+                });
+
+                const positiveValues = values.filter((v) => v > 0);
+                const minVal =
+                  positiveValues.length > 0
+                    ? Math.min(...positiveValues)
+                    : 0;
+                const maxVal = Math.max(...values);
+
+                // Update legend
+                if (legendEl && legendGradient) {
+                  const colorDef = metricColors[mode] || { h: 0, s: 0 };
+                  legendGradient.style.background = `linear-gradient(90deg, hsl(${colorDef.h}, 40%, 82%) 0%, hsl(${colorDef.h}, 100%, 25%) 100%)`;
+                  legendMin.textContent = formatMetricValue(minVal, mode);
+                  legendMax.textContent = formatMetricValue(maxVal, mode);
+                  legendEl.style.display = "flex";
+                }
+
+                // Apply stroke color + metric bar to each node
+                node.each(function () {
+                  const el = d3.select(this);
+                  const value =
+                    parseFloat(el.attr(`data-${mode}`)) || 0;
+                  const rect = el.select(".node-rect");
+                  const bar = el.select(".node-metric-bar");
+
+                  if (value === 0 || maxVal === minVal) {
+                    rect
+                      .attr("stroke", rect.attr("data-default-stroke"))
+                      .attr(
+                        "stroke-width",
+                        rect.attr("data-default-stroke-width"),
+                      );
+                    bar.attr("width", 0).attr("fill", "transparent");
+                    return;
+                  }
+
+                  const normalized = Math.max(
+                    0,
+                    Math.min(1, (value - minVal) / (maxVal - minVal)),
+                  );
+                  const color = getDagColor(normalized, mode);
+
+                  // Color the stroke
+                  rect.attr("stroke", color).attr("stroke-width", 3);
+
+                  // Fill the metric bar proportionally
+                  const barWidth = normalized * nodeWidth;
+                  bar
+                    .attr("width", barWidth)
+                    .attr("fill", color)
+                    .attr("opacity", 0.5);
+                });
+              };
+
+              dagColorSelect.addEventListener("change", (e) => {
+                updateDagNodeColors(e.target.value);
+              });
+            }
           },
 
           getPlanNodeDetails(node) {
