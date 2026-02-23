@@ -176,6 +176,138 @@
         }
       }
 
+      /* Explicit theme overrides (take priority over media query) */
+      :root.theme-light {
+        --bg-primary: #f5f5f8;
+        --bg-secondary: #ffffff;
+        --bg-tertiary: #ece4f7;
+        --bg-card: #ffffff;
+        --bg-hover: #f0ecf5;
+        --text-primary: #1a1a2e;
+        --text-secondary: #555566;
+        --text-muted: #888899;
+        --border-color: #d8d8e0;
+        --border-light: #c8c8d4;
+        --accent-success: #16a34a;
+        --accent-danger: #dc2626;
+        --status-finished: #16a34a;
+        --status-running: #0891b2;
+        --status-failed: #dc2626;
+        --syntax-keyword: #8b008b;
+        --syntax-function: #795e26;
+        --syntax-string: #a31515;
+        --syntax-number: #098658;
+        --syntax-comment: #008000;
+        --syntax-operator: #383838;
+        --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+        --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+        --header-text: #fff;
+        --header-label: rgba(255, 255, 255, 0.5);
+        --header-stat: rgba(255, 255, 255, 0.95);
+        --tint-01: rgba(0, 0, 0, 0.01);
+        --tint-02: rgba(0, 0, 0, 0.02);
+        --tint-05: rgba(0, 0, 0, 0.04);
+        --tint-06: rgba(0, 0, 0, 0.05);
+        --tint-08: rgba(0, 0, 0, 0.06);
+        --tint-10: rgba(0, 0, 0, 0.08);
+        --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+        --dag-edge-neutral: #b0b0b8;
+        --dag-edge-label-bg: rgba(255, 255, 255, 0.92);
+        --dag-edge-label-neutral: #666680;
+        --dag-edge-cols: #4a7a9e;
+        --dag-node-stroke-default: #d8d8e0;
+        --dag-highlight-stroke: #1a1a2e;
+        --dag-badge-gray: #9ca3af;
+        --dag-badge-purple: #7c3aed;
+        --dag-badge-blue: #2563eb;
+        --dag-badge-red: #dc2626;
+        --dag-badge-text: #fff;
+      }
+
+      :root.theme-dark {
+        --bg-primary: #0d0d1a;
+        --bg-secondary: #1a1a2e;
+        --bg-tertiary: #2d1f4e;
+        --bg-card: #1e1e32;
+        --bg-hover: #2a2a4a;
+        --text-primary: #f0f0f5;
+        --text-secondary: #a0a0b0;
+        --text-muted: #666680;
+        --border-color: #3a3a5a;
+        --border-light: #4a4a6a;
+        --accent-primary: var(--rapids-cyan);
+        --accent-success: #4ade80;
+        --accent-warning: var(--rapids-gold);
+        --accent-danger: #f87171;
+        --accent-gpu: var(--rapids-purple);
+        --accent-magenta: var(--rapids-magenta);
+        --status-finished: #4ade80;
+        --status-running: var(--rapids-cyan);
+        --status-failed: #f87171;
+        --syntax-keyword: #c586c0;
+        --syntax-function: #dcdcaa;
+        --syntax-string: #ce9178;
+        --syntax-number: #b5cea8;
+        --syntax-comment: #6a9955;
+        --syntax-operator: #d4d4d4;
+        --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+        --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+        --header-text: #fff;
+        --header-label: rgba(255, 255, 255, 0.4);
+        --header-stat: rgba(255, 255, 255, 0.9);
+        --tint-01: rgba(255, 255, 255, 0.01);
+        --tint-02: rgba(255, 255, 255, 0.02);
+        --tint-05: rgba(255, 255, 255, 0.05);
+        --tint-06: rgba(255, 255, 255, 0.06);
+        --tint-08: rgba(255, 255, 255, 0.08);
+        --tint-10: rgba(255, 255, 255, 0.1);
+        --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --dag-edge-neutral: #6a6a6a;
+        --dag-edge-label-bg: rgba(26, 26, 46, 0.85);
+        --dag-edge-label-neutral: #a0a0a0;
+        --dag-edge-cols: #6a9ec9;
+        --dag-node-stroke-default: #1a1a2e;
+        --dag-highlight-stroke: #fff;
+        --dag-badge-gray: #6b7280;
+        --dag-badge-purple: #8b5cf6;
+        --dag-badge-blue: #3b82f6;
+        --dag-badge-red: #ef4444;
+        --dag-badge-text: #fff;
+      }
+
+      /* Theme toggle button */
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        border-radius: 14px;
+        padding: 2px;
+        cursor: pointer;
+      }
+
+      .theme-toggle-option {
+        padding: 3px 8px;
+        border-radius: 12px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 150ms ease;
+        line-height: 1;
+      }
+
+      .theme-toggle-option:hover {
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .theme-toggle-option.active {
+        background: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+
       /* =============================================================================
    Reset & Base Styles
    ============================================================================= */
@@ -3398,6 +3530,22 @@
         color: var(--rapids-light-purple);
       }
 
+      .command-palette-item-icon.operator,
+      .command-palette-item-icon.operatorType {
+        background: color-mix(in srgb, #f59e0b 20%, transparent);
+        color: #f59e0b;
+      }
+
+      .command-palette-item-icon.worker {
+        background: color-mix(in srgb, #06b6d4 20%, transparent);
+        color: #06b6d4;
+      }
+
+      .command-palette-item-icon.view {
+        background: color-mix(in srgb, var(--text-secondary) 15%, transparent);
+        color: var(--text-secondary);
+      }
+
       .command-palette-item-content {
         flex: 1;
         min-width: 0;
@@ -4006,6 +4154,14 @@
     </style>
   </head>
   <body>
+    <script>
+      // Apply saved theme immediately to avoid flash
+      (function() {
+        var saved = localStorage.getItem("presto-view-theme") || "auto";
+        if (saved === "light") document.documentElement.classList.add("theme-light");
+        else if (saved === "dark") document.documentElement.classList.add("theme-dark");
+      })();
+    </script>
     <div class="app">
       <!-- Header -->
       <header class="app-header">
@@ -4039,7 +4195,12 @@
             <div id="sql-tooltip" class="sql-tooltip"></div
           ></span>
         </div>
-        <div style="margin-left: auto">
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+          <div class="theme-toggle" id="theme-toggle">
+            <button class="theme-toggle-option" data-theme="light" title="Light">&#9788;</button>
+            <button class="theme-toggle-option active" data-theme="auto" title="Auto">&#9684;</button>
+            <button class="theme-toggle-option" data-theme="dark" title="Dark">&#9790;</button>
+          </div>
           <label id="header-upload-btn" class="header-upload-btn">
             Upload
             <input
@@ -16938,8 +17099,12 @@
           },
         };
 
-        // Expose App globally for onclick handlers in dynamic HTML
+        // Expose globals for onclick handlers and command palette
         window.App = App;
+        window.Utils = Utils;
+        window.PIVOT_DIMENSIONS = PIVOT_DIMENSIONS;
+        window.PivotEngine = PivotEngine;
+        window.PivotRenderer = PivotRenderer;
 
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", () => App.init());
@@ -17020,7 +17185,8 @@
           this.overlay.classList.add("visible");
           this.input.value = "";
           this.input.focus();
-          this.search("");
+          // Defer search so the overlay has painted before we populate results
+          requestAnimationFrame(() => this.search(""));
         },
 
         close() {
@@ -17040,7 +17206,29 @@
           const q = query.toLowerCase().trim();
           this.items = [];
 
-          // Search stages
+          // Views — always shown
+          const views = [
+            { name: "overview", label: "Overview", icon: "📋" },
+            { name: "explain", label: "Explain", icon: "📝" },
+            { name: "stages", label: "Stages", icon: "🔀" },
+            { name: "operators", label: "Operators", icon: "⚙️" },
+            { name: "execution", label: "Execution", icon: "⚡" },
+            { name: "pipeline-graph", label: "Pipeline Graph", icon: "🔗" },
+            { name: "pivot", label: "Table", icon: "📊" },
+          ];
+          views.forEach((v) => {
+            if (!q || v.label.toLowerCase().includes(q) || v.name.includes(q)) {
+              this.items.push({
+                type: "view",
+                viewName: v.name,
+                title: v.label,
+                subtitle: "View",
+                badge: v.icon,
+              });
+            }
+          });
+
+          // Search stages — always shown
           if (model.stages) {
             model.stages.forEach((stage, id) => {
               const stageName = `Stage ${id}`;
@@ -17062,60 +17250,110 @@
             });
           }
 
-          // Search plan nodes
-          if (model.planNodes) {
-            model.planNodes.forEach((node) => {
-              const nodeType = node.type || "";
-              const nodeId = String(node.id);
-              if (
-                !q ||
-                nodeType.toLowerCase().includes(q) ||
-                nodeId.includes(q)
-              ) {
-                this.items.push({
-                  type: "plan",
-                  id: node.id,
-                  stageId: node.stageId,
-                  title: `${nodeType} #${node.id}`,
-                  subtitle: `Stage ${node.stageId}`,
-                  badge: node.id,
-                });
-              }
-            });
-          }
+          // The rest require a query to avoid flooding results
+          if (q) {
+            // Search plan nodes
+            if (model.planNodes) {
+              model.planNodes.forEach((node) => {
+                const nodeType = node.type || "";
+                const nodeId = String(node.id);
+                if (
+                  nodeType.toLowerCase().includes(q) ||
+                  nodeId.includes(q)
+                ) {
+                  this.items.push({
+                    type: "plan",
+                    id: node.id,
+                    stageId: node.stageId,
+                    title: `${nodeType} #${node.id}`,
+                    subtitle: `Stage ${node.stageId}`,
+                    badge: node.id,
+                  });
+                }
+              });
+            }
 
-          // Search pipelines (from operators)
-          if (model.operators) {
-            const pipelines = new Map();
-            model.operators.forEach((op) => {
-              const key = `${op.stageId}-${op.pipelineId}`;
-              if (!pipelines.has(key)) {
-                pipelines.set(key, {
-                  stageId: op.stageId,
-                  pipelineId: op.pipelineId,
-                  operators: [],
-                });
-              }
-              pipelines.get(key).operators.push(op);
-            });
+            // Search operators
+            if (model.operators) {
+              const opTypes = new Map();
+              model.operators.forEach((op) => {
+                const displayName = Utils.getOperatorDisplayName(op.type);
+                const searchStr = `${displayName} ${op.type} ${op.key} ${op.planNodeId || ""}`.toLowerCase();
+                if (searchStr.includes(q)) {
+                  this.items.push({
+                    type: "operator",
+                    operatorKey: op.key,
+                    title: `${displayName}[${op.operatorId}]`,
+                    subtitle: `S${op.stageId} P${op.pipelineId}${op.isGpu ? " GPU" : ""}`,
+                    badge: op.key.split(".").slice(0, 2).join("."),
+                  });
+                }
+                if (!opTypes.has(op.type)) opTypes.set(op.type, 0);
+                opTypes.set(op.type, opTypes.get(op.type) + 1);
+              });
 
-            pipelines.forEach((pipeline, key) => {
-              const pipelineName = `Pipeline ${pipeline.stageId}.${pipeline.pipelineId}`;
-              if (
-                !q ||
-                pipelineName.toLowerCase().includes(q) ||
-                key.includes(q)
-              ) {
-                this.items.push({
-                  type: "pipeline",
-                  stageId: pipeline.stageId,
-                  pipelineId: pipeline.pipelineId,
-                  title: pipelineName,
-                  subtitle: `${pipeline.operators.length} operators`,
-                  badge: `S${pipeline.stageId}`,
-                });
-              }
-            });
+              // Search operator types (deduplicated)
+              opTypes.forEach((count, type) => {
+                const displayName = Utils.getOperatorDisplayName(type);
+                if (displayName.toLowerCase().includes(q) || type.toLowerCase().includes(q)) {
+                  this.items.push({
+                    type: "operatorType",
+                    operatorType: type,
+                    title: displayName,
+                    subtitle: `${count} instances`,
+                    badge: "Type",
+                  });
+                }
+              });
+
+              // Search pipelines
+              const pipelines = new Map();
+              model.operators.forEach((op) => {
+                const key = `${op.stageId}-${op.pipelineId}`;
+                if (!pipelines.has(key)) {
+                  pipelines.set(key, {
+                    stageId: op.stageId,
+                    pipelineId: op.pipelineId,
+                    operators: [],
+                  });
+                }
+                pipelines.get(key).operators.push(op);
+              });
+
+              pipelines.forEach((pipeline, key) => {
+                const pipelineName = `Pipeline ${pipeline.stageId}.${pipeline.pipelineId}`;
+                if (
+                  pipelineName.toLowerCase().includes(q) ||
+                  key.includes(q)
+                ) {
+                  this.items.push({
+                    type: "pipeline",
+                    stageId: pipeline.stageId,
+                    pipelineId: pipeline.pipelineId,
+                    title: pipelineName,
+                    subtitle: `${pipeline.operators.length} operators`,
+                    badge: `S${pipeline.stageId}`,
+                  });
+                }
+              });
+            }
+
+            // Search workers
+            if (model.workers) {
+              model.workers.forEach((worker, id) => {
+                const host = worker.host || id;
+                if (host.toLowerCase().includes(q) || id.toLowerCase().includes(q)) {
+                  this.items.push({
+                    type: "worker",
+                    workerId: id,
+                    workerHost: host,
+                    title: host,
+                    subtitle: "Worker",
+                    badge: "W",
+                  });
+                }
+              });
+            }
           }
 
           // Limit results
@@ -17132,23 +17370,30 @@
           }
 
           // Group by type
+          const viewItems = this.items.filter((i) => i.type === "view");
           const stages = this.items.filter((i) => i.type === "stage");
           const plans = this.items.filter((i) => i.type === "plan");
+          const operators = this.items.filter((i) => i.type === "operator");
+          const opTypes = this.items.filter((i) => i.type === "operatorType");
           const pipelines = this.items.filter((i) => i.type === "pipeline");
+          const workers = this.items.filter((i) => i.type === "worker");
 
           let html = "";
           let globalIndex = 0;
 
-          const renderGroup = (title, items, iconClass) => {
+          const iconMap = { view: "→", stage: "S", plan: "N", operator: "O", operatorType: "O", pipeline: "P", worker: "W" };
+
+          const renderGroup = (title, items) => {
             if (items.length === 0) return "";
             let groupHtml = `<div class="command-palette-group">`;
             groupHtml += `<div class="command-palette-group-title">${title}</div>`;
             items.forEach((item) => {
               const selected =
                 globalIndex === this.selectedIndex ? "selected" : "";
+              const icon = iconMap[item.type] || "?";
               groupHtml += `
                 <div class="command-palette-item ${selected}" data-index="${globalIndex}">
-                  <div class="command-palette-item-icon ${item.type}">${item.type === "stage" ? "S" : item.type === "plan" ? "P" : "L"}</div>
+                  <div class="command-palette-item-icon ${item.type}">${icon}</div>
                   <div class="command-palette-item-content">
                     <div class="command-palette-item-title">${item.title}</div>
                     <div class="command-palette-item-subtitle">${item.subtitle}</div>
@@ -17162,9 +17407,13 @@
             return groupHtml;
           };
 
-          html += renderGroup("Stages", stages, "stage");
-          html += renderGroup("Plan Nodes", plans, "plan");
-          html += renderGroup("Pipelines", pipelines, "pipeline");
+          html += renderGroup("Views", viewItems);
+          html += renderGroup("Stages", stages);
+          html += renderGroup("Plan Nodes", plans);
+          html += renderGroup("Operator Types", opTypes);
+          html += renderGroup("Operators", operators);
+          html += renderGroup("Pipelines", pipelines);
+          html += renderGroup("Workers", workers);
 
           this.results.innerHTML = html;
 
@@ -17211,22 +17460,33 @@
 
           this.close();
 
-          if (item.type === "stage") {
-            this.navigateToStage(item.id);
-          } else if (item.type === "plan") {
-            this.navigateToPlanNode(item.id, item.stageId);
-          } else if (item.type === "pipeline") {
-            this.navigateToPipeline(item.stageId, item.pipelineId);
+          switch (item.type) {
+            case "view":
+              window.App.switchView(item.viewName);
+              break;
+            case "stage":
+              this.navigateToStage(item.id);
+              break;
+            case "plan":
+              this.navigateToPlanNode(item.id, item.stageId);
+              break;
+            case "operator":
+              this.navigateToOperator(item.operatorKey);
+              break;
+            case "operatorType":
+              this.navigateToOperatorType(item.operatorType);
+              break;
+            case "pipeline":
+              this.navigateToPipeline(item.stageId, item.pipelineId);
+              break;
+            case "worker":
+              this.navigateToWorker(item.workerHost);
+              break;
           }
         },
 
         navigateToStage(stageId) {
-          // Switch to Explain view and highlight stage
-          if (window.App.currentView !== "explain") {
-            window.App.showExplain();
-          }
-
-          // Highlight the stage in timeline
+          window.App.switchView("explain");
           setTimeout(() => {
             const timelineBar = document.querySelector(
               `.explain-timeline-bar[data-stage-id="${stageId}"]`,
@@ -17242,13 +17502,8 @@
         },
 
         navigateToPlanNode(nodeId, stageId) {
-          // Switch to Explain view
-          if (window.App.currentView !== "explain") {
-            window.App.showExplain();
-          }
-
+          window.App.switchView("explain");
           setTimeout(() => {
-            // Find and click the tree node
             const treeNode = document.querySelector(
               `.explain-tree-node[data-node-id="${nodeId}"]`,
             );
@@ -17256,20 +17511,44 @@
               treeNode.scrollIntoView({ behavior: "smooth", block: "center" });
               treeNode.click();
             }
-
-            // Also highlight in DAG
             if (window.App.highlightPlanNode) {
               window.App.highlightPlanNode(nodeId, false);
             }
           }, 100);
         },
 
-        navigateToPipeline(stageId, pipelineId) {
-          // Switch to Stages view and show stage detail
-          window.App.showStageDetail(stageId);
-
+        navigateToOperator(operatorKey) {
+          // Open the operator detail panel, switch to operators view
+          window.App.switchView("operators");
           setTimeout(() => {
-            // Find and scroll to pipeline section
+            window.App.showOperatorDetail(operatorKey);
+            const row = document.querySelector(
+              `[data-operator-key="${operatorKey}"]`,
+            );
+            if (row) {
+              row.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 100);
+        },
+
+        navigateToOperatorType(operatorType) {
+          // Switch to pivot/table view with operatorType grouping
+          window.App.switchView("pivot");
+          setTimeout(() => {
+            const allIds = PIVOT_DIMENSIONS.map((d) => d.id);
+            const active = ["operatorType", "operator"];
+            const avail = allIds.filter((id) => !active.includes(id));
+            PivotEngine.setDimensionOrder(active, avail);
+            PivotEngine.collapseAll();
+            PivotEngine.sortColumn = "wallNanos";
+            PivotEngine.sortAsc = false;
+            PivotRenderer.render();
+          }, 100);
+        },
+
+        navigateToPipeline(stageId, pipelineId) {
+          window.App.showStageDetail(stageId);
+          setTimeout(() => {
             const pipelineHeader = document.querySelector(
               `[data-pipeline-id="${pipelineId}"]`,
             );
@@ -17281,12 +17560,57 @@
             }
           }, 100);
         },
+
+        navigateToWorker(workerHost) {
+          // Switch to pivot/table view grouped by worker
+          window.App.switchView("pivot");
+          setTimeout(() => {
+            const allIds = PIVOT_DIMENSIONS.map((d) => d.id);
+            const active = ["worker", "stage", "pipeline"];
+            const avail = allIds.filter((id) => !active.includes(id));
+            PivotEngine.setDimensionOrder(active, avail);
+            PivotEngine.collapseAll();
+            PivotEngine.sortColumn = "wallNanos";
+            PivotEngine.sortAsc = false;
+            PivotRenderer.render();
+          }, 100);
+        },
       };
 
       // Initialize command palette after DOM ready
       document.addEventListener("DOMContentLoaded", () =>
         CommandPalette.init(),
       );
+
+      // Theme toggle
+      document.addEventListener("DOMContentLoaded", () => {
+        const toggle = document.getElementById("theme-toggle");
+        if (!toggle) return;
+
+        const saved = localStorage.getItem("presto-view-theme") || "auto";
+
+        function applyTheme(mode) {
+          document.documentElement.classList.remove("theme-light", "theme-dark");
+          if (mode === "light") document.documentElement.classList.add("theme-light");
+          else if (mode === "dark") document.documentElement.classList.add("theme-dark");
+          // "auto" = no class, media query takes effect
+
+          localStorage.setItem("presto-view-theme", mode);
+
+          toggle.querySelectorAll(".theme-toggle-option").forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.theme === mode);
+          });
+        }
+
+        // Set initial active state
+        applyTheme(saved);
+
+        toggle.addEventListener("click", (e) => {
+          const btn = e.target.closest(".theme-toggle-option");
+          if (!btn) return;
+          applyTheme(btn.dataset.theme);
+        });
+      });
     </script>
   </body>
 </html>
