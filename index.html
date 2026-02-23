@@ -2836,6 +2836,296 @@
       }
 
       /* =============================================================================
+   Pivot Table View
+   ============================================================================= */
+
+      /* ── Dimension Bar ── */
+      .pivot-dimension-bar {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 16px;
+        font-size: var(--font-size-sm);
+      }
+
+      .pivot-zone {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1.5px dashed transparent;
+        min-height: 40px;
+        transition: border-color 0.15s, background-color 0.15s;
+      }
+
+      .pivot-zone-label {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 4px;
+        white-space: nowrap;
+        user-select: none;
+      }
+
+      .pivot-zone-groupby {
+        flex: 1;
+        background: var(--bg-secondary);
+      }
+
+      .pivot-zone-available {
+        background: var(--bg-primary);
+        border-color: var(--border-color);
+      }
+
+      .pivot-zone.drag-over {
+        border-color: var(--accent-color, #7c3aed);
+        background: color-mix(in srgb, var(--accent-color, #7c3aed) 8%, transparent);
+      }
+
+      .pivot-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: grab;
+        user-select: none;
+        transition: box-shadow 0.12s, opacity 0.12s;
+        white-space: nowrap;
+      }
+
+      .pivot-chip:hover {
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      }
+
+      .pivot-chip.dragging {
+        opacity: 0.4;
+      }
+
+      .pivot-chip-icon {
+        font-size: 13px;
+      }
+
+      .pivot-chip-remove {
+        margin-left: 2px;
+        cursor: pointer;
+        opacity: 0.5;
+        font-size: 11px;
+        line-height: 1;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pivot-chip-remove:hover {
+        opacity: 1;
+        background: var(--bg-tertiary, rgba(0,0,0,0.1));
+      }
+
+      .pivot-drop-indicator {
+        width: 2px;
+        height: 24px;
+        background: var(--accent-color, #7c3aed);
+        border-radius: 1px;
+        flex-shrink: 0;
+        animation: pivot-pulse 0.8s ease-in-out infinite alternate;
+      }
+
+      @keyframes pivot-pulse {
+        from { opacity: 0.5; }
+        to { opacity: 1; }
+      }
+
+      /* ── Toolbar ── */
+      .pivot-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .pivot-toolbar button,
+      .pivot-toolbar select {
+        padding: 4px 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .pivot-toolbar button:hover,
+      .pivot-toolbar select:hover {
+        background: var(--bg-tertiary, var(--bg-secondary));
+      }
+
+      .pivot-toolbar .pivot-row-count {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      /* ── Tree Table ── */
+      .pivot-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+      }
+
+      .pivot-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        table-layout: fixed;
+      }
+
+      .pivot-table thead th {
+        position: sticky;
+        top: 0;
+        background: var(--bg-secondary);
+        padding: 6px 10px;
+        text-align: right;
+        font-weight: 600;
+        font-size: 11px;
+        border-bottom: 2px solid var(--border-color);
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        z-index: 1;
+      }
+
+      .pivot-table thead th:hover {
+        background: var(--bg-tertiary, var(--bg-secondary));
+      }
+
+      .pivot-table thead th.sort-asc::after {
+        content: " \25B2";
+        font-size: 9px;
+      }
+
+      .pivot-table thead th.sort-desc::after {
+        content: " \25BC";
+        font-size: 9px;
+      }
+
+      .pivot-table thead th:first-child {
+        text-align: left;
+        width: 320px;
+        min-width: 220px;
+      }
+
+      .pivot-table tbody td {
+        padding: 4px 10px;
+        text-align: right;
+        border-bottom: 1px solid var(--border-color);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pivot-table tbody td:first-child {
+        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+      }
+
+      .pivot-spread {
+        display: inline-flex;
+        align-items: flex-end;
+        gap: 1px;
+        flex-shrink: 0;
+        height: 14px;
+      }
+
+      .pivot-table tbody tr:hover td {
+        filter: brightness(0.95);
+      }
+
+      /* ── Row hierarchy ── */
+      .pivot-row-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        max-width: 100%;
+      }
+
+      .pivot-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        font-size: 10px;
+        flex-shrink: 0;
+        border-radius: 3px;
+        transition: background 0.1s;
+      }
+
+      .pivot-toggle:hover {
+        background: var(--bg-tertiary, rgba(0,0,0,0.08));
+      }
+
+      .pivot-dim-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        flex-shrink: 0;
+      }
+
+      .pivot-label-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Tooltip ── */
+      .pivot-tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 9999;
+        max-width: 280px;
+        display: none;
+      }
+
+      .pivot-tooltip.visible {
+        display: block;
+      }
+
+      .pivot-tooltip dt {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 11px;
+      }
+
+      .pivot-tooltip dd {
+        margin: 0 0 4px 0;
+      }
+
+      /* =============================================================================
    Collapsible Sections
    ============================================================================= */
       .collapsible-header {
@@ -3822,6 +4112,10 @@
               <span class="nav-item-icon">🔗</span>
               <span>Pipeline Graph</span>
             </div>
+            <div class="nav-item" data-view="pivot">
+              <span class="nav-item-icon">📊</span>
+              <span>Table</span>
+            </div>
           </div>
           <div
             class="nav-section"
@@ -3873,6 +4167,11 @@
 
           <!-- Pipeline Graph View -->
           <div id="view-pipeline-graph" class="view">
+            <!-- Populated by JavaScript -->
+          </div>
+
+          <!-- Pivot Table View -->
+          <div id="view-pivot" class="view">
             <!-- Populated by JavaScript -->
           </div>
 
@@ -6275,6 +6574,74 @@
 
             return { stageIds, stageColors, timelineRows };
           },
+
+          /**
+           * Build a flat fact table from model.operators for pivot analysis.
+           * Each row represents one operator instance with resolved dimension keys.
+           * Cached on model._pivotFacts.
+           */
+          derivePivotFacts(model) {
+            if (model._pivotFacts) return model._pivotFacts;
+
+            // Build a lookup from plan node id → type name
+            const planNodeTypeMap = new Map();
+            model.planNodes.forEach((pn) => {
+              planNodeTypeMap.set(String(pn.id), pn.type);
+            });
+
+            const facts = [];
+            model.operators.forEach((op) => {
+              const task = model.tasks.get(op.taskId);
+              const workerId = task ? task.workerId : "unknown";
+              const workerHost = task ? task.workerHost : "unknown";
+              const m = op.metrics;
+              const wallNanos =
+                m.addInputWallNanos +
+                m.getOutputWallNanos +
+                m.finishWallNanos;
+              const cpuNanos =
+                m.addInputCpuNanos + m.getOutputCpuNanos + m.finishCpuNanos;
+
+              // Resolve plan node type via normalized ID, track velox bridge
+              const rawPlanNodeId = op.planNodeId || "";
+              const normalizedId = Utils.normalizePlanNodeId(rawPlanNodeId);
+              const planNodeType = planNodeTypeMap.get(String(normalizedId)) || "";
+              let veloxBridge = null;
+              if (rawPlanNodeId.endsWith("-to-velox")) veloxBridge = "to-velox";
+              else if (rawPlanNodeId.endsWith("-from-velox")) veloxBridge = "from-velox";
+
+              facts.push({
+                // Dimension keys
+                stageId: op.stageId,
+                taskId: op.taskId,
+                workerId: workerId,
+                workerHost: workerHost,
+                planNodeId: rawPlanNodeId,
+                planNodeNormalizedId: normalizedId,
+                planNodeType: planNodeType,
+                veloxBridge: veloxBridge,
+                pipelineId: op.pipelineId,
+                operatorType: op.type,
+                operatorId: op.operatorId,
+                operatorKey: op.key,
+                isGpu: op.isGpu,
+                // Metrics
+                wallNanos: wallNanos,
+                cpuNanos: cpuNanos,
+                blockedNanos: m.blockedWallNanos,
+                inputBytes: m.inputBytes || 0,
+                outputBytes: m.outputBytes || 0,
+                inputRows: m.inputPositions || 0,
+                outputRows: m.outputPositions || 0,
+                peakMemoryBytes:
+                  m.peakTotalMemoryBytes || m.peakUserMemoryBytes || 0,
+                spilledBytes: m.spilledBytes || 0,
+              });
+            });
+
+            model._pivotFacts = facts;
+            return facts;
+          },
         };
 
         // ==========================================================================
@@ -6425,6 +6792,856 @@
             const result = new Set();
             sets.forEach((s) => s.forEach((x) => result.add(x)));
             return result;
+          },
+        };
+
+        // ==========================================================================
+        // Pivot Table Engine & Renderer
+        // ==========================================================================
+
+        const PIVOT_DIMENSIONS = [
+          {
+            id: "stage",
+            label: "Stage",
+            icon: "S",
+            keyFn: (row) => row.stageId,
+            labelFn: (key) => `Stage ${key}`,
+            sortFn: (a, b) => a - b,
+          },
+          {
+            id: "worker",
+            label: "Worker",
+            icon: "W",
+            keyFn: (row) => row.workerHost,
+            labelFn: (key) => key,
+            sortFn: (a, b) => String(a).localeCompare(String(b)),
+          },
+          {
+            id: "planNodeType",
+            label: "Plan Node Type",
+            icon: "N",
+            keyFn: (row) => row.planNodeType || "(none)",
+            labelFn: (key) => key,
+            sortFn: (a, b) => String(a).localeCompare(String(b)),
+          },
+          {
+            id: "planNode",
+            label: "Plan Node",
+            icon: "N",
+            keyFn: (row) => row.planNodeNormalizedId || "(none)",
+            labelFn: (key, rows) => {
+              if (key === "(none)") return "(none)";
+              const r = rows && rows[0];
+              if (!r) return `#${key}`;
+              const type = r.planNodeType;
+              return type ? `${type} #${key}` : `#${key}`;
+            },
+            sortFn: (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }),
+          },
+          {
+            id: "pipeline",
+            label: "Pipeline",
+            icon: "P",
+            keyFn: (row) => `${row.stageId}.${row.pipelineId}`,
+            labelFn: (key) => {
+              const parts = key.split(".");
+              return `Pipeline ${parts[1]} (Stage ${parts[0]})`;
+            },
+            sortFn: (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }),
+          },
+          {
+            id: "operatorType",
+            label: "Operator Type",
+            icon: "O",
+            keyFn: (row) => row.operatorType,
+            labelFn: (key) => Utils.getOperatorDisplayName(key),
+            sortFn: (a, b) => String(a).localeCompare(String(b)),
+          },
+          {
+            id: "operator",
+            label: "Operator",
+            icon: "O",
+            keyFn: (row) => row.operatorKey,
+            labelFn: (key, rows) => {
+              const r = rows && rows[0];
+              return r
+                ? `${Utils.getOperatorDisplayName(r.operatorType)}[${r.operatorId}]`
+                : key;
+            },
+            sortFn: (a, b) => String(a).localeCompare(String(b)),
+          },
+        ];
+
+        const PIVOT_METRICS = [
+          {
+            id: "wallNanos",
+            label: "Wall Time",
+            format: (v) => Utils.formatDuration(v),
+            hue: 270,
+            agg: "sum",
+          },
+          {
+            id: "cpuNanos",
+            label: "CPU Time",
+            format: (v) => Utils.formatDuration(v),
+            hue: 280,
+            agg: "sum",
+          },
+          {
+            id: "blockedNanos",
+            label: "Blocked",
+            format: (v) => Utils.formatDuration(v),
+            hue: 30,
+            agg: "sum",
+          },
+          {
+            id: "inputBytes",
+            label: "Input Size",
+            format: (v) => Utils.formatBytes(v),
+            hue: 210,
+            agg: "sum",
+          },
+          {
+            id: "outputBytes",
+            label: "Output Size",
+            format: (v) => Utils.formatBytes(v),
+            hue: 220,
+            agg: "sum",
+          },
+          {
+            id: "inputRows",
+            label: "Input Rows",
+            format: (v) => Utils.formatNumber(v),
+            hue: 180,
+            agg: "sum",
+          },
+          {
+            id: "outputRows",
+            label: "Output Rows",
+            format: (v) => Utils.formatNumber(v),
+            hue: 185,
+            agg: "sum",
+          },
+          {
+            id: "peakMemoryBytes",
+            label: "Peak Memory",
+            format: (v) => Utils.formatBytes(v),
+            hue: 0,
+            agg: "max",
+          },
+          {
+            id: "spilledBytes",
+            label: "Spilled",
+            format: (v) => Utils.formatBytes(v),
+            hue: 5,
+            agg: "sum",
+          },
+          {
+            id: "avgThroughput",
+            label: "Avg Throughput",
+            format: (v) => Utils.formatThroughput(v),
+            hue: 145,
+            agg: "derived",
+            deriveFn: (result) => {
+              const wallSec = (result.wallNanos || 0) / 1e9;
+              return wallSec > 0 ? (result.inputBytes || 0) / wallSec : 0;
+            },
+          },
+        ];
+
+        const PivotEngine = {
+          facts: [],
+          activeDimensions: [],
+          availableDimensions: [],
+          expandedKeys: new Set(),
+          sortColumn: null,
+          sortAsc: true,
+
+          init(facts) {
+            this.facts = facts;
+            this.activeDimensions = ["stage", "worker", "pipeline", "operator"];
+            this.availableDimensions = ["planNodeType", "planNode", "operatorType"];
+            this.expandedKeys = new Set();
+            this.sortColumn = "wallNanos";
+            this.sortAsc = false;
+          },
+
+          getDimConfig(id) {
+            return PIVOT_DIMENSIONS.find((d) => d.id === id);
+          },
+
+          setDimensionOrder(activeIds, availableIds) {
+            this.activeDimensions = activeIds;
+            this.availableDimensions = availableIds;
+          },
+
+          removeDimension(dimId) {
+            this.activeDimensions = this.activeDimensions.filter(
+              (d) => d !== dimId,
+            );
+            if (!this.availableDimensions.includes(dimId)) {
+              this.availableDimensions.push(dimId);
+            }
+          },
+
+          addDimension(dimId) {
+            this.availableDimensions = this.availableDimensions.filter(
+              (d) => d !== dimId,
+            );
+            if (!this.activeDimensions.includes(dimId)) {
+              this.activeDimensions.push(dimId);
+            }
+          },
+
+          toggleExpand(key) {
+            if (this.expandedKeys.has(key)) {
+              // Collapse this key and any children
+              const prefix = key + "|";
+              const toRemove = [];
+              this.expandedKeys.forEach((k) => {
+                if (k === key || k.startsWith(prefix)) toRemove.push(k);
+              });
+              toRemove.forEach((k) => this.expandedKeys.delete(k));
+            } else {
+              this.expandedKeys.add(key);
+            }
+          },
+
+          expandAll() {
+            // Build all possible keys by walking the full tree
+            const visit = (facts, dims, depth, parentKey) => {
+              if (depth >= dims.length) return;
+              const dim = this.getDimConfig(dims[depth]);
+              if (!dim) return;
+              const groups = new Map();
+              facts.forEach((row) => {
+                const k = dim.keyFn(row);
+                if (!groups.has(k)) groups.set(k, []);
+                groups.get(k).push(row);
+              });
+              groups.forEach((rows, key) => {
+                const nodeKey =
+                  parentKey !== "" ? parentKey + "|" + key : String(key);
+                if (depth < dims.length - 1) {
+                  this.expandedKeys.add(nodeKey);
+                  visit(rows, dims, depth + 1, nodeKey);
+                }
+              });
+            };
+            visit(this.facts, this.activeDimensions, 0, "");
+          },
+
+          collapseAll() {
+            this.expandedKeys = new Set();
+          },
+
+          setSortColumn(columnId) {
+            if (this.sortColumn === columnId) {
+              this.sortAsc = !this.sortAsc;
+            } else {
+              this.sortColumn = columnId;
+              this.sortAsc = columnId === "_group";
+            }
+          },
+
+          aggregateMetrics(rows) {
+            const result = {};
+            PIVOT_METRICS.forEach((m) => {
+              if (m.agg === "derived") return;
+              if (m.agg === "max") {
+                result[m.id] = rows.reduce(
+                  (acc, r) => Math.max(acc, r[m.id] || 0),
+                  0,
+                );
+              } else {
+                result[m.id] = rows.reduce((acc, r) => acc + (r[m.id] || 0), 0);
+              }
+            });
+            PIVOT_METRICS.forEach((m) => {
+              if (m.agg === "derived") {
+                result[m.id] = m.deriveFn(result);
+              }
+            });
+            return result;
+          },
+
+          /**
+           * Build the visible row list from facts + current dimension order.
+           * Returns { rows, columnRanges } where each row has:
+           *   { key, depth, label, dimId, hasChildren, expanded, metrics, factCount }
+           */
+          buildVisibleRows() {
+            const dims = this.activeDimensions;
+            const rows = [];
+
+            const visit = (facts, depth, parentKey) => {
+              if (depth >= dims.length) return;
+              const dim = this.getDimConfig(dims[depth]);
+              if (!dim) return;
+
+              // Group facts by dimension key
+              const groups = new Map();
+              facts.forEach((row) => {
+                const k = dim.keyFn(row);
+                if (!groups.has(k)) groups.set(k, []);
+                groups.get(k).push(row);
+              });
+
+              // Sort groups
+              let sortedKeys = [...groups.keys()];
+
+              if (this.sortColumn === "_group" || !this.sortColumn) {
+                // Sort by dimension's natural order
+                sortedKeys.sort(dim.sortFn);
+                if (this.sortColumn === "_group" && !this.sortAsc) {
+                  sortedKeys.reverse();
+                }
+              } else {
+                const metric = PIVOT_METRICS.find(
+                  (m) => m.id === this.sortColumn,
+                );
+                if (metric) {
+                  sortedKeys.sort((a, b) => {
+                    const agg_a = this.aggregateMetrics(groups.get(a));
+                    const agg_b = this.aggregateMetrics(groups.get(b));
+                    const va = agg_a[this.sortColumn] || 0;
+                    const vb = agg_b[this.sortColumn] || 0;
+                    return this.sortAsc ? va - vb : vb - va;
+                  });
+                }
+              }
+
+              sortedKeys.forEach((key) => {
+                const groupFacts = groups.get(key);
+                const nodeKey =
+                  parentKey !== "" ? parentKey + "|" + key : String(key);
+                const isLeaf = depth === dims.length - 1;
+                const isExpanded = this.expandedKeys.has(nodeKey);
+
+                // Collect context for badges
+                const stageIds = new Set(groupFacts.map((r) => r.stageId));
+                const pipelineIds = new Set(groupFacts.map((r) => r.pipelineId));
+
+                // Compute child spread for non-leaf rows
+                let childSpread = null;
+                if (!isLeaf) {
+                  const nextDim = this.getDimConfig(dims[depth + 1]);
+                  if (nextDim) {
+                    const spreadMetric = (this.sortColumn && this.sortColumn !== "_group")
+                      ? this.sortColumn : "wallNanos";
+                    const childGroups = new Map();
+                    groupFacts.forEach((r) => {
+                      const ck = nextDim.keyFn(r);
+                      if (!childGroups.has(ck)) childGroups.set(ck, []);
+                      childGroups.get(ck).push(r);
+                    });
+                    const childValues = [];
+                    childGroups.forEach((rows) => {
+                      const agg = this.aggregateMetrics(rows);
+                      childValues.push(agg[spreadMetric] || 0);
+                    });
+                    childValues.sort((a, b) => b - a);
+                    const total = childValues.reduce((s, v) => s + v, 0);
+                    childSpread = { values: childValues, total: total };
+                  }
+                }
+
+                rows.push({
+                  key: nodeKey,
+                  depth: depth,
+                  label: dim.labelFn(key, groupFacts),
+                  dimId: dim.id,
+                  dimIcon: dim.icon,
+                  hasChildren: !isLeaf,
+                  expanded: isExpanded,
+                  metrics: this.aggregateMetrics(groupFacts),
+                  factCount: groupFacts.length,
+                  isGpu: groupFacts.some((r) => r.isGpu),
+                  operatorKey:
+                    isLeaf && groupFacts.length === 1
+                      ? groupFacts[0].operatorKey
+                      : null,
+                  stageIds: stageIds.size <= 3 ? [...stageIds].sort((a, b) => a - b) : null,
+                  pipelineIds: pipelineIds.size <= 3 ? [...pipelineIds].sort((a, b) => a - b) : null,
+                  childSpread: childSpread,
+                });
+
+                if (isExpanded && !isLeaf) {
+                  visit(groupFacts, depth + 1, nodeKey);
+                }
+              });
+            };
+
+            visit(this.facts, 0, "");
+
+            // Compute column ranges for color scaling
+            const columnRanges = {};
+            PIVOT_METRICS.forEach((m) => {
+              let min = Infinity;
+              let max = -Infinity;
+              rows.forEach((r) => {
+                const v = r.metrics[m.id] || 0;
+                if (v > 0) {
+                  if (v < min) min = v;
+                  if (v > max) max = v;
+                }
+              });
+              columnRanges[m.id] = {
+                min: min === Infinity ? 0 : min,
+                max: max === -Infinity ? 0 : max,
+              };
+            });
+
+            return { rows, columnRanges };
+          },
+        };
+
+        const PivotRenderer = {
+          engine: null,
+          container: null,
+          tooltip: null,
+
+          init(engine, container) {
+            this.engine = engine;
+            this.container = container;
+          },
+
+          render() {
+            const { rows, columnRanges } = this.engine.buildVisibleRows();
+            const factCount = this.engine.facts.length;
+
+            this.container.innerHTML = `
+              <div class="view-header">
+                <h1 class="view-title">Table</h1>
+                <p class="view-subtitle">${factCount} operator instances across ${this.engine.activeDimensions.length} dimensions</p>
+              </div>
+              ${this.renderDimensionBar()}
+              <div class="pivot-toolbar">
+                <select class="pivot-preset-select" data-action="preset">
+                  <option value="" disabled selected>Presets</option>
+                  <option value="stage|worker|pipeline|operator">Stage &rarr; Worker &rarr; Pipeline &rarr; Operator</option>
+                  <option value="planNodeType|planNode">Plan Node Type &rarr; Plan Node</option>
+                  <option value="stage|planNode|operator">Stage &rarr; Plan Node &rarr; Operator</option>
+                  <option value="operatorType|operator">Operator Type &rarr; Operator</option>
+                  <option value="worker|stage|pipeline">Worker &rarr; Stage &rarr; Pipeline</option>
+                  <option value="stage|operatorType">Stage &rarr; Operator Type</option>
+                  <option value="planNodeType|worker">Plan Node Type &rarr; Worker</option>
+                </select>
+                <button data-action="expand-all">Expand All</button>
+                <button data-action="collapse-all">Collapse All</button>
+                <span class="pivot-row-count">${rows.length} rows</span>
+              </div>
+              <div class="pivot-table-wrap">
+                ${this.renderTable(rows, columnRanges)}
+              </div>
+              <div class="pivot-tooltip" id="pivot-tooltip"></div>
+            `;
+
+            this.setupInteractions();
+          },
+
+          renderDimensionBar() {
+            const activeChips = this.engine.activeDimensions
+              .map((dimId) => {
+                const dim = this.engine.getDimConfig(dimId);
+                return `<span class="pivot-chip" draggable="true" data-dim="${dimId}">
+                  <span class="pivot-chip-icon">${dim.icon}</span>
+                  ${dim.label}
+                  <span class="pivot-chip-remove" data-dim-remove="${dimId}">&times;</span>
+                </span>`;
+              })
+              .join("");
+
+            const availChips = this.engine.availableDimensions
+              .map((dimId) => {
+                const dim = this.engine.getDimConfig(dimId);
+                return `<span class="pivot-chip" draggable="true" data-dim="${dimId}">
+                  <span class="pivot-chip-icon">${dim.icon}</span>
+                  ${dim.label}
+                </span>`;
+              })
+              .join("");
+
+            return `
+              <div class="pivot-dimension-bar">
+                <div class="pivot-zone pivot-zone-groupby" data-zone="groupby">
+                  <span class="pivot-zone-label">Group By</span>
+                  ${activeChips}
+                </div>
+                <div class="pivot-zone pivot-zone-available" data-zone="available">
+                  <span class="pivot-zone-label">Available</span>
+                  ${availChips}
+                </div>
+              </div>
+            `;
+          },
+
+          renderTable(rows, columnRanges) {
+            const headerCells = PIVOT_METRICS.map((m) => {
+              let cls = "";
+              if (this.engine.sortColumn === m.id) {
+                cls = this.engine.sortAsc ? "sort-asc" : "sort-desc";
+              }
+              return `<th class="${cls}" data-metric="${m.id}">${m.label}</th>`;
+            }).join("");
+
+            const bodyRows = rows
+              .map((row) => {
+                const indent = row.depth * 20;
+                const toggleHtml = row.hasChildren
+                  ? `<span class="pivot-toggle">${row.expanded ? "\u25BC" : "\u25B6"}</span>`
+                  : `<span style="width:16px;display:inline-block"></span>`;
+
+                const badgeStyle = 'style="font-size:10px;padding:0 4px;margin-left:2px;"';
+                const gpuBadge = row.isGpu
+                  ? `<span class="badge gpu" ${badgeStyle}>GPU</span>`
+                  : "";
+
+                // Context badges for operator/operatorType rows (stage + pipeline)
+                // and pipeline rows (stage)
+                let contextBadges = "";
+                const isOpDim = row.dimId === "operator" || row.dimId === "operatorType";
+                const isPipeDim = row.dimId === "pipeline";
+                if ((isOpDim || isPipeDim) && row.stageIds) {
+                  contextBadges += row.stageIds.map((s) =>
+                    `<span class="badge primary" ${badgeStyle}>S${s}</span>`
+                  ).join("");
+                }
+                if (isOpDim && row.pipelineIds) {
+                  contextBadges += row.pipelineIds.map((p) =>
+                    `<span class="badge" ${badgeStyle}>P${p}</span>`
+                  ).join("");
+                }
+
+                const metricCells = PIVOT_METRICS.map((m) => {
+                  const v = row.metrics[m.id] || 0;
+                  const range = columnRanges[m.id];
+                  const bg = this.getCellColor(v, range.min, range.max, m.hue);
+                  const textColor = this.getTextColor(
+                    v,
+                    range.min,
+                    range.max,
+                  );
+                  return `<td style="background:${bg};color:${textColor}" data-value="${v}" data-metric="${m.id}">${v > 0 ? m.format(v) : ""}</td>`;
+                }).join("");
+
+                const operatorAttr = row.operatorKey
+                  ? `data-operator-key="${row.operatorKey}"`
+                  : "";
+
+                // Spread sparkbar for non-leaf rows
+                let spreadHtml = "";
+                if (row.childSpread && row.childSpread.total > 0) {
+                  const sp = row.childSpread;
+                  const maxBars = 8;
+                  const vals = sp.values.slice(0, maxBars);
+                  const maxVal = vals[0];
+                  const bars = vals.map((v) => {
+                    const h = Math.max(2, Math.round((v / maxVal) * 14));
+                    const opacity = 0.25 + 0.75 * (v / maxVal);
+                    return `<span style="display:inline-block;width:3px;height:${h}px;background:var(--text-secondary);opacity:${opacity.toFixed(2)};border-radius:1px;vertical-align:bottom;"></span>`;
+                  }).join("");
+                  const skew = maxVal / (sp.total / sp.values.length);
+                  const skewColor = skew > 3 ? "var(--text-warning, #f59e0b)" : "var(--text-secondary)";
+                  spreadHtml = `<span class="pivot-spread" style="color:${skewColor}" title="Top of ${sp.values.length} children: ${((sp.values[0] / sp.total) * 100).toFixed(0)}% of total">${bars}</span>`;
+                }
+
+                return `<tr data-key="${Utils.escapeHtml(row.key)}" ${operatorAttr}>
+                  <td style="padding-left:${indent + 10}px">
+                    <span class="pivot-row-label">
+                      ${toggleHtml}
+                      <span class="pivot-dim-badge">${row.dimIcon}</span>
+                      <span class="pivot-label-text">${Utils.escapeHtml(row.label)}</span>
+                      ${gpuBadge}${contextBadges}
+                      <span style="color:var(--text-secondary);font-size:10px;margin-left:2px;">(${row.factCount})</span>
+                    </span>
+                    ${spreadHtml}
+                  </td>
+                  ${metricCells}
+                </tr>`;
+              })
+              .join("");
+
+            return `
+              <table class="pivot-table">
+                <thead>
+                  <tr>
+                    <th class="${this.engine.sortColumn === "_group" ? (this.engine.sortAsc ? "sort-asc" : "sort-desc") : ""}" data-metric="_group">Group</th>
+                    ${headerCells}
+                  </tr>
+                </thead>
+                <tbody>${bodyRows}</tbody>
+              </table>
+            `;
+          },
+
+          getCellColor(value, min, max, hue) {
+            if (value <= 0 || max <= 0) return "transparent";
+            if (min === max) return `hsl(${hue}, 40%, 88%)`;
+
+            let normalized;
+            const range = max / Math.max(min, 1);
+            if (range > 100) {
+              // Log scale for skewed data
+              const logMin = Math.log(Math.max(min, 1));
+              const logMax = Math.log(max);
+              const logVal = Math.log(Math.max(value, 1));
+              normalized = (logVal - logMin) / (logMax - logMin);
+            } else {
+              normalized = (value - min) / (max - min);
+            }
+            normalized = Math.max(0, Math.min(1, normalized));
+
+            const saturation = 40 + normalized * 50;
+            const lightness = 88 - normalized * 55;
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+          },
+
+          getTextColor(value, min, max) {
+            if (value <= 0 || max <= 0) return "inherit";
+
+            let normalized;
+            const range = max / Math.max(min, 1);
+            if (range > 100) {
+              const logMin = Math.log(Math.max(min, 1));
+              const logMax = Math.log(max);
+              const logVal = Math.log(Math.max(value, 1));
+              normalized = (logVal - logMin) / (logMax - logMin);
+            } else {
+              normalized = (value - min) / (max - min);
+            }
+            return normalized > 0.6 ? "#fff" : "inherit";
+          },
+
+          setupInteractions() {
+            const container = this.container;
+            const engine = this.engine;
+            const self = this;
+
+            // Row click: expand/collapse for parent rows, operator detail for leaf rows
+            container
+              .querySelectorAll(".pivot-table tbody tr")
+              .forEach((tr) => {
+                tr.style.cursor = "pointer";
+                tr.addEventListener("click", () => {
+                  const hasToggle = tr.querySelector(".pivot-toggle");
+                  if (hasToggle) {
+                    engine.toggleExpand(tr.dataset.key);
+                    self.render();
+                  } else if (tr.dataset.operatorKey) {
+                    App.showOperatorDetail(tr.dataset.operatorKey);
+                  }
+                });
+              });
+
+            // Column header sort
+            container.querySelectorAll(".pivot-table thead th[data-metric]").forEach((th) => {
+              th.addEventListener("click", () => {
+                engine.setSortColumn(th.dataset.metric);
+                self.render();
+              });
+            });
+
+            // Expand all / collapse all
+            container.querySelectorAll(".pivot-toolbar button").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                if (btn.dataset.action === "expand-all") {
+                  engine.expandAll();
+                } else {
+                  engine.collapseAll();
+                }
+                self.render();
+              });
+            });
+
+            // Preset selector
+            const presetSelect = container.querySelector(".pivot-preset-select");
+            if (presetSelect) {
+              presetSelect.addEventListener("change", () => {
+                const active = presetSelect.value.split("|");
+                const allIds = PIVOT_DIMENSIONS.map((d) => d.id);
+                const avail = allIds.filter((id) => !active.includes(id));
+                engine.setDimensionOrder(active, avail);
+                engine.collapseAll();
+                self.render();
+              });
+            }
+
+            // Remove dimension via × button
+            container.querySelectorAll("[data-dim-remove]").forEach((btn) => {
+              btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                engine.removeDimension(btn.dataset.dimRemove);
+                self.render();
+              });
+            });
+
+            // Click available chip to add to Group By
+            container.querySelectorAll(".pivot-zone-available .pivot-chip").forEach((chip) => {
+              chip.style.cursor = "pointer";
+              chip.addEventListener("click", () => {
+                engine.addDimension(chip.dataset.dim);
+                self.render();
+              });
+            });
+
+            // Drag and drop for dimension chips
+            this.setupDragAndDrop();
+
+            // Tooltip on metric cells
+            this.setupTooltip();
+          },
+
+          setupDragAndDrop() {
+            const container = this.container;
+            const engine = this.engine;
+            const self = this;
+            let draggedDim = null;
+            let indicator = null;
+
+            const removeIndicator = () => {
+              if (indicator && indicator.parentNode) {
+                indicator.parentNode.removeChild(indicator);
+              }
+              indicator = null;
+            };
+
+            const getInsertIndex = (zone, clientX) => {
+              const chips = [...zone.querySelectorAll(".pivot-chip:not(.dragging)")];
+              for (let i = 0; i < chips.length; i++) {
+                const rect = chips[i].getBoundingClientRect();
+                if (clientX < rect.left + rect.width / 2) return i;
+              }
+              return chips.length;
+            };
+
+            const showIndicator = (zone, clientX) => {
+              removeIndicator();
+              if (zone.dataset.zone !== "groupby") return;
+
+              indicator = document.createElement("span");
+              indicator.className = "pivot-drop-indicator";
+
+              const chips = [...zone.querySelectorAll(".pivot-chip:not(.dragging)")];
+              const idx = getInsertIndex(zone, clientX);
+              if (idx < chips.length) {
+                zone.insertBefore(indicator, chips[idx]);
+              } else {
+                zone.appendChild(indicator);
+              }
+            };
+
+            container.querySelectorAll(".pivot-chip[draggable]").forEach((chip) => {
+              chip.addEventListener("dragstart", (e) => {
+                draggedDim = chip.dataset.dim;
+                chip.classList.add("dragging");
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", draggedDim);
+              });
+
+              chip.addEventListener("dragend", () => {
+                chip.classList.remove("dragging");
+                draggedDim = null;
+                removeIndicator();
+                container
+                  .querySelectorAll(".drag-over")
+                  .forEach((el) => el.classList.remove("drag-over"));
+              });
+            });
+
+            container.querySelectorAll(".pivot-zone").forEach((zone) => {
+              zone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                zone.classList.add("drag-over");
+                showIndicator(zone, e.clientX);
+              });
+
+              zone.addEventListener("dragleave", (e) => {
+                if (!zone.contains(e.relatedTarget)) {
+                  zone.classList.remove("drag-over");
+                  removeIndicator();
+                }
+              });
+
+              zone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                zone.classList.remove("drag-over");
+                removeIndicator();
+                const dimId = e.dataTransfer.getData("text/plain");
+                if (!dimId) return;
+
+                const isGroupBy = zone.dataset.zone === "groupby";
+
+                if (isGroupBy) {
+                  const chips = [...zone.querySelectorAll(".pivot-chip:not(.dragging)")];
+                  let insertIndex = getInsertIndex(zone, e.clientX);
+
+                  // Map visual index back to dimension index
+                  const visibleDims = engine.activeDimensions.filter(
+                    (d) => d !== dimId,
+                  );
+                  insertIndex = Math.min(insertIndex, visibleDims.length);
+                  visibleDims.splice(insertIndex, 0, dimId);
+                  const newAvail = engine.availableDimensions.filter(
+                    (d) => d !== dimId,
+                  );
+                  engine.setDimensionOrder(visibleDims, newAvail);
+                } else {
+                  engine.removeDimension(dimId);
+                }
+
+                self.render();
+              });
+            });
+          },
+
+          setupTooltip() {
+            const tooltip = this.container.querySelector("#pivot-tooltip");
+            if (!tooltip) return;
+
+            this.container
+              .querySelectorAll(".pivot-table tbody td[data-metric]")
+              .forEach((td) => {
+                td.addEventListener("mouseenter", (e) => {
+                  const value = parseFloat(td.dataset.value);
+                  if (!value || value <= 0) return;
+
+                  const metric = PIVOT_METRICS.find(
+                    (m) => m.id === td.dataset.metric,
+                  );
+                  if (!metric) return;
+
+                  // Find column max
+                  const { columnRanges } = this.engine.buildVisibleRows();
+                  const range = columnRanges[metric.id];
+                  const pctOfMax =
+                    range.max > 0
+                      ? ((value / range.max) * 100).toFixed(1)
+                      : "0";
+
+                  tooltip.innerHTML = `
+                    <dl style="margin:0">
+                      <dt>${metric.label}</dt>
+                      <dd>${metric.format(value)}</dd>
+                      <dt>% of column max</dt>
+                      <dd>${pctOfMax}%</dd>
+                    </dl>
+                  `;
+                  tooltip.classList.add("visible");
+                  tooltip.style.left = e.clientX + 12 + "px";
+                  tooltip.style.top = e.clientY + 12 + "px";
+                });
+
+                td.addEventListener("mousemove", (e) => {
+                  tooltip.style.left = e.clientX + 12 + "px";
+                  tooltip.style.top = e.clientY + 12 + "px";
+                });
+
+                td.addEventListener("mouseleave", () => {
+                  tooltip.classList.remove("visible");
+                });
+              });
           },
         };
 
@@ -10414,6 +11631,14 @@
             this.renderPipelineGraphTab(model, container, true);
           },
 
+          // ── Pivot Table View ────────────────
+          renderPivot(model, container) {
+            const facts = Derived.derivePivotFacts(model);
+            PivotEngine.init(facts);
+            PivotRenderer.init(PivotEngine, container);
+            PivotRenderer.render();
+          },
+
           // ── Compare View ───────────────────
           renderCompare(models, container) {
             if (models.length === 0) {
@@ -13964,6 +15189,9 @@
               S = Utils.detailSection;
             const m = op.metrics;
 
+            const task = model.tasks.get(op.taskId);
+            const workerHost = task ? task.workerHost : "unknown";
+
             const content =
               S(
                 "Operator Info",
@@ -13974,6 +15202,7 @@
                   ) +
                   R("Stage / Pipeline", `S${op.stageId} / P${op.pipelineId}`) +
                   R("Operator ID", op.operatorId) +
+                  R("Worker", workerHost) +
                   R("Drivers", op.totalDrivers),
               ) +
               S(
@@ -14517,6 +15746,7 @@
               "operators",
               "pipeline",
               "pipeline-graph",
+              "pivot",
               "compare",
             ];
             if (viewParam && validViews.includes(viewParam)) {
@@ -14784,6 +16014,7 @@
                 "operators",
                 "pipeline",
                 "pipeline-graph",
+                "pivot",
                 "compare",
               ];
               const defaultView =
@@ -15011,6 +16242,9 @@
                 break;
               case "pipeline-graph":
                 Views.renderPipelineGraph(this.model, container);
+                break;
+              case "pivot":
+                Views.renderPivot(this.model, container);
                 break;
             }
           },
