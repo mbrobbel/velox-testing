@@ -6098,6 +6098,19 @@
                   if (outputBatches) ws.scanBatches += outputBatches.sum || 0;
                 }
 
+                // Aggregate all runtime stats for every operator type
+                const rs = op.runtimeStats || {};
+                if (Object.keys(rs).length > 0) {
+                  if (!g.runtimeStats) g.runtimeStats = {};
+                  Object.entries(rs).forEach(([key, stat]) => {
+                    const shortName = key.split(".").pop();
+                    if (!g.runtimeStats[shortName]) {
+                      g.runtimeStats[shortName] = { sum: 0, unit: stat.unit || "NONE" };
+                    }
+                    g.runtimeStats[shortName].sum += stat.sum || 0;
+                  });
+                }
+
                 const activeNanos =
                   (op.metrics.addInputWallNanos || 0) +
                   (op.metrics.getOutputWallNanos || 0) +
@@ -8840,10 +8853,31 @@
                          `;
                     }
 
+                    // Runtime stats for this operator (hidden by default, shown on click)
+                    let runtimeStatsHtml = "";
+                    if (op.runtimeStats && Object.keys(op.runtimeStats).length > 0) {
+                      const entries = Object.entries(op.runtimeStats)
+                        .sort(([, a], [, b]) => b.sum - a.sum);
+                      const rows = entries.map(([name, stat]) => {
+                        const formatted = stat.unit === "NANO"
+                          ? Utils.formatDuration(stat.sum)
+                          : stat.unit === "BYTE"
+                            ? Utils.formatBytes(stat.sum)
+                            : Utils.formatNumber(stat.sum);
+                        return `<tr><td style="padding:1px 6px 1px 0;">${Utils.escapeHtml(name)}</td><td style="text-align:right;padding:1px 0;">${formatted}</td></tr>`;
+                      });
+                      runtimeStatsHtml = `<div class="op-runtime-stats-detail" style="display:none;">
+                        <table style="border-collapse:collapse;font-size:10px;color:var(--text-muted);margin-top:2px;">
+                          <tbody>${rows.join("")}</tbody>
+                        </table>
+                      </div>`;
+                    }
+
                     return `<div style="color: var(--text-muted); font-size: 11px;">
                          <span class="explain-pipeline-badge">P${op.pipelineId}.${op.operatorId}</span>
                          <span style="margin-left: 4px;">${Utils.escapeHtml(opName)}</span>${gpuBadge}${exchangeBadge}${backpressureBadge}
                          ${workerDetailsHtml}
+                         ${runtimeStatsHtml}
                        </div>`;
                   })
                   .join("");
@@ -9078,21 +9112,30 @@
                 );
                 const hasFilterOpDetails =
                   opInfoHtml.includes("filter-op-details");
+                const hasRuntimeStatsDetails =
+                  opInfoHtml.includes("op-runtime-stats-detail");
                 const hasExpandableDetails =
                   hasTableScanDetails ||
                   hasFilterOpDetails ||
-                  hasRemoteSourceDetails;
+                  hasRemoteSourceDetails ||
+                  hasRuntimeStatsDetails;
                 const expandableClass = hasExpandableDetails
                   ? " expandable"
                   : "";
-                // Click handler: for TableScan toggle single detail, for Filter toggle all op details
+                // Click handler: toggle expandable details on click
+                // Runtime stats toggling is always included when present
+                const runtimeStatsToggle = hasRuntimeStatsDetails
+                  ? `this.querySelectorAll('.op-runtime-stats-detail').forEach(d => { d.style.display = d.style.display === 'block' ? 'none' : 'block'; });`
+                  : "";
                 let clickHandler = "";
                 if (hasTableScanDetails) {
-                  clickHandler = ` onclick="if(!event.target.closest('.tablescan-stats-detail')){ const detail = this.querySelector('.tablescan-stats-detail'); if(detail) detail.classList.toggle('expanded'); }"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.tablescan-stats-detail')){ const detail = this.querySelector('.tablescan-stats-detail'); if(detail) detail.classList.toggle('expanded'); ${runtimeStatsToggle} }"`;
                 } else if (hasFilterOpDetails) {
-                  clickHandler = ` onclick="if(!event.target.closest('.filter-op-details')){ this.querySelectorAll('.filter-op-details').forEach(d => d.classList.toggle('expanded')); }"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.filter-op-details')){ this.querySelectorAll('.filter-op-details').forEach(d => d.classList.toggle('expanded')); ${runtimeStatsToggle} }"`;
                 } else if (hasRemoteSourceDetails) {
-                  clickHandler = ` onclick="if(!event.target.closest('.remotesource-stats-detail')){ const detail = this.querySelector('.remotesource-stats-detail'); if(detail) detail.classList.toggle('expanded'); }"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.remotesource-stats-detail')){ const detail = this.querySelector('.remotesource-stats-detail'); if(detail) detail.classList.toggle('expanded'); ${runtimeStatsToggle} }"`;
+                } else if (hasRuntimeStatsDetails) {
+                  clickHandler = ` onclick="${runtimeStatsToggle}"`;
                 }
 
                 const pushedDownBadge = filterPushedDown
@@ -16039,17 +16082,19 @@
                 ? S(
                     "Runtime Stats",
                     Object.entries(op.runtimeStats)
-                      .slice(0, 10)
-                      .map(([key, stat]) =>
-                        R(
-                          `<span style="font-size: 11px;">${key.split(".").pop()}</span>`,
-                          Utils.formatNumber(stat.sum),
-                        ),
-                      )
-                      .join("") +
-                      (Object.keys(op.runtimeStats).length > 10
-                        ? `<div class="text-muted">... and ${Object.keys(op.runtimeStats).length - 10} more</div>`
-                        : ""),
+                      .map(([key, stat]) => {
+                        const shortName = key.split(".").pop();
+                        const formatted = stat.unit === "NANO"
+                          ? Utils.formatDuration(stat.sum)
+                          : stat.unit === "BYTE"
+                            ? Utils.formatBytes(stat.sum)
+                            : Utils.formatNumber(stat.sum);
+                        return R(
+                          `<span style="font-size: 11px;">${shortName}</span>`,
+                          formatted,
+                        );
+                      })
+                      .join(""),
                   )
                 : "");
 
