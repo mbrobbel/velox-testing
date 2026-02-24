@@ -2563,6 +2563,7 @@
       .explain-tree-pane .explain-tree {
         flex: 1;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 12px;
         scrollbar-width: none;
       }
@@ -2659,6 +2660,65 @@
         flex: 1;
         min-height: 0;
         overflow: hidden;
+      }
+
+      .explain-fullscreen-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 14px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+        line-height: 1;
+      }
+
+      .explain-fullscreen-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+
+      .explain-container {
+        position: relative;
+      }
+
+      .explain-pane-fullscreen {
+        position: absolute !important;
+        inset: 0;
+        z-index: 100;
+        width: 100% !important;
+        height: 100% !important;
+        flex: none !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+      }
+
+      .explain-container.has-fullscreen > .explain-divider-h,
+      .explain-container.has-fullscreen > .explain-main-area:not(.explain-pane-fullscreen),
+      .explain-container.has-fullscreen > .explain-timeline-pane:not(.explain-pane-fullscreen) {
+        display: none !important;
+      }
+
+      .explain-container.has-fullscreen .explain-main-area.explain-pane-fullscreen > .explain-split-container {
+        flex: 1;
+      }
+
+      .explain-container.has-fullscreen .explain-split-container > .explain-divider-v,
+      .explain-container.has-fullscreen .explain-split-container > .explain-tree-pane:not(.explain-pane-fullscreen),
+      .explain-container.has-fullscreen .explain-split-container > .explain-dag-pane:not(.explain-pane-fullscreen) {
+        display: none !important;
+      }
+
+      .explain-container.has-fullscreen .explain-split-container > .explain-pane-fullscreen {
+        width: 100% !important;
+        flex: 1 !important;
       }
 
       .dag-tooltip {
@@ -2917,6 +2977,11 @@
         height: 100%;
         margin: calc(-1 * var(--panel-gap));
         padding: 0;
+        overflow: hidden;
+      }
+
+      /* Prevent scrollIntoView from scrolling app-content when explain view is active */
+      .app-content:has(#view-explain.active) {
         overflow: hidden;
       }
 
@@ -8687,11 +8752,11 @@
                 // Click handler: for TableScan toggle single detail, for Filter toggle all op details
                 let clickHandler = "";
                 if (hasTableScanDetails) {
-                  clickHandler = ` onclick="const detail = this.querySelector('.tablescan-stats-detail'); if(detail) detail.classList.toggle('expanded');"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.tablescan-stats-detail')){ const detail = this.querySelector('.tablescan-stats-detail'); if(detail) detail.classList.toggle('expanded'); }"`;
                 } else if (hasFilterOpDetails) {
-                  clickHandler = ` onclick="this.querySelectorAll('.filter-op-details').forEach(d => d.classList.toggle('expanded'));"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.filter-op-details')){ this.querySelectorAll('.filter-op-details').forEach(d => d.classList.toggle('expanded')); }"`;
                 } else if (hasRemoteSourceDetails) {
-                  clickHandler = ` onclick="const detail = this.querySelector('.remotesource-stats-detail'); if(detail) detail.classList.toggle('expanded');"`;
+                  clickHandler = ` onclick="if(!event.target.closest('.remotesource-stats-detail')){ const detail = this.querySelector('.remotesource-stats-detail'); if(detail) detail.classList.toggle('expanded'); }"`;
                 }
 
                 const pushedDownBadge = filterPushedDown
@@ -8712,7 +8777,7 @@
 
                 const highlightArgs = `${nodeId}, &quot;tree&quot;${isRemoteSource ? `, [${sourceFragmentIds.join(",")}]` : ""}`;
                 let html = `
-                     <div class="explain-operator${isRemoteSource ? " remotesource-operator" : ""}" data-node-id="${nodeId}" data-stage-id="${stageId}"${remoteSourceDataAttrs} onmouseenter="if(App.highlightMode==='hover'){App.highlightPlanNode(${highlightArgs})}" onmouseleave="if(App.highlightMode==='hover'){App.unhighlightPlanNode()}" onclick="if(App.highlightMode==='click'){App.highlightPlanNode(${highlightArgs})}" style="margin-left: ${indent * 10}px;">
+                     <div class="explain-operator${isRemoteSource ? " remotesource-operator" : ""}" data-node-id="${nodeId}" data-stage-id="${stageId}"${remoteSourceDataAttrs} onmouseenter="if(App.highlightMode==='hover'){App.highlightPlanNode(${highlightArgs})}" onmouseleave="if(App.highlightMode==='hover'){App.unhighlightPlanNode()}" onclick="event.stopPropagation(); if(App.highlightMode==='click'){App.highlightPlanNode(${highlightArgs})}" style="margin-left: ${indent * 10}px;">
                        <div class="explain-operator-main${expandableClass}"${clickHandler}>
                          <div class="explain-operator-type" style="display: flex; justify-content: space-between; align-items: center;">
                            <span>
@@ -9302,6 +9367,7 @@
                        <button class="view-link-btn active" id="timeline-link-out" title="Send: highlight other views when this view is interacted with">
                          OUT<span class="link-icon">&#8594;</span>
                        </button>
+                       <button class="explain-fullscreen-btn" data-pane="timeline" title="Toggle fullscreen">&#x26F6;</button>
                      </div>
                      <div class="explain-timeline-content">
                        ${timelineHtml}
@@ -9318,6 +9384,7 @@
                            <button class="view-link-btn active" id="tree-link-out" title="Send: highlight other views when this view is interacted with">
                              OUT<span class="link-icon">&#8594;</span>
                            </button>
+                           <button class="explain-fullscreen-btn" data-pane="tree" title="Toggle fullscreen">&#x26F6;</button>
                          </div>
                          <div class="explain-tree">
                            ${renderStageTree(outputStage)}
@@ -9333,6 +9400,7 @@
                              <button class="view-link-btn active" id="dag-link-out" title="Send: highlight other views when this view is interacted with">
                                OUT<span class="link-icon">&#8594;</span>
                              </button>
+                             <button class="explain-fullscreen-btn" data-pane="dag" title="Toggle fullscreen">&#x26F6;</button>
                            </div>
                            <div class="dag-color-controls">
                              <div class="pipeline-color-menu">
@@ -9369,10 +9437,14 @@
             // Setup view link toggles
             this.setupViewLinkToggles();
 
+            // Setup fullscreen toggles
+            this.setupExplainFullscreen();
+
             // Render the DAG in the right pane
             this.renderExplainDag(model, stageColors, {
               timingByNode,
               operatorInfoByNode,
+              operatorsByNode,
             });
           },
 
@@ -9556,11 +9628,55 @@
             }
           },
 
+          setupExplainFullscreen() {
+            const container = document.querySelector(".explain-container");
+            if (!container) return;
+
+            const paneMap = {
+              timeline: container.querySelector(".explain-timeline-pane"),
+              tree: container.querySelector(".explain-tree-pane"),
+              dag: container.querySelector(".explain-dag-pane"),
+            };
+            const mainArea = container.querySelector(".explain-main-area");
+
+            container.querySelectorAll(".explain-fullscreen-btn").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const paneName = btn.dataset.pane;
+                const pane = paneMap[paneName];
+                if (!pane) return;
+
+                const isFullscreen = pane.classList.contains("explain-pane-fullscreen");
+
+                // Remove all fullscreen classes first
+                container.classList.remove("has-fullscreen");
+                Object.values(paneMap).forEach((p) => p.classList.remove("explain-pane-fullscreen"));
+                if (mainArea) mainArea.classList.remove("explain-pane-fullscreen");
+                container.querySelectorAll(".explain-fullscreen-btn").forEach((b) => {
+                  b.innerHTML = "&#x26F6;";
+                });
+
+                if (!isFullscreen) {
+                  // Enter fullscreen
+                  container.classList.add("has-fullscreen");
+                  pane.classList.add("explain-pane-fullscreen");
+                  // For tree/dag panes nested inside main-area, also fullscreen main-area
+                  if (paneName === "tree" || paneName === "dag") {
+                    if (mainArea) mainArea.classList.add("explain-pane-fullscreen");
+                  }
+                  btn.innerHTML = "&#x2716;";
+                }
+
+                // Trigger DAG resize after layout change
+                requestAnimationFrame(() => this.resizeExplainDag());
+              });
+            });
+          },
+
           renderExplainDag(model, stageColors, explainData = {}) {
             const container = document.getElementById("explain-dag-container");
             if (!container || typeof d3 === "undefined") return;
 
-            const { timingByNode, operatorInfoByNode } = explainData;
+            const { timingByNode, operatorInfoByNode, operatorsByNode } = explainData;
 
             const width = container.clientWidth || 500;
             const height = container.clientHeight || 600;
@@ -9701,6 +9817,30 @@
                   skew: skew,
                   workers: workerCount,
                 });
+              });
+            }
+
+            // Collect runtime stats per plan node for DAG coloring
+            const runtimeStatsByNode = new Map();
+            const allRuntimeStats = new Map();
+            if (operatorsByNode) {
+              model.planNodes.forEach((n) => {
+                const ops = operatorsByNode.get(n.id) || [];
+                const nodeStats = {};
+                ops.forEach((op) => {
+                  const rs = op.runtimeStats || {};
+                  Object.entries(rs).forEach(([key, stat]) => {
+                    const shortName = key.split(".").pop();
+                    if (!nodeStats[shortName]) nodeStats[shortName] = 0;
+                    nodeStats[shortName] += stat.sum || 0;
+                    if (!allRuntimeStats.has(shortName)) {
+                      allRuntimeStats.set(shortName, stat.unit || "NONE");
+                    }
+                  });
+                });
+                if (Object.keys(nodeStats).length > 0) {
+                  runtimeStatsByNode.set(n.id, nodeStats);
+                }
               });
             }
 
@@ -10166,6 +10306,21 @@
                   if (m.workers > 0) html += `<div><span class="dag-tooltip-label">Workers:</span> ${m.workers}${m.skew > 1.1 ? ` (skew: ${m.skew.toFixed(1)}x)` : ""}</div>`;
                   html += `</div>`;
                 }
+                // Show runtime stats in tooltip
+                const rsNode = runtimeStatsByNode.get(d.id);
+                if (rsNode) {
+                  const entries = Object.entries(rsNode).filter(([, v]) => v > 0).sort(([a], [b]) => a.localeCompare(b));
+                  if (entries.length > 0) {
+                    html += `<div class="dag-tooltip-section"><span class="dag-tooltip-label">Runtime Stats:</span>`;
+                    entries.forEach(([name, value]) => {
+                      const unit = allRuntimeStats.get(name);
+                      const formatted = unit === "NANO" ? Utils.formatDuration(value) : unit === "BYTE" ? Utils.formatBytesPlain(value) : Utils.formatNumberPlain(value);
+                      const label = name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+                      html += `<div><span class="dag-tooltip-label">${Utils.escapeHtml(label)}:</span> ${formatted}</div>`;
+                    });
+                    html += `</div>`;
+                  }
+                }
                 if (d.predicate) {
                   const expr = DetailPanel.formatExpression(d.predicate);
                   html += `<div class="dag-tooltip-section"><span class="dag-tooltip-label">Filter:</span><br>${Utils.escapeHtml(expr)}</div>`;
@@ -10264,7 +10419,7 @@
             };
 
             const getDagColor = (normalized, metric) => {
-              const colorDef = metricColors[metric] || { h: 0, s: 0 };
+              const colorDef = metric.startsWith("rs:") ? { h: 50, s: 70 } : (metricColors[metric] || { h: 0, s: 0 });
               const saturation = 40 + normalized * 60;
               const lightness = 82 - normalized * 57;
               return `hsl(${colorDef.h}, ${saturation}%, ${lightness}%)`;
@@ -10279,6 +10434,12 @@
                 return Utils.formatNumberPlain(value);
               if (mode === "skew") return value.toFixed(1) + "x";
               if (mode === "workers") return String(Math.round(value));
+              if (mode.startsWith("rs:")) {
+                const unit = allRuntimeStats.get(mode.slice(3));
+                if (unit === "NANO") return Utils.formatDuration(value);
+                if (unit === "BYTE") return Utils.formatBytesPlain(value);
+                return Utils.formatNumberPlain(value);
+              }
               return String(value);
             };
 
@@ -10293,6 +10454,19 @@
               "dag-node-color-mode",
             );
             if (dagColorSelect) {
+              // Populate runtime stats options dynamically
+              if (allRuntimeStats.size > 0) {
+                const optgroup = document.createElement("optgroup");
+                optgroup.label = "Runtime Stats";
+                [...allRuntimeStats.keys()].sort().forEach((name) => {
+                  const option = document.createElement("option");
+                  option.value = `rs:${name}`;
+                  option.textContent = name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+                  optgroup.appendChild(option);
+                });
+                dagColorSelect.appendChild(optgroup);
+              }
+
               const updateDagNodeColors = (mode) => {
                 if (mode === "none") {
                   // Reset strokes to stage colors
@@ -10313,13 +10487,22 @@
                   return;
                 }
 
+                // Helper to read value for a node element
+                const isRuntimeStat = mode.startsWith("rs:");
+                const rsName = isRuntimeStat ? mode.slice(3) : null;
+                const getNodeValue = (el) => {
+                  if (isRuntimeStat) {
+                    const nodeId = el.attr("data-node-id");
+                    const stats = runtimeStatsByNode.get(nodeId);
+                    return (stats && stats[rsName]) || 0;
+                  }
+                  return parseFloat(el.attr(`data-${mode}`)) || 0;
+                };
+
                 // Gather values
                 const values = [];
                 node.each(function () {
-                  const value =
-                    parseFloat(d3.select(this).attr(`data-${mode}`)) ||
-                    0;
-                  values.push(value);
+                  values.push(getNodeValue(d3.select(this)));
                 });
 
                 const positiveValues = values.filter((v) => v > 0);
@@ -10331,7 +10514,7 @@
 
                 // Update legend
                 if (legendEl && legendGradient) {
-                  const colorDef = metricColors[mode] || { h: 0, s: 0 };
+                  const colorDef = isRuntimeStat ? { h: 50, s: 70 } : (metricColors[mode] || { h: 0, s: 0 });
                   legendGradient.style.background = `linear-gradient(90deg, hsl(${colorDef.h}, 40%, 82%) 0%, hsl(${colorDef.h}, 100%, 25%) 100%)`;
                   legendMin.textContent = formatMetricValue(minVal, mode);
                   legendMax.textContent = formatMetricValue(maxVal, mode);
@@ -10341,8 +10524,7 @@
                 // Apply stroke color + metric bar to each node
                 node.each(function () {
                   const el = d3.select(this);
-                  const value =
-                    parseFloat(el.attr(`data-${mode}`)) || 0;
+                  const value = getNodeValue(el);
                   const rect = el.select(".node-rect");
                   const bar = el.select(".node-metric-bar");
 
