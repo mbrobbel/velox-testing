@@ -4151,6 +4151,26 @@
       .upload-compare-hint a:hover {
         text-decoration: underline;
       }
+      /* Abbreviated number tooltip */
+      .num-abbr {
+        cursor: default;
+        border-bottom: 1px dotted var(--text-muted);
+      }
+      .num-abbr-tip {
+        position: fixed;
+        transform: translate(-50%, -100%) translateY(-4px);
+        padding: 3px 7px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        background: var(--bg-tooltip, #1a1a2e);
+        color: var(--text-tooltip, #e0e0e0);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 10000;
+      }
     </style>
   </head>
   <body>
@@ -4413,7 +4433,7 @@
           /**
            * Format bytes for display
            */
-          formatBytes(bytes) {
+          formatBytesPlain(bytes) {
             if (bytes === 0 || bytes == null) return "0 B";
 
             const units = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -4424,6 +4444,13 @@
             );
 
             return `${(bytes / Math.pow(base, exp)).toFixed(2)} ${units[exp]}`;
+          },
+
+          formatBytes(bytes) {
+            const abbr = this.formatBytesPlain(bytes);
+            if (bytes === 0 || bytes == null || Math.abs(bytes) < 1024) return abbr;
+            const exact = Number(bytes).toLocaleString() + " B";
+            return `<span class="num-abbr" data-tip="${exact}">${abbr}</span>`;
           },
 
           /**
@@ -4448,9 +4475,9 @@
           },
 
           /**
-           * Format large numbers with abbreviations
+           * Format large numbers with abbreviations (plain text)
            */
-          formatNumber(n) {
+          formatNumberPlain(n) {
             if (n === 0 || n == null) return "0";
 
             const absN = Math.abs(n);
@@ -4460,6 +4487,16 @@
             if (absN < 1e9) return `${(n / 1e6).toFixed(2)}M`;
             if (absN < 1e12) return `${(n / 1e9).toFixed(2)}B`;
             return `${(n / 1e12).toFixed(2)}T`;
+          },
+
+          /**
+           * Format large numbers with abbreviations and a CSS tooltip showing the exact value
+           */
+          formatNumber(n) {
+            const abbr = this.formatNumberPlain(n);
+            if (n === 0 || n == null || Math.abs(n) < 1e3) return abbr;
+            const exact = Number(n).toLocaleString();
+            return `<span class="num-abbr" data-tip="${exact}">${abbr}</span>`;
           },
 
           /**
@@ -7059,6 +7096,7 @@
             id: "inputBytes",
             label: "Input Size",
             format: (v) => Utils.formatBytes(v),
+            formatPlain: (v) => Utils.formatBytesPlain(v),
             hue: 210,
             agg: "sum",
           },
@@ -7066,6 +7104,7 @@
             id: "outputBytes",
             label: "Output Size",
             format: (v) => Utils.formatBytes(v),
+            formatPlain: (v) => Utils.formatBytesPlain(v),
             hue: 220,
             agg: "sum",
           },
@@ -7073,6 +7112,7 @@
             id: "inputRows",
             label: "Input Rows",
             format: (v) => Utils.formatNumber(v),
+            formatPlain: (v) => Utils.formatNumberPlain(v),
             hue: 180,
             agg: "sum",
           },
@@ -7080,6 +7120,7 @@
             id: "outputRows",
             label: "Output Rows",
             format: (v) => Utils.formatNumber(v),
+            formatPlain: (v) => Utils.formatNumberPlain(v),
             hue: 185,
             agg: "sum",
           },
@@ -7087,6 +7128,7 @@
             id: "peakMemoryBytes",
             label: "Peak Memory",
             format: (v) => Utils.formatBytes(v),
+            formatPlain: (v) => Utils.formatBytesPlain(v),
             hue: 0,
             agg: "max",
           },
@@ -7781,10 +7823,11 @@
                       ? ((value / range.max) * 100).toFixed(1)
                       : "0";
 
+                  const plain = metric.formatPlain ? metric.formatPlain(value) : metric.format(value);
                   tooltip.innerHTML = `
                     <dl style="margin:0">
                       <dt>${metric.label}</dt>
-                      <dd>${metric.format(value)}</dd>
+                      <dd>${plain}</dd>
                       <dt>% of column max</dt>
                       <dd>${pctOfMax}%</dd>
                     </dl>
@@ -8119,7 +8162,7 @@
                   <td style="font-weight: 500;">Stage ${d.stageId}</td>
                   <td>
                     <div class="shuffle-bar-container">
-                      <div class="shuffle-bar shuffle-in" style="width: ${inPct}%;" title="${Utils.formatBytes(inBytes)}"></div>
+                      <div class="shuffle-bar shuffle-in" style="width: ${inPct}%;" title="${Utils.formatBytesPlain(inBytes)}"></div>
                     </div>
                     <span class="shuffle-value">${Utils.formatBytes(inBytes)}</span>
                     <span class="shuffle-rows">${Utils.formatNumber(inRows)} rows</span>
@@ -8127,7 +8170,7 @@
                   </td>
                   <td>
                     <div class="shuffle-bar-container">
-                      <div class="shuffle-bar shuffle-out" style="width: ${outPct}%;" title="${Utils.formatBytes(outBytes)}"></div>
+                      <div class="shuffle-bar shuffle-out" style="width: ${outPct}%;" title="${Utils.formatBytesPlain(outBytes)}"></div>
                     </div>
                     <span class="shuffle-value">${Utils.formatBytes(outBytes)}</span>
                     <span class="shuffle-rows">${Utils.formatNumber(outRows)} rows</span>
@@ -9937,7 +9980,7 @@
               .attr("font-size", "9px")
               .attr("font-family", "var(--font-mono)")
               .text((d) =>
-                d.rows > 0 ? `${Utils.formatNumber(d.rows)} rows` : "",
+                d.rows > 0 ? `${Utils.formatNumberPlain(d.rows)} rows` : "",
               );
 
             edgeLabel
@@ -9951,7 +9994,7 @@
               .attr("font-size", "8px")
               .attr("font-family", "var(--font-mono)")
               .attr("opacity", 0.8)
-              .text((d) => (d.bytes > 0 ? Utils.formatBytes(d.bytes) : ""));
+              .text((d) => (d.bytes > 0 ? Utils.formatBytesPlain(d.bytes) : ""));
 
             edgeLabel
               .append("text")
@@ -10118,8 +10161,8 @@
                   html += `<div class="dag-tooltip-section">`;
                   if (m.duration) html += `<div><span class="dag-tooltip-label">Wall Time:</span> ${Utils.formatDuration(m.duration)}</div>`;
                   if (m.blocked) html += `<div><span class="dag-tooltip-label">Blocked:</span> ${Utils.formatDuration(m.blocked)}</div>`;
-                  if (m["output-rows"]) html += `<div><span class="dag-tooltip-label">Output:</span> ${Utils.formatNumber(m["output-rows"])} rows, ${Utils.formatBytes(m["output-bytes"])}</div>`;
-                  if (m["input-rows"]) html += `<div><span class="dag-tooltip-label">Input:</span> ${Utils.formatNumber(m["input-rows"])} rows, ${Utils.formatBytes(m["input-bytes"])}</div>`;
+                  if (m["output-rows"]) html += `<div><span class="dag-tooltip-label">Output:</span> ${Utils.formatNumberPlain(m["output-rows"])} rows, ${Utils.formatBytesPlain(m["output-bytes"])}</div>`;
+                  if (m["input-rows"]) html += `<div><span class="dag-tooltip-label">Input:</span> ${Utils.formatNumberPlain(m["input-rows"])} rows, ${Utils.formatBytesPlain(m["input-bytes"])}</div>`;
                   if (m.workers > 0) html += `<div><span class="dag-tooltip-label">Workers:</span> ${m.workers}${m.skew > 1.1 ? ` (skew: ${m.skew.toFixed(1)}x)` : ""}</div>`;
                   html += `</div>`;
                 }
@@ -10231,9 +10274,9 @@
               if (mode === "duration" || mode === "blocked")
                 return Utils.formatDuration(value);
               if (mode.includes("bytes"))
-                return Utils.formatBytes(value);
+                return Utils.formatBytesPlain(value);
               if (mode.includes("rows"))
-                return Utils.formatNumber(value);
+                return Utils.formatNumberPlain(value);
               if (mode === "skew") return value.toFixed(1) + "x";
               if (mode === "workers") return String(Math.round(value));
               return String(value);
@@ -10497,7 +10540,7 @@
               .attr("font-family", "var(--font-mono)")
               .text((d) => {
                 if (d.rows > 0) {
-                  return `${Utils.formatNumber(d.rows)} rows`;
+                  return `${Utils.formatNumberPlain(d.rows)} rows`;
                 }
                 return "";
               });
@@ -10518,7 +10561,7 @@
               .attr("opacity", 0.7)
               .text((d) => {
                 if (d.bytes > 0) {
-                  return Utils.formatBytes(d.bytes);
+                  return Utils.formatBytesPlain(d.bytes);
                 }
                 return "";
               });
@@ -10539,7 +10582,7 @@
               .attr("opacity", 0.5)
               .text((d) => {
                 if (d.batches > 0) {
-                  return `${Utils.formatNumber(d.batches)} batches`;
+                  return `${Utils.formatNumberPlain(d.batches)} batches`;
                 }
                 return "";
               });
@@ -11737,7 +11780,7 @@
                     const size = 10 + intensity * 40;
 
                     return `
-                      <td class="matrix-cell" title="Stage ${fromId} → Stage ${toId}\n${Utils.formatBytes(data.bytes)}\n${Utils.formatNumber(data.rows)} rows">
+                      <td class="matrix-cell" title="Stage ${fromId} → Stage ${toId}\n${Utils.formatBytesPlain(data.bytes)}\n${Utils.formatNumberPlain(data.rows)} rows">
                         <div class="matrix-bubble" style="width: ${size}px; height: ${size}px; opacity: ${0.4 + intensity * 0.6};"></div>
                         <span class="matrix-value">${Utils.formatBytes(data.bytes)}</span>
                       </td>
@@ -12006,6 +12049,30 @@
               {
                 label: "Processed Input",
                 get: (m) => Utils.parseBytes(m.query.totals.processedInputSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: false,
+              },
+              {
+                label: "Input Rows",
+                get: (m) => m.query.totals.rawInputPositions || 0,
+                fmt: (v) => Utils.formatNumber(v),
+                lower: false,
+              },
+              {
+                label: "Input Bytes",
+                get: (m) => Utils.parseBytes(m.query.totals.rawInputSize),
+                fmt: (v) => Utils.formatBytes(v),
+                lower: false,
+              },
+              {
+                label: "Output Rows",
+                get: (m) => m.query.totals.outputPositions || 0,
+                fmt: (v) => Utils.formatNumber(v),
+                lower: false,
+              },
+              {
+                label: "Output Bytes",
+                get: (m) => Utils.parseBytes(m.query.totals.outputSize),
                 fmt: (v) => Utils.formatBytes(v),
                 lower: false,
               },
@@ -12322,7 +12389,10 @@
                   type: op.type,
                   stageId: op.stageId,
                   wallTime: 0,
+                  rowsIn: 0,
                   rowsOut: 0,
+                  bytesIn: 0,
+                  bytesOut: 0,
                 });
               }
               const entry = baseByNode.get(op.planNodeId);
@@ -12330,7 +12400,10 @@
                 (op.metrics.addInputWallNanos || 0) +
                 (op.metrics.getOutputWallNanos || 0) +
                 (op.metrics.finishWallNanos || 0);
+              entry.rowsIn += op.metrics.inputPositions || 0;
               entry.rowsOut += op.metrics.outputPositions || 0;
+              entry.bytesIn += op.metrics.inputBytes || 0;
+              entry.bytesOut += op.metrics.outputBytes || 0;
             });
 
             const otherByNode = models.slice(1).map((entry) => {
@@ -12342,7 +12415,10 @@
                     type: op.type,
                     stageId: op.stageId,
                     wallTime: 0,
+                    rowsIn: 0,
                     rowsOut: 0,
+                    bytesIn: 0,
+                    bytesOut: 0,
                   });
                 }
                 const e = byNode.get(op.planNodeId);
@@ -12350,7 +12426,10 @@
                   (op.metrics.addInputWallNanos || 0) +
                   (op.metrics.getOutputWallNanos || 0) +
                   (op.metrics.finishWallNanos || 0);
+                e.rowsIn += op.metrics.inputPositions || 0;
                 e.rowsOut += op.metrics.outputPositions || 0;
+                e.bytesIn += op.metrics.inputBytes || 0;
+                e.bytesOut += op.metrics.outputBytes || 0;
               });
               return byNode;
             });
@@ -12396,8 +12475,11 @@
                 className: "numeric",
                 sort: "delta",
               });
-              headers.push({ label: "Visual" });
             }
+            headers.push(
+              { label: "Input", className: "numeric", sort: "inrows" },
+              { label: "Output", className: "numeric", sort: "outrows" },
+            );
 
             let rowsHtml = "";
             entries.forEach((e, idx) => {
@@ -12406,7 +12488,7 @@
                 models.length === 2 && e.other
                   ? otherWall - e.base.wallTime
                   : 0;
-              const sortAttrs = `data-sort-stage="${e.base.stageId}" data-sort-operator="${Utils.escapeHtml(e.base.type)}" data-sort-wall0="${e.base.wallTime}" data-sort-wall1="${otherWall}" data-sort-delta="${Math.abs(deltaVal)}"`;
+              const sortAttrs = `data-sort-stage="${e.base.stageId}" data-sort-operator="${Utils.escapeHtml(e.base.type)}" data-sort-wall0="${e.base.wallTime}" data-sort-wall1="${otherWall}" data-sort-delta="${Math.abs(deltaVal)}" data-sort-inrows="${e.base.rowsIn}" data-sort-inbytes="${e.base.bytesIn}" data-sort-outrows="${e.base.rowsOut}" data-sort-outbytes="${e.base.bytesOut}"`;
               const hiddenClass =
                 idx >= INITIAL_SHOW ? " compare-hotspot-hidden" : "";
               const hiddenStyle =
@@ -12449,15 +12531,8 @@
                   }
                   rowsHtml += `</td>`;
 
-                  // Visual bars
-                  const wA = (e.base.wallTime / maxWall) * 100;
-                  const wB = (e.other.wallTime / maxWall) * 100;
-                  rowsHtml += `<td><div class="compare-hotspot-bars">
-                    <div class="compare-hotspot-bar" style="width: ${Math.max(wA, 1)}%; background: ${models[0].color};"></div>
-                    <div class="compare-hotspot-bar" style="width: ${Math.max(wB, 1)}%; background: ${models[1].color};"></div>
-                  </div></td>`;
                 } else {
-                  rowsHtml += "<td>-</td><td>-</td>";
+                  rowsHtml += "<td>-</td>";
                 }
               } else {
                 otherByNode.forEach((byNode) => {
@@ -12465,6 +12540,39 @@
                   rowsHtml += `<td class="numeric">${other ? Utils.formatDuration(other.wallTime) : "-"}</td>`;
                 });
               }
+
+              // Consolidated I/O columns (Input, Output) with rows + bytes stacked
+              const ioCell = (baseRows, baseBytes, otherRows, otherBytes) => {
+                const fmtR = (v) => Utils.formatNumber(v);
+                const fmtB = (v) => Utils.formatBytes(v);
+                if (models.length === 2 && e.other) {
+                  const rowsSame = baseRows === otherRows;
+                  const bytesSame = baseBytes === otherBytes;
+                  let rLine;
+                  if (rowsSame) {
+                    rLine = `<span class="text-muted">${fmtR(baseRows)} rows</span>`;
+                  } else {
+                    const d = CompareUtils.delta(baseRows, otherRows, false);
+                    const sign = d.pct > 0 ? "+" : "";
+                    const cls = d.direction === "better" ? "compare-better" : d.direction === "worse" ? "compare-worse" : "";
+                    rLine = `${fmtR(baseRows)} → ${fmtR(otherRows)} rows <span class="compare-hotspot-rows-badge ${cls}">${sign}${d.pct.toFixed(0)}%</span>`;
+                  }
+                  let bLine;
+                  if (bytesSame) {
+                    bLine = `<span class="text-muted">${fmtB(baseBytes)}</span>`;
+                  } else {
+                    const d = CompareUtils.delta(baseBytes, otherBytes, false);
+                    const sign = d.pct > 0 ? "+" : "";
+                    const cls = d.direction === "better" ? "compare-better" : d.direction === "worse" ? "compare-worse" : "";
+                    bLine = `${fmtB(baseBytes)} → ${fmtB(otherBytes)} <span class="compare-hotspot-rows-badge ${cls}">${sign}${d.pct.toFixed(0)}%</span>`;
+                  }
+                  return `<td class="numeric"><div>${rLine}</div><div style="font-size:11px;">${bLine}</div></td>`;
+                }
+                return `<td class="numeric"><div>${fmtR(baseRows)} rows</div><div style="font-size:11px;">${fmtB(baseBytes)}</div></td>`;
+              };
+              rowsHtml += ioCell(e.base.rowsIn, e.base.bytesIn, e.other?.rowsIn || 0, e.other?.bytesIn || 0);
+              rowsHtml += ioCell(e.base.rowsOut, e.base.bytesOut, e.other?.rowsOut || 0, e.other?.bytesOut || 0);
+
               rowsHtml += "</tr>";
             });
 
@@ -14253,7 +14361,7 @@
                     (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2;
 
                   // Label text for the badge
-                  const labelText = `${Utils.formatNumber(outputRows)} rows · ${Utils.formatBytes(outputBytes)} · ${Utils.formatThroughput(throughput)}`;
+                  const labelText = `${Utils.formatNumberPlain(outputRows)} rows · ${Utils.formatBytesPlain(outputBytes)} · ${Utils.formatThroughput(throughput)}`;
                   const labelWidth = Math.max(labelText.length * 5.5 + 12, 150);
                   const labelHeight = 20;
 
@@ -14283,9 +14391,9 @@
                         </div>
                         <div class="edge-tooltip-grid">
                           <div class="edge-tooltip-label">Rows</div>
-                          <div class="edge-tooltip-value">${Utils.formatNumber(outputRows)}</div>
+                          <div class="edge-tooltip-value">${Utils.formatNumberPlain(outputRows)}</div>
                           <div class="edge-tooltip-label">Data</div>
-                          <div class="edge-tooltip-value">${Utils.formatBytes(outputBytes)}</div>
+                          <div class="edge-tooltip-value">${Utils.formatBytesPlain(outputBytes)}</div>
                           <div class="edge-tooltip-label">Time</div>
                           <div class="edge-tooltip-value">${Utils.formatDuration(avgProcessingNanos)}</div>
                           <div class="edge-tooltip-label">Throughput</div>
@@ -14496,7 +14604,7 @@
 
               // Memory badge (blue) - second row
               if (pipelinePeakMemory > 0) {
-                const memoryText = Utils.formatBytes(pipelinePeakMemory);
+                const memoryText = Utils.formatBytesPlain(pipelinePeakMemory);
                 const memoryBadgeWidth = memoryText.length * 5 + 8;
                 pg.append("rect")
                   .attr("x", badgeX)
@@ -14518,7 +14626,7 @@
 
               // Spill badge (red) - second row, after memory
               if (pipelineSpilledBytes > 0) {
-                const spillText = Utils.formatBytes(pipelineSpilledBytes);
+                const spillText = Utils.formatBytesPlain(pipelineSpilledBytes);
                 const spillBadgeWidth = spillText.length * 5 + 12;
                 pg.append("rect")
                   .attr("x", badgeX)
@@ -14876,7 +14984,7 @@
                 // Spill indicator (red) - left side if present
                 let leftX = 8;
                 if (op.spilledBytes > 0) {
-                  const spillText = Utils.formatBytes(op.spilledBytes);
+                  const spillText = Utils.formatBytesPlain(op.spilledBytes);
                   pg.append("text")
                     .attr("x", leftX)
                     .attr("y", bottomBarY + 8)
@@ -14901,7 +15009,7 @@
                 }
 
                 // Output rows badge (cyan) - right side
-                const rowsText = Utils.formatNumber(op.outputRows);
+                const rowsText = Utils.formatNumberPlain(op.outputRows);
                 pg.append("text")
                   .attr("x", pos.width - 6)
                   .attr("y", bottomBarY + 8)
@@ -14912,7 +15020,7 @@
                   .text(`${rowsText} rows`);
 
                 // Output bytes badge (orange) - left of rows
-                const bytesText = Utils.formatBytes(op.outputBytes);
+                const bytesText = Utils.formatBytesPlain(op.outputBytes);
                 pg.append("text")
                   .attr("x", pos.width - 6 - rowsText.length * 5 - 28)
                   .attr("y", bottomBarY + 8)
@@ -17105,6 +17213,25 @@
         window.PIVOT_DIMENSIONS = PIVOT_DIMENSIONS;
         window.PivotEngine = PivotEngine;
         window.PivotRenderer = PivotRenderer;
+
+        // Global tooltip for .num-abbr elements (uses fixed positioning to escape overflow containers)
+        document.addEventListener("DOMContentLoaded", () => {
+          const tip = document.createElement("div");
+          tip.className = "num-abbr-tip";
+          document.body.appendChild(tip);
+          document.addEventListener("mouseenter", (e) => {
+            const el = e.target.closest?.(".num-abbr");
+            if (!el) return;
+            tip.textContent = el.dataset.tip;
+            tip.style.opacity = "1";
+            const r = el.getBoundingClientRect();
+            tip.style.left = r.left + r.width / 2 + "px";
+            tip.style.top = r.top + "px";
+          }, true);
+          document.addEventListener("mouseleave", (e) => {
+            if (e.target.closest?.(".num-abbr")) tip.style.opacity = "0";
+          }, true);
+        });
 
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", () => App.init());
