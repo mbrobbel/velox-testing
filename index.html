@@ -593,6 +593,7 @@
       .app-content {
         flex: 1;
         overflow: auto;
+        scrollbar-gutter: stable;
         padding: var(--panel-gap);
       }
 
@@ -3037,18 +3038,30 @@
    ============================================================================= */
 
       /* ── Dimension Bar ── */
-      .pivot-dimension-bar {
+      .pivot-bars {
         display: flex;
-        align-items: stretch;
-        gap: 12px;
-        margin-bottom: 16px;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 8px;
         font-size: var(--font-size-sm);
+      }
+
+      .pivot-bar-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        min-width: 0;
+      }
+
+      .pivot-bar-no-transition,
+      .pivot-bar-no-transition * {
+        transition: none !important;
       }
 
       .pivot-zone {
         display: flex;
-        align-items: center;
-        flex-wrap: wrap;
+        align-items: flex-start;
         gap: 6px;
         padding: 8px 12px;
         border-radius: 8px;
@@ -3066,16 +3079,75 @@
         margin-right: 4px;
         white-space: nowrap;
         user-select: none;
+        flex-shrink: 0;
       }
 
-      .pivot-zone-groupby {
+      .pivot-zone-chips {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
         flex: 1;
+        min-width: 0;
+        max-height: 30px;
+        overflow: hidden;
+        transition: max-height 0.2s ease;
+      }
+
+      .pivot-bar-column:hover .pivot-zone-chips,
+      .pivot-bar-column.pivot-bar-expanded .pivot-zone-chips,
+      .pivot-bars-dragging .pivot-zone-chips {
+        max-height: 200px;
+      }
+
+      .pivot-zone-overflow {
+        font-size: 11px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .pivot-bar-column:hover .pivot-zone-overflow,
+      .pivot-bar-column.pivot-bar-expanded .pivot-zone-overflow {
+        display: none;
+      }
+
+      .pivot-zone-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+
+      .pivot-zone-groupby,
+      .pivot-zone-columns {
         background: var(--bg-secondary);
       }
 
-      .pivot-zone-available {
+      .pivot-zone-available,
+      .pivot-zone-available-metrics {
+        flex-wrap: wrap;
         background: var(--bg-primary);
         border-color: var(--border-color);
+        max-height: 0;
+        overflow: hidden;
+        padding: 0 12px;
+        min-height: 0;
+        opacity: 0;
+        transition: max-height 0.2s ease, padding 0.2s ease, opacity 0.15s ease, min-height 0.2s ease;
+      }
+
+      .pivot-bar-column:hover .pivot-zone-available,
+      .pivot-bar-column:hover .pivot-zone-available-metrics,
+      .pivot-bar-column.pivot-bar-expanded .pivot-zone-available,
+      .pivot-bar-column.pivot-bar-expanded .pivot-zone-available-metrics,
+      .pivot-bars-dragging .pivot-zone-available,
+      .pivot-bars-dragging .pivot-zone-available-metrics {
+        max-height: 200px;
+        padding: 8px 12px;
+        min-height: 40px;
+        opacity: 1;
       }
 
       .pivot-zone.drag-over {
@@ -3130,6 +3202,13 @@
         background: var(--bg-tertiary, rgba(0,0,0,0.1));
       }
 
+      .pivot-chip-agg {
+        font-size: 10px;
+        font-weight: 600;
+        opacity: 0.6;
+        margin-left: -2px;
+      }
+
       .pivot-drop-indicator {
         width: 2px;
         height: 24px;
@@ -3144,34 +3223,84 @@
         to { opacity: 1; }
       }
 
-      /* ── Toolbar ── */
-      .pivot-toolbar {
+      .pivot-row-count {
+        float: right;
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
+
+      .pivot-chart-row td {
+        padding: 4px 2px;
+        text-align: center;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+      }
+
+      .pivot-group-chart-wrapper {
         display: flex;
-        align-items: center;
-        gap: 8px;
+        flex-direction: column;
+        gap: 4px;
         margin-bottom: 8px;
       }
 
-      .pivot-toolbar button,
-      .pivot-toolbar select {
-        padding: 4px 10px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        font-size: 12px;
-        cursor: pointer;
-      }
-
-      .pivot-toolbar button:hover,
-      .pivot-toolbar select:hover {
-        background: var(--bg-tertiary, var(--bg-secondary));
-      }
-
-      .pivot-toolbar .pivot-row-count {
-        margin-left: auto;
-        font-size: 12px;
+      .pivot-group-chart-title {
+        font-weight: 600;
         color: var(--text-secondary);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .pivot-group-chart-body {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pivot-group-charts-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-around;
+        width: 100%;
+      }
+
+      .pivot-group-charts-row-single {
+        justify-content: center;
+      }
+
+      .pivot-group-chart-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+      }
+
+      .pivot-group-chart-item.pivot-group-chart-active .pivot-group-chart-mode-label {
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+
+      .pivot-group-chart-mode-label {
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .pivot-group-chart-legend .pivot-spread-legend {
+        gap: 2px;
+      }
+
+      .pivot-chart-legend-popover {
+        position: fixed;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        z-index: 10000;
+        padding: 10px 14px;
+        font-size: 12px;
       }
 
       /* ── Tree Table ── */
@@ -3249,6 +3378,44 @@
         min-width: 220px;
       }
 
+      .pivot-group-actions {
+        display: inline-flex;
+        gap: 2px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+
+      .pivot-group-action-btn {
+        padding: 0;
+        width: 18px;
+        height: 18px;
+        border: 1px solid var(--border-color);
+        border-radius: 3px;
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pivot-group-action-btn:hover {
+        background: var(--bg-tertiary, var(--bg-secondary));
+        color: var(--text-primary);
+      }
+
+      .pivot-col-builtin {
+        background-image: repeating-linear-gradient(
+          135deg,
+          transparent,
+          transparent 4px,
+          var(--tint-05) 4px,
+          var(--tint-05) 8px
+        ) !important;
+      }
+
       .pivot-table tbody td {
         padding: 4px 10px;
         text-align: right;
@@ -3273,6 +3440,72 @@
         gap: 1px;
         flex-shrink: 0;
         height: 14px;
+        cursor: default;
+      }
+
+      .pivot-spread-popover {
+        position: fixed;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        z-index: 10000;
+        padding: 12px 16px;
+        font-size: 12px;
+      }
+
+      .pivot-spread-popover-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+
+      .pivot-spread-popover-body {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .pivot-spread-legend {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .pivot-spread-legend li {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      .pivot-spread-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .pivot-spread-legend-label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+      }
+
+      .pivot-spread-legend-value {
+        color: var(--text-secondary);
+        margin-left: auto;
+        padding-left: 8px;
+      }
+
+      .pivot-spread-legend-pct {
+        color: var(--text-secondary);
+        width: 42px;
+        text-align: right;
       }
 
       .pivot-table tbody tr:hover td {
@@ -3302,6 +3535,16 @@
 
       .pivot-toggle:hover {
         background: var(--bg-tertiary, rgba(0,0,0,0.08));
+      }
+
+      .pivot-group-color-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        min-width: 8px;
+        min-height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
       }
 
       .pivot-dim-badge {
@@ -3392,12 +3635,21 @@
       }
 
       /* ── Metric Bar ── */
-      .pivot-metric-bar {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-        flex-wrap: wrap;
-        margin-bottom: 8px;
+
+      .pivot-zone-select {
+        font-size: 11px;
+        padding: 2px 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .pivot-zone-select:hover {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
       }
 
       .pivot-zone-action {
@@ -7043,13 +7295,13 @@
                 wallNanos: wallNanos,
                 cpuNanos: cpuNanos,
                 blockedNanos: m.blockedWallNanos,
-                inputBytes: m.inputBytes || 0,
-                outputBytes: m.outputBytes || 0,
-                inputRows: m.inputPositions || 0,
-                outputRows: m.outputPositions || 0,
+                inputBytes: +m.inputBytes || 0,
+                outputBytes: +m.outputBytes || 0,
+                inputRows: +m.inputPositions || 0,
+                outputRows: +m.outputPositions || 0,
                 peakMemoryBytes:
-                  m.peakTotalMemoryBytes || m.peakUserMemoryBytes || 0,
-                spilledBytes: m.spilledBytes || 0,
+                  +m.peakTotalMemoryBytes || +m.peakUserMemoryBytes || 0,
+                spilledBytes: +m.spilledBytes || 0,
               };
 
               // Add runtime stats to fact
@@ -7383,18 +7635,6 @@
             hue: 5,
             agg: "sum",
           },
-          {
-            id: "avgThroughput",
-            label: "Avg Throughput",
-            abbr: "Tput",
-            format: (v) => Utils.formatThroughput(v),
-            hue: 145,
-            agg: "derived",
-            deriveFn: (result) => {
-              const wallSec = (result.wallNanos || 0) / 1e9;
-              return wallSec > 0 ? (result.inputBytes || 0) / wallSec : 0;
-            },
-          },
         ];
 
         function runtimeStatMetricDef(shortName, unit) {
@@ -7632,11 +7872,11 @@
                 }
               } else if (m.agg === "max") {
                 result[m.id] = rows.reduce(
-                  (acc, r) => Math.max(acc, r[m.id] || 0),
+                  (acc, r) => Math.max(acc, +(r[m.id]) || 0),
                   0,
                 );
               } else {
-                result[m.id] = rows.reduce((acc, r) => acc + (r[m.id] || 0), 0);
+                result[m.id] = rows.reduce((acc, r) => acc + (+(r[m.id]) || 0), 0);
               }
             });
             this.allMetrics.forEach((m) => {
@@ -7715,19 +7955,21 @@
                       if (!childGroups.has(ck)) childGroups.set(ck, []);
                       childGroups.get(ck).push(r);
                     });
-                    const childValues = [];
-                    childGroups.forEach((rows) => {
+                    const childEntries = [];
+                    childGroups.forEach((rows, ck) => {
                       const agg = this.aggregateMetrics(rows);
-                      childValues.push(agg[spreadMetric] || 0);
+                      childEntries.push({ label: nextDim.labelFn(ck, rows), value: agg[spreadMetric] || 0 });
                     });
-                    childValues.sort((a, b) => b - a);
+                    childEntries.sort((a, b) => b.value - a.value);
+                    const childValues = childEntries.map((e) => e.value);
                     const total = childValues.reduce((s, v) => s + v, 0);
-                    childSpread = { values: childValues, total: total };
+                    childSpread = { values: childValues, entries: childEntries, total, metric: spreadMetric };
                   }
                 }
 
                 rows.push({
                   key: nodeKey,
+                  dimKey: key,
                   depth: depth,
                   label: dim.labelFn(key, groupFacts),
                   dimId: dim.id,
@@ -7790,34 +8032,41 @@
             const { rows, columnRanges } = this.engine.buildVisibleRows();
             const factCount = this.engine.facts.length;
 
+            // Invalidate dark-mode detection cache (theme may have changed)
+            this._darkModeCache = null;
+
+            // Build group color map for depth-0 rows (matches pie chart colors)
+            this._groupColorMap = null;
+            const outerDimId = this.engine.activeDimensions[0];
+            if (outerDimId) {
+              const dim = this.engine.getDimConfig(outerDimId);
+              if (dim) {
+                const groups = new Map();
+                this.engine.facts.forEach((row) => {
+                  const k = dim.keyFn(row);
+                  if (!groups.has(k)) groups.set(k, []);
+                  groups.get(k).push(row);
+                });
+                const sortMetricId = (this.engine.sortColumn && this.engine.sortColumn !== "_group")
+                  ? this.engine.sortColumn : "wallNanos";
+                const sortMetric = this.engine.getMetricConfig(sortMetricId);
+                if (sortMetric) {
+                  const entries = [];
+                  groups.forEach((grpRows, key) => {
+                    const agg = this.engine.aggregateMetrics(grpRows);
+                    entries.push({ key, label: dim.labelFn(key, grpRows), value: +(agg[sortMetricId]) || 0 });
+                  });
+                  entries.sort((a, b) => b.value - a.value);
+                  const baseHue = sortMetric.hue != null ? sortMetric.hue : 210;
+                  const result = this._buildPieData(entries, baseHue, 8);
+                  if (result) this._groupColorMap = result.colorMap;
+                }
+              }
+            }
+
             this.container.innerHTML = `
-              <div class="view-header">
-                <h1 class="view-title">Table</h1>
-                <p class="view-subtitle">${factCount} operator instances across ${this.engine.activeDimensions.length} dimensions</p>
-              </div>
-              ${this.renderDimensionBar()}
-              ${this.renderMetricBar()}
-              <div class="pivot-toolbar">
-                <select class="pivot-preset-select" data-action="preset">
-                  <option value="" disabled selected>Presets</option>
-                  <option value="stage|worker|pipeline|operator">Stage &rarr; Worker &rarr; Pipeline &rarr; Operator</option>
-                  <option value="planNodeType|planNode">Plan Node Type &rarr; Plan Node</option>
-                  <option value="stage|planNode|operator">Stage &rarr; Plan Node &rarr; Operator</option>
-                  <option value="operatorType|operator">Operator Type &rarr; Operator</option>
-                  <option value="worker|stage|pipeline">Worker &rarr; Stage &rarr; Pipeline</option>
-                  <option value="stage|operatorType">Stage &rarr; Operator Type</option>
-                  <option value="planNodeType|worker">Plan Node Type &rarr; Worker</option>
-                </select>
-                <select class="pivot-agg-select" data-action="global-agg">
-                  ${["sum", "min", "max", "avg", "count"].map((mode) => {
-                    const labels = { sum: "\u03A3 Sum", min: "\u2193 Min", max: "\u2191 Max", avg: "x\u0304 Avg", count: "# Count" };
-                    return `<option value="${mode}"${this.engine.globalRuntimeAggMode === mode ? " selected" : ""}>${labels[mode]}</option>`;
-                  }).join("")}
-                </select>
-                <button data-action="expand-all">Expand All</button>
-                <button data-action="collapse-all">Collapse All</button>
-                <span class="pivot-row-count">${rows.length} rows</span>
-              </div>
+              ${this.renderBars()}
+              <div id="pivot-group-chart"></div>
               <div class="pivot-table-wrap">
                 ${this.renderTable(rows, columnRanges)}
               </div>
@@ -7825,12 +8074,44 @@
             `;
 
             this.setupInteractions();
+            this.renderColumnCharts();
+            this._updateOverflowCounts();
+
+            // Re-apply expanded state if user was interacting (skip transitions to avoid flash)
+            if (this._expandedColumnIdx != null) {
+              const col = this.container.querySelectorAll(".pivot-bar-column")[this._expandedColumnIdx];
+              if (col) {
+                col.classList.add("pivot-bar-no-transition", "pivot-bar-expanded");
+                col.offsetHeight; // force reflow
+                col.classList.remove("pivot-bar-no-transition");
+              }
+            }
           },
 
-          renderDimensionBar() {
-            const activeChips = this.engine.activeDimensions
+          _updateOverflowCounts() {
+            this.container.querySelectorAll(".pivot-zone-groupby, .pivot-zone-columns").forEach((zone) => {
+              const chipsWrap = zone.querySelector(".pivot-zone-chips");
+              const overflowEl = zone.querySelector(".pivot-zone-overflow");
+              if (!chipsWrap || !overflowEl) return;
+
+              const chips = chipsWrap.querySelectorAll(".pivot-chip");
+              const wrapRect = chipsWrap.getBoundingClientRect();
+              let hidden = 0;
+              chips.forEach((chip) => {
+                const chipRect = chip.getBoundingClientRect();
+                if (chipRect.top >= wrapRect.bottom - 1) hidden++;
+              });
+              overflowEl.textContent = hidden > 0 ? `+${hidden} more` : "";
+            });
+          },
+
+          renderBars() {
+            const engine = this.engine;
+
+            // --- Dimension chips ---
+            const activeDimChips = engine.activeDimensions
               .map((dimId) => {
-                const dim = this.engine.getDimConfig(dimId);
+                const dim = engine.getDimConfig(dimId);
                 return `<span class="pivot-chip" draggable="true" data-dim="${dimId}">
                   <span class="pivot-chip-icon">${dim.icon}</span>
                   ${dim.label}
@@ -7839,9 +8120,15 @@
               })
               .join("");
 
-            const availChips = this.engine.availableDimensions
+            const sortedAvailDims = [...engine.availableDimensions].sort((a, b) => {
+              const la = engine.getDimConfig(a).label;
+              const lb = engine.getDimConfig(b).label;
+              return la.localeCompare(lb);
+            });
+
+            const availDimChips = sortedAvailDims
               .map((dimId) => {
-                const dim = this.engine.getDimConfig(dimId);
+                const dim = engine.getDimConfig(dimId);
                 return `<span class="pivot-chip" draggable="true" data-dim="${dimId}">
                   <span class="pivot-chip-icon">${dim.icon}</span>
                   ${dim.label}
@@ -7849,66 +8136,106 @@
               })
               .join("");
 
-            return `
-              <div class="pivot-dimension-bar">
-                <div class="pivot-zone pivot-zone-groupby" data-zone="groupby">
-                  <span class="pivot-zone-label">Group By</span>
-                  ${activeChips}
-                </div>
-                <div class="pivot-zone pivot-zone-available" data-zone="available">
-                  <span class="pivot-zone-label">Available</span>
-                  ${availChips}
-                </div>
-              </div>
-            `;
-          },
-
-          renderMetricBar() {
-            const engine = this.engine;
-
+            // --- Metric chips ---
+            const aggSymbols = { sum: "\u03A3", min: "\u2193", max: "\u2191", avg: "x\u0304", count: "#" };
             const metricChip = (m, removable) => {
               const removeBtn = removable
                 ? `<span class="pivot-chip-remove" data-metric-remove="${m.id}">&times;</span>`
                 : "";
-              return `<span class="pivot-chip" draggable="true" data-metric-chip="${m.id}" title="${Utils.escapeHtml(m.label)}" style="background:hsl(${m.hue}, 50%, 90%);border-left:3px solid hsl(${m.hue}, 60%, 65%);">
-                ${Utils.escapeHtml(m.label)}
+              const aggBadge = m.isRuntimeStat
+                ? `<span class="pivot-chip-agg" title="Aggregation: ${m.aggMode || "sum"}">${aggSymbols[m.aggMode || "sum"]}</span>`
+                : "";
+              const chipBg = this._isDarkMode()
+                ? `hsla(${m.hue}, 50%, 60%, 0.25)`
+                : `hsl(${m.hue}, 50%, 90%)`;
+              const chipBorder = this._isDarkMode()
+                ? `hsl(${m.hue}, 50%, 50%)`
+                : `hsl(${m.hue}, 60%, 65%)`;
+              return `<span class="pivot-chip" draggable="true" data-metric-chip="${m.id}" title="${Utils.escapeHtml(m.label)}" style="background:${chipBg};border-left:3px solid ${chipBorder};">
+                ${Utils.escapeHtml(m.label)}${aggBadge}
                 ${removeBtn}
               </span>`;
             };
 
-            const activeChips = engine.activeMetrics.map((m) => metricChip(m, true)).join("");
-            const availChips = engine.availableMetrics.map((m) => metricChip(m, false)).join("");
+            const activeMetricChips = engine.activeMetrics.map((m) => metricChip(m, true)).join("");
+
+            const sortedAvailMetrics = [...engine.availableMetrics].sort((a, b) => a.label.localeCompare(b.label));
+            const availMetricChips = sortedAvailMetrics.map((m) => metricChip(m, false)).join("");
+
+            const aggSelect = `<select class="pivot-agg-select pivot-zone-select" data-action="global-agg">
+              ${["sum", "min", "max", "avg", "count"].map((mode) => {
+                const labels = { sum: "\u03A3 Sum", min: "\u2193 Min", max: "\u2191 Max", avg: "x\u0304 Avg", count: "# Count" };
+                return `<option value="${mode}"${engine.globalRuntimeAggMode === mode ? " selected" : ""}>${labels[mode]}</option>`;
+              }).join("")}
+            </select>`;
 
             return `
-              <div class="pivot-metric-bar">
-                <div class="pivot-zone pivot-zone-columns" data-zone="columns">
-                  <span class="pivot-zone-label">Columns</span>
-                  ${activeChips}
-                  ${engine.activeMetrics.length > 0 ? `<button class="pivot-zone-action" data-metric-action="clear-all">Clear All</button>` : ""}
+              <div class="pivot-bars">
+                <div class="pivot-bar-column">
+                  <div class="pivot-zone pivot-zone-groupby" data-zone="groupby">
+                    <span class="pivot-zone-label">Group By</span>
+                    <span class="pivot-zone-chips">${activeDimChips}</span>
+                    <span class="pivot-zone-overflow"></span>
+                    <span class="pivot-zone-actions">
+                      <select class="pivot-preset-select pivot-zone-select" data-action="preset">
+                        <option value="" disabled selected>Presets</option>
+                        <option value="stage|worker|pipeline|operator">Stage &rarr; Worker &rarr; Pipeline &rarr; Operator</option>
+                        <option value="planNodeType|planNode">Plan Node Type &rarr; Plan Node</option>
+                        <option value="stage|planNode|operator">Stage &rarr; Plan Node &rarr; Operator</option>
+                        <option value="operatorType|operator">Operator Type &rarr; Operator</option>
+                        <option value="worker|stage|pipeline">Worker &rarr; Stage &rarr; Pipeline</option>
+                        <option value="stage|operatorType">Stage &rarr; Operator Type</option>
+                        <option value="planNodeType|worker">Plan Node Type &rarr; Worker</option>
+                      </select>
+                    </span>
+                  </div>
+                  <div class="pivot-zone pivot-zone-available" data-zone="available">
+                    <span class="pivot-zone-label">Available</span>
+                    ${availDimChips}
+                  </div>
                 </div>
-                ${engine.availableMetrics.length > 0 ? `
-                <div class="pivot-zone pivot-zone-available-metrics" data-zone="available-metrics">
-                  <span class="pivot-zone-label">Available</span>
-                  ${availChips}
-                  <button class="pivot-zone-action" data-metric-action="add-all">Add All</button>
-                </div>` : ""}
+                <div class="pivot-bar-column">
+                  <div class="pivot-zone pivot-zone-columns" data-zone="columns">
+                    <span class="pivot-zone-label">Columns</span>
+                    <span class="pivot-zone-chips">${activeMetricChips}</span>
+                    <span class="pivot-zone-overflow"></span>
+                    <span class="pivot-zone-actions">
+                      ${aggSelect}
+                      ${engine.activeMetrics.length > 0 ? `<button class="pivot-zone-action" data-metric-action="clear-all">Clear All</button>` : ""}
+                    </span>
+                  </div>
+                  ${engine.availableMetrics.length > 0 ? `
+                  <div class="pivot-zone pivot-zone-available-metrics" data-zone="available-metrics">
+                    <span class="pivot-zone-label">Available</span>
+                    ${availMetricChips}
+                    <button class="pivot-zone-action" data-metric-action="add-all">Add All</button>
+                  </div>` : ""}
+                </div>
               </div>
             `;
           },
 
           renderTable(rows, columnRanges) {
+            const self = this;
             const aggSymbols = { sum: "\u03A3", min: "\u2193", max: "\u2191", avg: "x\u0304", count: "#" };
             const headerCells = this.engine.activeMetrics.map((m) => {
-              let cls = "";
+              let cls = m.isRuntimeStat ? "" : "pivot-col-builtin";
               if (this.engine.sortColumn === m.id) {
-                cls = this.engine.sortAsc ? "sort-asc" : "sort-desc";
+                cls += (cls ? " " : "") + (this.engine.sortAsc ? "sort-asc" : "sort-desc");
               }
               const abbr = m.abbr || m.label;
               const aggToggle = m.isRuntimeStat
                 ? `<span class="pivot-agg-toggle" data-agg-metric="${m.id}" title="Aggregation: ${m.aggMode || "sum"}">${aggSymbols[m.aggMode || "sum"]}</span>`
                 : "";
-              return `<th class="${cls}" data-metric="${m.id}" data-tooltip="${Utils.escapeHtml(m.label)}" style="background:hsl(${m.hue}, 40%, 88%);">${Utils.escapeHtml(abbr)}${aggToggle}</th>`;
+              const headerBg = this._isDarkMode()
+                ? `hsla(${m.hue}, 50%, 60%, 0.25)`
+                : `hsl(${m.hue}, 40%, 88%)`;
+              return `<th class="${cls}" data-metric="${m.id}" data-tooltip="${Utils.escapeHtml(m.label)}" style="background:${headerBg};">${Utils.escapeHtml(abbr)}${aggToggle}</th>`;
             }).join("");
+
+            const chartCells = this.engine.activeMetrics.map((m) =>
+              `<td class="pivot-column-chart-cell" data-chart-metric="${m.id}"></td>`
+            ).join("");
 
             const bodyRows = rows
               .map((row) => {
@@ -7950,7 +8277,8 @@
                   const formatted = v > 0
                     ? (m.aggMode === "count" ? Utils.formatNumber(v) : m.format(v))
                     : "";
-                  return `<td style="background:${bg};color:${textColor}" data-value="${v}" data-metric="${m.id}">${formatted}</td>`;
+                  const builtinCls = m.isRuntimeStat ? "" : " pivot-col-builtin";
+                  return `<td class="${builtinCls}" style="background:${bg};color:${textColor}" data-value="${v}" data-metric="${m.id}">${formatted}</td>`;
                 }).join("");
 
                 const operatorAttr = row.operatorKey
@@ -7971,12 +8299,20 @@
                   }).join("");
                   const skew = maxVal / (sp.total / sp.values.length);
                   const skewColor = skew > 3 ? "var(--text-warning, #f59e0b)" : "var(--text-secondary)";
-                  spreadHtml = `<span class="pivot-spread" style="color:${skewColor}" title="Top of ${sp.values.length} children: ${((sp.values[0] / sp.total) * 100).toFixed(0)}% of total">${bars}</span>`;
+                  spreadHtml = `<span class="pivot-spread" data-spread-key="${Utils.escapeHtml(row.key)}" style="color:${skewColor}" title="Top of ${sp.values.length} children: ${((sp.values[0] / sp.total) * 100).toFixed(0)}% of total">${bars}</span>`;
                 }
+
+                const groupColor = row.depth === 0 && self._groupColorMap
+                  ? (self._groupColorMap.get(row.dimKey) || "hsl(0, 0%, 65%)")
+                  : "";
+                const colorDot = groupColor
+                  ? `<span class="pivot-group-color-dot" style="background:${groupColor}"></span>`
+                  : "";
 
                 return `<tr data-key="${Utils.escapeHtml(row.key)}" ${operatorAttr}>
                   <td style="padding-left:${indent + 10}px">
                     <span class="pivot-row-label">
+                      ${colorDot}
                       ${toggleHtml}
                       <span class="pivot-dim-badge">${row.dimIcon}</span>
                       <span class="pivot-label-text">${Utils.escapeHtml(row.label)}</span>
@@ -7994,8 +8330,19 @@
               <table class="pivot-table">
                 <thead>
                   <tr>
-                    <th class="${this.engine.sortColumn === "_group" ? (this.engine.sortAsc ? "sort-asc" : "sort-desc") : ""}" data-metric="_group">Group</th>
+                    <th class="${this.engine.sortColumn === "_group" ? (this.engine.sortAsc ? "sort-asc" : "sort-desc") : ""}" data-metric="_group">
+                      <span>Group</span>
+                      <span class="pivot-group-actions">
+                        <button class="pivot-group-action-btn" data-action="expand-all" title="Expand All">+</button>
+                        <button class="pivot-group-action-btn" data-action="collapse-all" title="Collapse All">&minus;</button>
+                      </span>
+                      <span class="pivot-row-count">${rows.length} rows</span>
+                    </th>
                     ${headerCells}
+                  </tr>
+                  <tr class="pivot-chart-row">
+                    <td></td>
+                    ${chartCells}
                   </tr>
                 </thead>
                 <tbody>${bodyRows}</tbody>
@@ -8003,48 +8350,514 @@
             `;
           },
 
-          getCellColor(value, min, max, hue) {
-            if (value <= 0 || max <= 0) return "transparent";
-            if (min === max) return `hsl(${hue}, 40%, 88%)`;
+          _isDarkMode() {
+            if (this._darkModeCache != null) return this._darkModeCache;
+            const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+            if (bg.startsWith('#') && bg.length >= 7) {
+              this._darkModeCache = parseInt(bg.slice(1, 3), 16) < 128;
+              return this._darkModeCache;
+            }
+            const root = document.documentElement;
+            if (root.classList.contains("theme-dark")) return (this._darkModeCache = true);
+            if (root.classList.contains("theme-light")) return (this._darkModeCache = false);
+            return (this._darkModeCache = !window.matchMedia("(prefers-color-scheme: light)").matches);
+          },
 
-            let normalized;
+          _normalizeValue(value, min, max) {
             const range = max / Math.max(min, 1);
+            let n;
             if (range > 100) {
-              // Log scale for skewed data
               const logMin = Math.log(Math.max(min, 1));
               const logMax = Math.log(max);
               const logVal = Math.log(Math.max(value, 1));
-              normalized = (logVal - logMin) / (logMax - logMin);
+              n = (logVal - logMin) / (logMax - logMin);
             } else {
-              normalized = (value - min) / (max - min);
+              n = (value - min) / (max - min);
             }
-            normalized = Math.max(0, Math.min(1, normalized));
+            return Math.max(0, Math.min(1, n));
+          },
 
+          getCellColor(value, min, max, hue) {
+            if (value <= 0 || max <= 0) return "transparent";
+            if (min === max) {
+              return this._isDarkMode()
+                ? `hsla(${hue}, 50%, 60%, 0.15)`
+                : `hsl(${hue}, 40%, 88%)`;
+            }
+
+            const normalized = this._normalizeValue(value, min, max);
+
+            if (this._isDarkMode()) {
+              const alpha = 0.06 + normalized * 0.32;
+              return `hsla(${hue}, 55%, 60%, ${alpha.toFixed(2)})`;
+            }
             const saturation = 40 + normalized * 50;
             const lightness = 88 - normalized * 55;
             return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
           },
 
-          getTextColor(value, min, max) {
+          getTextColor(value, min, max, hue) {
             if (value <= 0 || max <= 0) return "inherit";
-
-            let normalized;
-            const range = max / Math.max(min, 1);
-            if (range > 100) {
-              const logMin = Math.log(Math.max(min, 1));
-              const logMax = Math.log(max);
-              const logVal = Math.log(Math.max(value, 1));
-              normalized = (logVal - logMin) / (logMax - logMin);
-            } else {
-              normalized = (value - min) / (max - min);
+            const normalized = this._normalizeValue(value, min, max);
+            if (this._isDarkMode()) {
+              // Dark mode: alpha-based bg on dark surface, text is light by default
+              return "inherit";
             }
-            return normalized > 0.6 ? "#fff" : "inherit";
+            // Light mode: background lightness goes from 88% (n=0) to 33% (n=1)
+            // Switch to white text once the background is dark enough
+            const lightness = 88 - normalized * 55;
+            return lightness < 58 ? "#fff" : "inherit";
+          },
+
+          showSpreadChart(row, anchorEl) {
+            // Remove any existing popover
+            this.hideSpreadChart();
+
+            const sp = row.childSpread;
+            if (!sp || !sp.entries || sp.entries.length === 0) return;
+
+            const self = this;
+            const metricConfig = this.engine.getMetricConfig(sp.metric);
+            const metricLabel = metricConfig ? metricConfig.label : sp.metric;
+            const formatVal = metricConfig && metricConfig.format ? metricConfig.format : (v) => String(v);
+            const baseHue = metricConfig && metricConfig.hue != null ? metricConfig.hue : 210;
+
+            const maxLegend = 8;
+            const entries = sp.entries;
+            const shown = entries.slice(0, maxLegend);
+            const others = entries.slice(maxLegend);
+            const othersValue = others.reduce((s, e) => s + e.value, 0);
+
+            // Generate colors by rotating hue across segments
+            const colors = shown.map((_, i) =>
+              `hsl(${(baseHue + i * (360 / Math.max(entries.length, 6))) % 360}, 58%, 55%)`
+            );
+            const othersColor = "hsl(0, 0%, 65%)";
+
+            // Build pie data
+            const pieData = shown.map((e, i) => ({ label: e.label, value: e.value, color: colors[i] }));
+            if (others.length > 0) {
+              pieData.push({ label: `${others.length} others`, value: othersValue, color: othersColor });
+            }
+
+            // Create popover
+            const popover = document.createElement("div");
+            popover.className = "pivot-spread-popover";
+
+            // Hover on popover keeps it open
+            popover.addEventListener("mouseenter", () => {
+              clearTimeout(self._spreadHoverTimer);
+            });
+            popover.addEventListener("mouseleave", () => {
+              self._spreadHoverTimer = setTimeout(() => self.hideSpreadChart(), 200);
+            });
+
+            // Title
+            const title = document.createElement("div");
+            title.className = "pivot-spread-popover-title";
+            title.textContent = `${metricLabel} distribution`;
+            popover.appendChild(title);
+
+            // Body: donut + legend
+            const body = document.createElement("div");
+            body.className = "pivot-spread-popover-body";
+
+            // Donut SVG via D3
+            const size = 130;
+            const outerR = 65;
+            const innerR = 38;
+            const svg = d3.create("svg")
+              .attr("width", size)
+              .attr("height", size)
+              .attr("viewBox", `0 0 ${size} ${size}`);
+
+            const g = svg.append("g")
+              .attr("transform", `translate(${size / 2},${size / 2})`);
+
+            const pie = d3.pie().value((d) => d.value).sort(null);
+            const arc = d3.arc().innerRadius(innerR).outerRadius(outerR);
+
+            g.selectAll("path")
+              .data(pie(pieData))
+              .join("path")
+              .attr("d", arc)
+              .attr("fill", (d) => d.data.color)
+              .attr("stroke", "var(--bg-primary)")
+              .attr("stroke-width", 1.5);
+
+            const svgNode = svg.node();
+            body.appendChild(svgNode);
+
+            // Legend
+            const legend = document.createElement("ul");
+            legend.className = "pivot-spread-legend";
+            pieData.forEach((d) => {
+              const pct = sp.total > 0 ? ((d.value / sp.total) * 100) : 0;
+              const li = document.createElement("li");
+              li.innerHTML = `<span class="pivot-spread-legend-dot" style="background:${d.color}"></span>`
+                + `<span class="pivot-spread-legend-label" title="${Utils.escapeHtml(d.label)}">${Utils.escapeHtml(d.label)}</span>`
+                + `<span class="pivot-spread-legend-value">${formatVal(d.value)}</span>`
+                + `<span class="pivot-spread-legend-pct">${pct.toFixed(1)}%</span>`;
+              legend.appendChild(li);
+            });
+            body.appendChild(legend);
+            popover.appendChild(body);
+
+            // Append to body, then position
+            document.body.appendChild(popover);
+            this._spreadPopover = popover;
+
+            const rect = anchorEl.getBoundingClientRect();
+            const pw = popover.offsetWidth;
+            const ph = popover.offsetHeight;
+            let left = rect.left + rect.width / 2 - pw / 2;
+            let top = rect.bottom + 6;
+
+            // Viewport clamping
+            left = Math.max(4, Math.min(left, window.innerWidth - pw - 4));
+            if (top + ph > window.innerHeight - 4) {
+              top = rect.top - ph - 6;
+            }
+            top = Math.max(4, top);
+
+            popover.style.left = left + "px";
+            popover.style.top = top + "px";
+          },
+
+          hideSpreadChart() {
+            if (this._spreadPopover) {
+              this._spreadPopover.remove();
+              this._spreadPopover = null;
+            }
+            clearTimeout(this._spreadHoverTimer);
+          },
+
+          _buildPieData(entries, baseHue, maxSlices, colorMap) {
+            const shown = entries.slice(0, maxSlices);
+            const others = entries.slice(maxSlices);
+            const othersValue = others.reduce((s, e) => s + e.value, 0);
+            const total = entries.reduce((s, e) => s + e.value, 0);
+            if (total <= 0) return null;
+
+            const othersColor = "hsl(0, 0%, 65%)";
+            const colorKey = (e) => e.key != null ? e.key : e.label;
+
+            if (!colorMap) {
+              colorMap = new Map();
+              shown.forEach((e, i) => {
+                colorMap.set(colorKey(e), `hsl(${(baseHue + i * (360 / Math.max(shown.length, 6))) % 360}, 58%, 55%)`);
+              });
+            }
+
+            // Disambiguate duplicate labels by appending key info
+            const labelCounts = new Map();
+            shown.forEach((e) => {
+              labelCounts.set(e.label, (labelCounts.get(e.label) || 0) + 1);
+            });
+            const labelSeen = new Map();
+
+            const pieData = shown.map((e) => {
+              let displayLabel = e.label;
+              if (labelCounts.get(e.label) > 1 && e.key != null) {
+                const idx = (labelSeen.get(e.label) || 0) + 1;
+                labelSeen.set(e.label, idx);
+                displayLabel = `${e.label} #${idx}`;
+              }
+              return {
+                label: displayLabel,
+                value: e.value,
+                color: colorMap.get(colorKey(e)) || othersColor,
+              };
+            });
+            if (others.length > 0) {
+              pieData.push({ label: `${others.length} others`, value: othersValue, color: othersColor });
+            }
+            return { pieData, total, colorMap };
+          },
+
+          _renderDonutSvg(pieData, size, outerR, innerR) {
+            const svg = d3.create("svg")
+              .attr("width", size)
+              .attr("height", size)
+              .attr("viewBox", `0 0 ${size} ${size}`);
+
+            const g = svg.append("g")
+              .attr("transform", `translate(${size / 2},${size / 2})`);
+
+            const pie = d3.pie().value((d) => d.value).sort(null).padAngle(0.03);
+            const arc = d3.arc().innerRadius(innerR).outerRadius(outerR);
+
+            g.selectAll("path")
+              .data(pie(pieData))
+              .join("path")
+              .attr("d", (d) => {
+                // When a slice spans nearly 2π, d3.arc produces a degenerate path
+                // where start point = end point. Render as full annular ring instead.
+                if (d.endAngle - d.startAngle > 2 * Math.PI - 0.01) {
+                  const or = outerR, ir = innerR;
+                  return `M0,${-or}A${or},${or},0,1,1,0,${or}A${or},${or},0,1,1,0,${-or}Z`
+                    + `M0,${-ir}A${ir},${ir},0,1,0,0,${ir}A${ir},${ir},0,1,0,0,${-ir}Z`;
+                }
+                return arc(d);
+              })
+              .attr("fill", (d) => d.data.color)
+              .attr("stroke", "var(--bg-primary)")
+              .attr("stroke-width", 1);
+
+            return svg.node();
+          },
+
+          _buildLegendHtml(pieData, total, formatVal) {
+            return `<ul class="pivot-spread-legend" style="gap:2px;">` +
+              pieData.map((d) => {
+                const pct = total > 0 ? ((d.value / total) * 100) : 0;
+                const valStr = formatVal ? formatVal(d.value) : "";
+                return `<li>`
+                  + `<span class="pivot-spread-legend-dot" style="background:${d.color}"></span>`
+                  + `<span class="pivot-spread-legend-label" title="${Utils.escapeHtml(d.label)}">${Utils.escapeHtml(d.label)}</span>`
+                  + (valStr ? `<span class="pivot-spread-legend-value">${valStr}</span>` : "")
+                  + `<span class="pivot-spread-legend-pct">${pct.toFixed(1)}%</span>`
+                  + `</li>`;
+              }).join("") + `</ul>`;
+          },
+
+          renderColumnCharts() {
+            const engine = this.engine;
+            const outerDimId = engine.activeDimensions[0];
+            if (!outerDimId) return;
+
+            const dim = engine.getDimConfig(outerDimId);
+            if (!dim) return;
+
+            // Group facts by outer dimension once, reuse for all metrics
+            const groups = new Map();
+            engine.facts.forEach((row) => {
+              const k = dim.keyFn(row);
+              if (!groups.has(k)) groups.set(k, []);
+              groups.get(k).push(row);
+            });
+
+            const groupAggs = new Map();
+            const groupLabels = new Map();
+            groups.forEach((rows, key) => {
+              groupAggs.set(key, engine.aggregateMetrics(rows));
+              groupLabels.set(key, dim.labelFn(key, rows));
+            });
+
+            const maxSlices = 8;
+            const self = this;
+
+            const globalColorMap = this._groupColorMap;
+
+            // --- Group chart: above the table, based on sort metric, always-visible legend ---
+            const groupChartEl = this.container.querySelector("#pivot-group-chart");
+            if (groupChartEl) {
+              const sortMetricId = (engine.sortColumn && engine.sortColumn !== "_group")
+                ? engine.sortColumn : "wallNanos";
+              const sortMetric = engine.getMetricConfig(sortMetricId);
+              if (sortMetric && !sortMetric.isRuntimeStat) {
+                // Non-runtime: single pie chart for sum
+                const baseHue = sortMetric.hue != null ? sortMetric.hue : 210;
+                const formatVal = sortMetric.format || ((v) => String(v));
+                const entries = [];
+                groupAggs.forEach((agg, key) => {
+                  entries.push({ key, label: groupLabels.get(key), value: +(agg[sortMetricId]) || 0 });
+                });
+                entries.sort((a, b) => b.value - a.value);
+
+                const result = this._buildPieData(entries, baseHue, maxSlices, globalColorMap);
+                if (result) {
+                  const { pieData, total } = result;
+                  const svgNode = this._renderDonutSvg(pieData, 48, 24, 14);
+                  const wrapper = document.createElement("div");
+                  wrapper.className = "pivot-group-chart-wrapper";
+
+                  const title = document.createElement("div");
+                  title.className = "pivot-group-chart-title";
+                  title.textContent = `${sortMetric.label} by ${dim.label}`;
+                  wrapper.appendChild(title);
+
+                  const chartsRow = document.createElement("div");
+                  chartsRow.className = "pivot-group-charts-row pivot-group-charts-row-single";
+                  const item = document.createElement("div");
+                  item.className = "pivot-group-chart-item";
+                  const body = document.createElement("div");
+                  body.className = "pivot-group-chart-body";
+                  body.appendChild(svgNode);
+                  const legendDiv = document.createElement("div");
+                  legendDiv.className = "pivot-group-chart-legend";
+                  legendDiv.innerHTML = this._buildLegendHtml(pieData, total, formatVal);
+                  body.appendChild(legendDiv);
+                  item.appendChild(body);
+                  chartsRow.appendChild(item);
+                  wrapper.appendChild(chartsRow);
+                  groupChartEl.appendChild(wrapper);
+                }
+              } else if (sortMetric && sortMetric.isRuntimeStat) {
+                const baseId = sortMetric.baseId || sortMetric.id;
+                const currentMode = sortMetric.aggMode || "sum";
+                const aggModes = ["sum", "min", "avg", "max", "count"];
+                // Put the current mode first
+                const orderedModes = [currentMode, ...aggModes.filter((m) => m !== currentMode)];
+                const aggLabels = { sum: "Sum", min: "Min", avg: "Avg", max: "Max", count: "Count" };
+
+                // Helper to aggregate a group's rows for a specific mode
+                const aggForMode = (rows, mode) => {
+                  switch (mode) {
+                    case "min": {
+                      const v = rows.reduce((acc, r) => Math.min(acc, r[baseId + "__min"] ?? Infinity), Infinity);
+                      return v === Infinity ? 0 : v;
+                    }
+                    case "max":
+                      return rows.reduce((acc, r) => Math.max(acc, r[baseId + "__max"] ?? 0), 0);
+                    case "avg": {
+                      const s = rows.reduce((acc, r) => acc + (r[baseId] || 0), 0);
+                      const c = rows.reduce((acc, r) => acc + (r[baseId + "__count"] || 0), 0);
+                      return c > 0 ? s / c : 0;
+                    }
+                    case "count":
+                      return rows.reduce((acc, r) => acc + (r[baseId + "__count"] || 0), 0);
+                    default: // sum
+                      return rows.reduce((acc, r) => acc + (r[baseId] || 0), 0);
+                  }
+                };
+
+                const formatVal = sortMetric.format || ((v) => String(v));
+                const baseHue = sortMetric.hue != null ? sortMetric.hue : 210;
+
+                const wrapper = document.createElement("div");
+                wrapper.className = "pivot-group-chart-wrapper";
+
+                const title = document.createElement("div");
+                title.className = "pivot-group-chart-title";
+                title.textContent = `${sortMetric.label} by ${dim.label}`;
+                wrapper.appendChild(title);
+
+                const chartsRow = document.createElement("div");
+                chartsRow.className = "pivot-group-charts-row";
+
+                orderedModes.forEach((mode, modeIdx) => {
+                  const entries = [];
+                  groups.forEach((rows, key) => {
+                    entries.push({ key, label: groupLabels.get(key), value: aggForMode(rows, mode) });
+                  });
+                  entries.sort((a, b) => b.value - a.value);
+
+                  const fmtFn = mode === "count" ? ((v) => Utils.formatNumber(v)) : formatVal;
+                  const result = this._buildPieData(entries, baseHue, maxSlices, globalColorMap);
+                  if (!result) return;
+                  const { pieData, total } = result;
+
+                  const item = document.createElement("div");
+                  item.className = "pivot-group-chart-item" + (modeIdx === 0 ? " pivot-group-chart-active" : "");
+
+                  const modeLabel = document.createElement("div");
+                  modeLabel.className = "pivot-group-chart-mode-label";
+                  modeLabel.textContent = aggLabels[mode];
+                  item.appendChild(modeLabel);
+
+                  const body = document.createElement("div");
+                  body.className = "pivot-group-chart-body";
+                  const svgNode = this._renderDonutSvg(pieData, 48, 24, 14);
+                  body.appendChild(svgNode);
+                  const legendDiv = document.createElement("div");
+                  legendDiv.className = "pivot-group-chart-legend";
+                  legendDiv.innerHTML = this._buildLegendHtml(pieData, total, fmtFn);
+                  body.appendChild(legendDiv);
+                  item.appendChild(body);
+
+                  chartsRow.appendChild(item);
+                });
+
+                wrapper.appendChild(chartsRow);
+                groupChartEl.appendChild(wrapper);
+              }
+            }
+
+            // --- Per-metric column charts with hover legends ---
+            engine.activeMetrics.forEach((m) => {
+              try {
+              const cell = this.container.querySelector(`.pivot-column-chart-cell[data-chart-metric="${m.id}"]`);
+              if (!cell) return;
+
+              const baseHue = m.hue != null ? m.hue : 210;
+              const formatVal = m.format || ((v) => String(v));
+
+              const entries = [];
+              groupAggs.forEach((agg, key) => {
+                entries.push({ key, label: groupLabels.get(key), value: +(agg[m.id]) || 0 });
+              });
+              entries.sort((a, b) => b.value - a.value);
+
+              const result = this._buildPieData(entries, baseHue, maxSlices, globalColorMap);
+              if (!result) return;
+              const { pieData, total } = result;
+
+              const svgNode = this._renderDonutSvg(pieData, 36, 18, 10);
+              svgNode.style.display = "block";
+              svgNode.style.margin = "0 auto";
+              svgNode.style.cursor = "default";
+              cell.appendChild(svgNode);
+
+              // Hover legend popover
+              let hoverTimer = null;
+              let popover = null;
+
+              const showLegend = (e) => {
+                clearTimeout(hoverTimer);
+                if (popover) return;
+                popover = document.createElement("div");
+                popover.className = "pivot-chart-legend-popover";
+                const titleDiv = document.createElement("div");
+                titleDiv.className = "pivot-spread-popover-title";
+                titleDiv.textContent = `${m.label} by ${dim.label}`;
+                popover.appendChild(titleDiv);
+                popover.insertAdjacentHTML("beforeend", self._buildLegendHtml(pieData, total, formatVal));
+
+                popover.addEventListener("mouseenter", () => clearTimeout(hoverTimer));
+                popover.addEventListener("mouseleave", () => {
+                  hoverTimer = setTimeout(hideLegend, 200);
+                });
+
+                document.body.appendChild(popover);
+                const rect = svgNode.getBoundingClientRect();
+                const pw = popover.offsetWidth;
+                const ph = popover.offsetHeight;
+                let left = rect.left + rect.width / 2 - pw / 2;
+                let top = rect.bottom + 4;
+                left = Math.max(4, Math.min(left, window.innerWidth - pw - 4));
+                if (top + ph > window.innerHeight - 4) top = rect.top - ph - 4;
+                top = Math.max(4, top);
+                popover.style.left = left + "px";
+                popover.style.top = top + "px";
+              };
+
+              const hideLegend = () => {
+                if (popover) { popover.remove(); popover = null; }
+              };
+
+              svgNode.addEventListener("mouseenter", showLegend);
+              svgNode.addEventListener("mouseleave", () => {
+                hoverTimer = setTimeout(hideLegend, 200);
+              });
+              } catch (err) {
+                console.warn(`[pivot] column chart failed for metric "${m.id}":`, err);
+              }
+            });
           },
 
           setupInteractions() {
             const container = this.container;
             const engine = this.engine;
             const self = this;
+
+            // Track which bar column is expanded (survives re-render)
+            container.querySelectorAll(".pivot-bar-column").forEach((col, idx) => {
+              col.addEventListener("mouseleave", () => {
+                col.classList.remove("pivot-bar-expanded");
+                if (self._expandedColumnIdx === idx) self._expandedColumnIdx = null;
+              });
+            });
 
             // Row click: expand/collapse for parent rows, operator detail for leaf rows
             container
@@ -8062,6 +8875,20 @@
                 });
               });
 
+            // Sparkbar hover: show spread chart popover
+            container.querySelectorAll(".pivot-spread[data-spread-key]").forEach((el) => {
+              el.addEventListener("mouseenter", () => {
+                clearTimeout(self._spreadHoverTimer);
+                const key = el.dataset.spreadKey;
+                const { rows } = engine.buildVisibleRows();
+                const row = rows.find((r) => r.key === key);
+                if (row) self.showSpreadChart(row, el);
+              });
+              el.addEventListener("mouseleave", () => {
+                self._spreadHoverTimer = setTimeout(() => self.hideSpreadChart(), 200);
+              });
+            });
+
             // Column header sort
             container.querySelectorAll(".pivot-table thead th[data-metric]").forEach((th) => {
               th.addEventListener("click", () => {
@@ -8071,8 +8898,9 @@
             });
 
             // Expand all / collapse all
-            container.querySelectorAll(".pivot-toolbar button[data-action='expand-all'], .pivot-toolbar button[data-action='collapse-all']").forEach((btn) => {
-              btn.addEventListener("click", () => {
+            container.querySelectorAll(".pivot-group-action-btn[data-action='expand-all'], .pivot-group-action-btn[data-action='collapse-all']").forEach((btn) => {
+              btn.addEventListener("click", (e) => {
+                e.stopPropagation();
                 if (btn.dataset.action === "expand-all") {
                   engine.expandAll();
                 } else {
@@ -8086,6 +8914,7 @@
             container.querySelectorAll("[data-metric-remove]").forEach((btn) => {
               btn.addEventListener("click", (e) => {
                 e.stopPropagation();
+                self._expandedColumnIdx = 1;
                 engine.toggleMetric(btn.dataset.metricRemove);
                 self.render();
               });
@@ -8095,6 +8924,7 @@
             container.querySelectorAll(".pivot-zone-available-metrics .pivot-chip").forEach((chip) => {
               chip.style.cursor = "pointer";
               chip.addEventListener("click", () => {
+                self._expandedColumnIdx = 1;
                 engine.toggleMetric(chip.dataset.metricChip);
                 self.render();
               });
@@ -8104,6 +8934,7 @@
             container.querySelectorAll("[data-metric-action]").forEach((btn) => {
               btn.addEventListener("click", (e) => {
                 e.stopPropagation();
+                self._expandedColumnIdx = 1;
                 if (btn.dataset.metricAction === "clear-all") {
                   engine.setActiveMetricIds([]);
                 } else if (btn.dataset.metricAction === "add-all") {
@@ -8184,6 +9015,7 @@
             container.querySelectorAll("[data-dim-remove]").forEach((btn) => {
               btn.addEventListener("click", (e) => {
                 e.stopPropagation();
+                self._expandedColumnIdx = 0;
                 engine.removeDimension(btn.dataset.dimRemove);
                 self.render();
               });
@@ -8193,6 +9025,7 @@
             container.querySelectorAll(".pivot-zone-available .pivot-chip").forEach((chip) => {
               chip.style.cursor = "pointer";
               chip.addEventListener("click", () => {
+                self._expandedColumnIdx = 0;
                 engine.addDimension(chip.dataset.dim);
                 self.render();
               });
@@ -8235,25 +9068,29 @@
               indicator = document.createElement("span");
               indicator.className = "pivot-drop-indicator";
 
+              const chipsWrap = zone.querySelector(".pivot-zone-chips") || zone;
               const chips = [...zone.querySelectorAll(".pivot-chip:not(.dragging)")];
               const idx = getInsertIndex(zone, clientX);
               if (idx < chips.length) {
-                zone.insertBefore(indicator, chips[idx]);
+                chipsWrap.insertBefore(indicator, chips[idx]);
               } else {
-                zone.appendChild(indicator);
+                chipsWrap.appendChild(indicator);
               }
             };
 
-            container.querySelectorAll(".pivot-dimension-bar .pivot-chip[draggable]").forEach((chip) => {
+            const barsEl = container.querySelector(".pivot-bars");
+            container.querySelectorAll(".pivot-zone-groupby .pivot-chip[draggable], .pivot-zone-available .pivot-chip[draggable]").forEach((chip) => {
               chip.addEventListener("dragstart", (e) => {
                 draggedDim = chip.dataset.dim;
                 chip.classList.add("dragging");
+                if (barsEl) barsEl.classList.add("pivot-bars-dragging");
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", draggedDim);
               });
 
               chip.addEventListener("dragend", () => {
                 chip.classList.remove("dragging");
+                if (barsEl) barsEl.classList.remove("pivot-bars-dragging");
                 draggedDim = null;
                 removeIndicator();
                 container
@@ -8262,7 +9099,7 @@
               });
             });
 
-            container.querySelectorAll(".pivot-dimension-bar .pivot-zone").forEach((zone) => {
+            container.querySelectorAll(".pivot-zone-groupby, .pivot-zone-available").forEach((zone) => {
               zone.addEventListener("dragover", (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
@@ -8304,6 +9141,7 @@
                   engine.removeDimension(dimId);
                 }
 
+                self._expandedColumnIdx = 0;
                 self.render();
               });
             });
@@ -8313,6 +9151,7 @@
             const container = this.container;
             const engine = this.engine;
             const self = this;
+            const barsEl = container.querySelector(".pivot-bars");
             let draggedMetric = null;
             let indicator = null;
 
@@ -8339,34 +9178,37 @@
               indicator = document.createElement("span");
               indicator.className = "pivot-drop-indicator";
 
+              const chipsWrap = zone.querySelector(".pivot-zone-chips") || zone;
               const chips = [...zone.querySelectorAll(".pivot-chip:not(.dragging)")];
               const idx = getInsertIndex(zone, clientX);
               if (idx < chips.length) {
-                zone.insertBefore(indicator, chips[idx]);
+                chipsWrap.insertBefore(indicator, chips[idx]);
               } else {
-                zone.appendChild(indicator);
+                chipsWrap.appendChild(indicator);
               }
             };
 
-            container.querySelectorAll(".pivot-metric-bar .pivot-chip[draggable]").forEach((chip) => {
+            container.querySelectorAll(".pivot-zone-columns .pivot-chip[draggable], .pivot-zone-available-metrics .pivot-chip[draggable]").forEach((chip) => {
               chip.addEventListener("dragstart", (e) => {
                 draggedMetric = chip.dataset.metricChip;
                 chip.classList.add("dragging");
+                if (barsEl) barsEl.classList.add("pivot-bars-dragging");
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", draggedMetric);
               });
 
               chip.addEventListener("dragend", () => {
                 chip.classList.remove("dragging");
+                if (barsEl) barsEl.classList.remove("pivot-bars-dragging");
                 draggedMetric = null;
                 removeIndicator();
                 container
-                  .querySelectorAll(".pivot-metric-bar .drag-over")
+                  .querySelectorAll(".pivot-zone-columns.drag-over, .pivot-zone-available-metrics.drag-over")
                   .forEach((el) => el.classList.remove("drag-over"));
               });
             });
 
-            container.querySelectorAll(".pivot-metric-bar .pivot-zone").forEach((zone) => {
+            container.querySelectorAll(".pivot-zone-columns, .pivot-zone-available-metrics").forEach((zone) => {
               zone.addEventListener("dragover", (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
@@ -8407,6 +9249,7 @@
                   }
                 }
 
+                self._expandedColumnIdx = 1;
                 self.render();
               });
             });
@@ -8426,25 +9269,46 @@
                   const metric = this.engine.getMetricConfig(td.dataset.metric);
                   if (!metric) return;
 
-                  // Find column max
-                  const { columnRanges } = this.engine.buildVisibleRows();
-                  const range = columnRanges[metric.id];
-                  const pctOfMax =
-                    range.max > 0
-                      ? ((value / range.max) * 100).toFixed(1)
-                      : "0";
+                  // Find siblings: rows at the same depth sharing the same parent key
+                  const tr = td.closest("tr");
+                  const rowKey = tr ? tr.dataset.key : "";
+                  const { rows } = this.engine.buildVisibleRows();
+                  const thisRow = rows.find((r) => r.key === rowKey);
+                  const depth = thisRow ? thisRow.depth : 0;
+                  const parentKey = rowKey.includes("|") ? rowKey.substring(0, rowKey.lastIndexOf("|")) : "";
+                  const siblings = rows.filter((r) => {
+                    if (r.depth !== depth) return false;
+                    const rParent = r.key.includes("|") ? r.key.substring(0, r.key.lastIndexOf("|")) : "";
+                    return rParent === parentKey;
+                  });
 
-                  const plain = metric.aggMode === "count"
-                    ? Utils.formatNumber(value)
-                    : metric.formatPlain ? metric.formatPlain(value) : metric.format(value);
+                  const values = siblings.map((r) => r.metrics[metric.id] || 0).filter((v) => v > 0);
+                  const grpSum = values.reduce((a, b) => a + b, 0);
+                  const grpMin = values.length > 0 ? Math.min(...values) : 0;
+                  const grpMax = values.length > 0 ? Math.max(...values) : 0;
+                  const grpAvg = values.length > 0 ? grpSum / values.length : 0;
+                  const grpCount = values.length;
+
+                  const fmt = metric.aggMode === "count"
+                    ? (v) => Utils.formatNumber(v)
+                    : metric.formatPlain ? metric.formatPlain : metric.format;
+                  const plain = fmt(value);
+                  const pctOfMax = grpMax > 0 ? ((value / grpMax) * 100).toFixed(1) : "0";
                   const aggLabel = metric.isRuntimeStat && metric.aggMode ? ` (${metric.aggMode})` : "";
+
                   tooltip.innerHTML = `
                     <dl style="margin:0">
                       <dt>${metric.label}${aggLabel}</dt>
-                      <dd>${plain}</dd>
-                      <dt>% of column max</dt>
-                      <dd>${pctOfMax}%</dd>
+                      <dd style="font-size:14px;font-weight:600;">${plain}</dd>
                     </dl>
+                    <table style="margin-top:6px;border-collapse:collapse;width:100%;font-size:11px;">
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">% of group max</td><td style="text-align:right;">${pctOfMax}%</td></tr>
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">Sum</td><td style="text-align:right;">${fmt(grpSum)}</td></tr>
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">Min</td><td style="text-align:right;">${fmt(grpMin)}</td></tr>
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">Avg</td><td style="text-align:right;">${fmt(grpAvg)}</td></tr>
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">Max</td><td style="text-align:right;">${fmt(grpMax)}</td></tr>
+                      <tr><td style="color:var(--text-secondary);padding:1px 8px 1px 0;">Count</td><td style="text-align:right;">${grpCount}</td></tr>
+                    </table>
                   `;
                   tooltip.classList.add("visible");
                   tooltip.style.left = e.clientX + 12 + "px";
