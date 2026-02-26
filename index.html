@@ -3348,6 +3348,49 @@
         margin: 0 0 4px 0;
       }
 
+      /* ── Agg Mode Toggle ── */
+      .pivot-agg-toggle {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 0 3px;
+        font-size: 10px;
+        border-radius: 3px;
+        background: rgba(0,0,0,0.1);
+        cursor: pointer;
+        vertical-align: middle;
+        line-height: 1.4;
+      }
+
+      .pivot-agg-toggle:hover {
+        background: rgba(0,0,0,0.2);
+      }
+
+      .pivot-agg-dropdown {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        min-width: 80px;
+        padding: 4px 0;
+        font-size: 12px;
+      }
+
+      .pivot-agg-option {
+        padding: 4px 12px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .pivot-agg-option:hover {
+        background: var(--bg-secondary);
+      }
+
+      .pivot-agg-option.active {
+        font-weight: 600;
+        color: var(--accent-color, #4a90d9);
+      }
+
       /* ── Metric Bar ── */
       .pivot-metric-bar {
         display: flex;
@@ -3435,7 +3478,7 @@
    Detail Panel (Right Side)
    ============================================================================= */
       .detail-panel {
-        width: 400px;
+        width: 580px;
         background: var(--bg-secondary);
         border-left: 1px solid var(--border-color);
         overflow-y: auto;
@@ -3509,6 +3552,38 @@
       .detail-value {
         font-family: var(--font-mono);
         text-align: right;
+      }
+
+      .detail-rs-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        font-family: var(--font-mono);
+      }
+
+      .detail-rs-table th {
+        text-align: right;
+        padding: 2px 6px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-color);
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+
+      .detail-rs-table th:first-child {
+        text-align: left;
+      }
+
+      .detail-rs-table td {
+        text-align: right;
+        padding: 3px 6px;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+      }
+
+      .detail-rs-table td:first-child {
+        text-align: left;
       }
 
       /* Command Palette */
@@ -6983,6 +7058,9 @@
                 const shortName = key.split(".").pop();
                 const id = "rs_" + shortName;
                 fact[id] = (fact[id] || 0) + (stat.sum || 0);
+                fact[id + "__min"] = Math.min(fact[id + "__min"] ?? Infinity, stat.min ?? 0);
+                fact[id + "__max"] = Math.max(fact[id + "__max"] ?? 0, stat.max ?? 0);
+                fact[id + "__count"] = (fact[id + "__count"] || 0) + (stat.count ?? 0);
               });
 
               facts.push(fact);
@@ -7340,6 +7418,7 @@
           const isByte = unit === "BYTE";
           return {
             id: "rs_" + shortName,
+            baseId: "rs_" + shortName,
             label: label,
             abbr: abbr,
             format: isNano
@@ -7354,6 +7433,7 @@
                 : (v) => Utils.formatNumberPlain(v),
             hue: hue,
             agg: "sum",
+            aggMode: "sum",
             isRuntimeStat: true,
           };
         }
@@ -7493,11 +7573,64 @@
             }
           },
 
+          getFactValue(fact, metric) {
+            const base = metric.baseId || metric.id;
+            switch (metric.aggMode) {
+              case "min":   return fact[base + "__min"] ?? 0;
+              case "max":   return fact[base + "__max"] ?? 0;
+              case "count": return fact[base + "__count"] ?? 0;
+              case "avg": {
+                const s = fact[base] || 0;
+                const c = fact[base + "__count"] || 1;
+                return s / c;
+              }
+              default: return fact[base] || 0;  // sum
+            }
+          },
+
+          globalRuntimeAggMode: "sum",
+
+          setGlobalRuntimeAggMode(mode) {
+            this.globalRuntimeAggMode = mode;
+            this.allMetrics.forEach((m) => {
+              if (m.isRuntimeStat) m.aggMode = mode;
+            });
+          },
+
           aggregateMetrics(rows) {
             const result = {};
             this.allMetrics.forEach((m) => {
               if (m.agg === "derived") return;
-              if (m.agg === "max") {
+              if (m.isRuntimeStat && m.aggMode) {
+                const base = m.baseId || m.id;
+                switch (m.aggMode) {
+                  case "min":
+                    result[m.id] = rows.reduce(
+                      (acc, r) => Math.min(acc, r[base + "__min"] ?? Infinity),
+                      Infinity,
+                    );
+                    if (result[m.id] === Infinity) result[m.id] = 0;
+                    break;
+                  case "max":
+                    result[m.id] = rows.reduce(
+                      (acc, r) => Math.max(acc, r[base + "__max"] ?? 0),
+                      0,
+                    );
+                    break;
+                  case "avg": {
+                    const sumOfSums = rows.reduce((acc, r) => acc + (r[base] || 0), 0);
+                    const sumOfCounts = rows.reduce((acc, r) => acc + (r[base + "__count"] || 0), 0);
+                    result[m.id] = sumOfCounts > 0 ? sumOfSums / sumOfCounts : 0;
+                    break;
+                  }
+                  case "count":
+                    result[m.id] = rows.reduce((acc, r) => acc + (r[base + "__count"] || 0), 0);
+                    break;
+                  default: // sum
+                    result[m.id] = rows.reduce((acc, r) => acc + (r[base] || 0), 0);
+                    break;
+                }
+              } else if (m.agg === "max") {
                 result[m.id] = rows.reduce(
                   (acc, r) => Math.max(acc, r[m.id] || 0),
                   0,
@@ -7675,6 +7808,12 @@
                   <option value="stage|operatorType">Stage &rarr; Operator Type</option>
                   <option value="planNodeType|worker">Plan Node Type &rarr; Worker</option>
                 </select>
+                <select class="pivot-agg-select" data-action="global-agg">
+                  ${["sum", "min", "max", "avg", "count"].map((mode) => {
+                    const labels = { sum: "\u03A3 Sum", min: "\u2193 Min", max: "\u2191 Max", avg: "x\u0304 Avg", count: "# Count" };
+                    return `<option value="${mode}"${this.engine.globalRuntimeAggMode === mode ? " selected" : ""}>${labels[mode]}</option>`;
+                  }).join("")}
+                </select>
                 <button data-action="expand-all">Expand All</button>
                 <button data-action="collapse-all">Collapse All</button>
                 <span class="pivot-row-count">${rows.length} rows</span>
@@ -7758,13 +7897,17 @@
           },
 
           renderTable(rows, columnRanges) {
+            const aggSymbols = { sum: "\u03A3", min: "\u2193", max: "\u2191", avg: "x\u0304", count: "#" };
             const headerCells = this.engine.activeMetrics.map((m) => {
               let cls = "";
               if (this.engine.sortColumn === m.id) {
                 cls = this.engine.sortAsc ? "sort-asc" : "sort-desc";
               }
               const abbr = m.abbr || m.label;
-              return `<th class="${cls}" data-metric="${m.id}" data-tooltip="${Utils.escapeHtml(m.label)}" style="background:hsl(${m.hue}, 40%, 88%);">${Utils.escapeHtml(abbr)}</th>`;
+              const aggToggle = m.isRuntimeStat
+                ? `<span class="pivot-agg-toggle" data-agg-metric="${m.id}" title="Aggregation: ${m.aggMode || "sum"}">${aggSymbols[m.aggMode || "sum"]}</span>`
+                : "";
+              return `<th class="${cls}" data-metric="${m.id}" data-tooltip="${Utils.escapeHtml(m.label)}" style="background:hsl(${m.hue}, 40%, 88%);">${Utils.escapeHtml(abbr)}${aggToggle}</th>`;
             }).join("");
 
             const bodyRows = rows
@@ -7804,7 +7947,10 @@
                     range.min,
                     range.max,
                   );
-                  return `<td style="background:${bg};color:${textColor}" data-value="${v}" data-metric="${m.id}">${v > 0 ? m.format(v) : ""}</td>`;
+                  const formatted = v > 0
+                    ? (m.aggMode === "count" ? Utils.formatNumber(v) : m.format(v))
+                    : "";
+                  return `<td style="background:${bg};color:${textColor}" data-value="${v}" data-metric="${m.id}">${formatted}</td>`;
                 }).join("");
 
                 const operatorAttr = row.operatorKey
@@ -7982,6 +8128,57 @@
                 self.render();
               });
             }
+
+            // Global runtime stat aggregation selector
+            const globalAggSelect = container.querySelector(".pivot-agg-select[data-action='global-agg']");
+            if (globalAggSelect) {
+              globalAggSelect.addEventListener("change", () => {
+                engine.setGlobalRuntimeAggMode(globalAggSelect.value);
+                self.render();
+              });
+            }
+
+            // Per-column agg mode toggle for runtime stats
+            container.querySelectorAll(".pivot-agg-toggle[data-agg-metric]").forEach((toggle) => {
+              toggle.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const metricId = toggle.dataset.aggMetric;
+                const metric = engine.allMetrics.find((m) => m.id === metricId);
+                if (!metric) return;
+
+                // Remove any existing agg dropdown
+                const existing = container.querySelector(".pivot-agg-dropdown");
+                if (existing) { existing.remove(); return; }
+
+                const modes = ["sum", "min", "max", "avg", "count"];
+                const labels = { sum: "\u03A3 Sum", min: "\u2193 Min", max: "\u2191 Max", avg: "x\u0304 Avg", count: "# Count" };
+                const rect = toggle.getBoundingClientRect();
+                const dropdown = document.createElement("div");
+                dropdown.className = "pivot-agg-dropdown";
+                dropdown.style.position = "fixed";
+                dropdown.style.top = rect.bottom + 2 + "px";
+                dropdown.innerHTML = modes.map((m) =>
+                  `<div class="pivot-agg-option${m === (metric.aggMode || "sum") ? " active" : ""}" data-mode="${m}">${labels[m]}</div>`
+                ).join("");
+                document.body.appendChild(dropdown);
+                // Clamp horizontally so it stays within the viewport
+                const dw = dropdown.offsetWidth;
+                const left = Math.min(rect.left, window.innerWidth - dw - 4);
+                dropdown.style.left = Math.max(0, left) + "px";
+
+                const closeDropdown = () => { dropdown.remove(); document.removeEventListener("click", closeDropdown); };
+                setTimeout(() => document.addEventListener("click", closeDropdown), 0);
+
+                dropdown.querySelectorAll(".pivot-agg-option").forEach((opt) => {
+                  opt.addEventListener("click", (ev) => {
+                    ev.stopPropagation();
+                    metric.aggMode = opt.dataset.mode;
+                    closeDropdown();
+                    self.render();
+                  });
+                });
+              });
+            });
 
             // Remove dimension via × button
             container.querySelectorAll("[data-dim-remove]").forEach((btn) => {
@@ -8237,10 +8434,13 @@
                       ? ((value / range.max) * 100).toFixed(1)
                       : "0";
 
-                  const plain = metric.formatPlain ? metric.formatPlain(value) : metric.format(value);
+                  const plain = metric.aggMode === "count"
+                    ? Utils.formatNumber(value)
+                    : metric.formatPlain ? metric.formatPlain(value) : metric.format(value);
+                  const aggLabel = metric.isRuntimeStat && metric.aggMode ? ` (${metric.aggMode})` : "";
                   tooltip.innerHTML = `
                     <dl style="margin:0">
-                      <dt>${metric.label}</dt>
+                      <dt>${metric.label}${aggLabel}</dt>
                       <dd>${plain}</dd>
                       <dt>% of column max</dt>
                       <dd>${pctOfMax}%</dd>
@@ -16081,20 +16281,29 @@
               (Object.keys(op.runtimeStats).length > 0
                 ? S(
                     "Runtime Stats",
+                    `<table class="detail-rs-table">
+                      <thead><tr><th>Name</th><th>Min</th><th>Avg</th><th>Max</th><th>Sum</th><th>Count</th></tr></thead>
+                      <tbody>` +
                     Object.entries(op.runtimeStats)
                       .map(([key, stat]) => {
                         const shortName = key.split(".").pop();
-                        const formatted = stat.unit === "NANO"
-                          ? Utils.formatDuration(stat.sum)
+                        const fmt = stat.unit === "NANO"
+                          ? (v) => Utils.formatDuration(v)
                           : stat.unit === "BYTE"
-                            ? Utils.formatBytes(stat.sum)
-                            : Utils.formatNumber(stat.sum);
-                        return R(
-                          `<span style="font-size: 11px;">${shortName}</span>`,
-                          formatted,
-                        );
+                            ? (v) => Utils.formatBytes(v)
+                            : (v) => Utils.formatNumber(v);
+                        const avg = stat.count > 0 ? stat.sum / stat.count : 0;
+                        return `<tr>
+                          <td style="font-size:11px;font-weight:500;">${Utils.escapeHtml(shortName)}</td>
+                          <td>${fmt(stat.min ?? 0)}</td>
+                          <td>${fmt(avg)}</td>
+                          <td>${fmt(stat.max ?? 0)}</td>
+                          <td>${fmt(stat.sum ?? 0)}</td>
+                          <td>${Utils.formatNumber(stat.count ?? 0)}</td>
+                        </tr>`;
                       })
-                      .join(""),
+                      .join("") +
+                    `</tbody></table>`,
                   )
                 : "");
 
