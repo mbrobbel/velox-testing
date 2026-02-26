@@ -7698,8 +7698,16 @@
             this.sortAsc = false;
             runtimeMetrics = runtimeMetrics || [];
             this.allMetrics = [...PIVOT_METRICS, ...runtimeMetrics];
-            this.activeMetrics = [...PIVOT_METRICS];
-            this.availableMetrics = [...runtimeMetrics];
+            const hasSpill = facts.some((f) => f.spilledBytes > 0);
+            this.activeMetrics = PIVOT_METRICS.filter(
+              (m) => hasSpill || m.id !== "spilledBytes",
+            );
+            this.availableMetrics = [
+              ...PIVOT_METRICS.filter(
+                (m) => !hasSpill && m.id === "spilledBytes",
+              ),
+              ...runtimeMetrics,
+            ];
           },
 
           getMetricConfig(id) {
