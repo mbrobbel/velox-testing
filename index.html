@@ -365,6 +365,8 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
 
       .app-logo-icon {
@@ -382,6 +384,9 @@
         background: rgba(0, 0, 0, 0.25);
         padding: 6px 14px;
         border-radius: var(--border-radius);
+        min-width: 0;
+        overflow: hidden;
+        flex-shrink: 1;
       }
 
       .query-summary-id {
@@ -446,6 +451,7 @@
         color: var(--header-stat);
         transition: all var(--transition-fast);
         position: relative;
+        flex-shrink: 0;
       }
 
       .query-summary-sql:hover {
@@ -1522,6 +1528,55 @@
       .btn-icon:hover {
         background: var(--bg-hover);
         border-color: var(--rapids-purple);
+      }
+
+      .dag-export-wrap {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .dag-export-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,.35);
+        z-index: 100;
+        min-width: 140px;
+        padding: 4px 0;
+      }
+
+      .dag-export-wrap.open .dag-export-menu {
+        display: block;
+      }
+
+      .dag-export-menu button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 12px;
+        border: none;
+        background: none;
+        color: var(--text-primary);
+        font-size: 12px;
+        font-family: var(--font-family);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .dag-export-menu button:hover {
+        background: var(--bg-hover);
+      }
+
+      .dag-export-menu .sep {
+        height: 1px;
+        background: var(--border-color);
+        margin: 4px 0;
       }
 
       .pipeline-graph-legend {
@@ -4680,6 +4735,10 @@
           <div class="app-logo-icon"></div>
           <span>Presto Metrics Viewer</span>
         </div>
+        <span id="header-sql-hover" class="query-summary-sql hidden"
+          >SQL
+          <div id="sql-tooltip" class="sql-tooltip"></div
+        ></span>
         <div id="query-summary" class="query-summary hidden">
           <span id="header-query-id" class="font-mono query-summary-id"></span>
           <span id="header-state" class="query-summary-state"></span>
@@ -4701,19 +4760,15 @@
           <span id="header-tasks" class="query-summary-stat"></span>
           <span id="header-workers" class="query-summary-stat"></span>
           <span id="header-operators" class="query-summary-stat"></span>
-          <span id="header-sql-hover" class="query-summary-sql"
-            >SQL
-            <div id="sql-tooltip" class="sql-tooltip"></div
-          ></span>
         </div>
-        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
           <div class="theme-toggle" id="theme-toggle">
             <button class="theme-toggle-option" data-theme="light" title="Light">&#9788;</button>
             <button class="theme-toggle-option active" data-theme="auto" title="Auto">&#9684;</button>
             <button class="theme-toggle-option" data-theme="dark" title="Dark">&#9790;</button>
           </div>
           <label id="header-upload-btn" class="header-upload-btn">
-            Upload
+            Load
             <input
               type="file"
               id="header-file-input"
@@ -9384,6 +9439,238 @@
         };
 
         // ==========================================================================
+        // DAG Export (SVG / PNG)
+        // ==========================================================================
+
+        const DagExport = {
+          /**
+           * Resolve all CSS custom-property values used within an SVG so the
+           * exported file is self-contained (no dependency on the page stylesheet).
+           */
+          _resolveCSSVars(svgEl) {
+            const computed = getComputedStyle(document.documentElement);
+            const walk = (el) => {
+              // Inline style properties
+              const style = el.style;
+              for (let i = 0; i < style.length; i++) {
+                const prop = style[i];
+                const val = style.getPropertyValue(prop);
+                if (val.includes("var(")) {
+                  style.setProperty(
+                    prop,
+                    val.replace(/var\(\s*(--[^,)]+?)(?:\s*,[^)]*)?\)/g, (_, v) =>
+                      computed.getPropertyValue(v).trim() || _,
+                    ),
+                  );
+                }
+              }
+              // Presentation attributes that may reference variables
+              for (const attr of ["fill", "stroke", "color"]) {
+                const v = el.getAttribute(attr);
+                if (v && v.includes("var(")) {
+                  el.setAttribute(
+                    attr,
+                    v.replace(/var\(\s*(--[^,)]+?)(?:\s*,[^)]*)?\)/g, (_, n) =>
+                      computed.getPropertyValue(n).trim() || _,
+                    ),
+                  );
+                }
+              }
+              for (const child of el.children) walk(child);
+            };
+            walk(svgEl);
+          },
+
+          /**
+           * Build a standalone SVG string from a container's <svg> element.
+           * The returned string includes an xmlns and resolved styles.
+           */
+          _buildSvgString(container) {
+            const origSvg = container.querySelector("svg");
+            if (!origSvg) return null;
+
+            // Deep-clone so we don't modify the live DOM
+            const clone = origSvg.cloneNode(true);
+
+            // Apply computed styles inline for every styled element
+            const computed = getComputedStyle(document.documentElement);
+            // Properties safe to inline from computed styles on all elements
+            const textProps = [
+              "font-family",
+              "font-size",
+              "font-weight",
+              "text-anchor",
+              "dominant-baseline",
+            ];
+            // Visual properties that should only be inlined from computed styles
+            // on text elements; for shapes we resolve CSS vars in attributes instead
+            const visualProps = [
+              "fill",
+              "stroke",
+              "stroke-width",
+              "opacity",
+            ];
+            const computed2 = getComputedStyle(document.documentElement);
+            const resolveCSSVar = (val) =>
+              val && val.includes("var(")
+                ? val.replace(/var\(\s*(--[^,)]+?)(?:\s*,[^)]*)?\)/g, (_, n) =>
+                    computed2.getPropertyValue(n).trim() || _,
+                  )
+                : val;
+            const origEls = origSvg.querySelectorAll("*");
+            const cloneEls = clone.querySelectorAll("*");
+            origEls.forEach((origEl, i) => {
+              const cs = getComputedStyle(origEl);
+              const ce = cloneEls[i];
+              if (!ce) return;
+              const isText = origEl instanceof SVGTextElement || origEl instanceof SVGTSpanElement;
+              // Always inline text properties from computed styles
+              textProps.forEach((p) => {
+                const v = cs.getPropertyValue(p);
+                if (v) ce.style.setProperty(p, v);
+              });
+              // For visual props: on text elements, inline computed values;
+              // on shapes, only resolve CSS variables in existing attributes
+              visualProps.forEach((p) => {
+                if (isText) {
+                  const v = cs.getPropertyValue(p);
+                  if (v) ce.style.setProperty(p, v);
+                } else {
+                  const attr = origEl.getAttribute(p);
+                  if (attr) {
+                    ce.setAttribute(p, resolveCSSVar(attr));
+                  }
+                  // Also resolve in inline style
+                  const sv = origEl.style.getPropertyValue(p);
+                  if (sv) {
+                    ce.style.setProperty(p, resolveCSSVar(sv));
+                  }
+                }
+              });
+            });
+
+            // Resolve any remaining CSS variables
+            this._resolveCSSVars(clone);
+
+            // Strip interactive attributes from the clone
+            clone.querySelectorAll("[cursor]").forEach((el) => el.removeAttribute("cursor"));
+            clone.querySelectorAll("[onclick]").forEach((el) => el.removeAttribute("onclick"));
+            clone.querySelectorAll("[style*='cursor']").forEach((el) => el.style.removeProperty("cursor"));
+
+            // Ensure proper SVG namespace
+            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            clone.removeAttribute("style");
+
+            // Size the SVG to its content bounding box
+            const gEl = origSvg.querySelector("g");
+            let vbX = 0, vbY = 0, vbW = 800, vbH = 600;
+            if (gEl) {
+              const bbox = gEl.getBBox();
+              const pad = 20;
+              vbX = bbox.x - pad;
+              vbY = bbox.y - pad;
+              vbW = bbox.width + pad * 2;
+              vbH = bbox.height + pad * 2;
+              // Reset the transform on the clone's <g> and use viewBox instead
+              const cloneG = clone.querySelector("g");
+              if (cloneG) cloneG.setAttribute("transform", "");
+              clone.setAttribute("viewBox", `${vbX} ${vbY} ${vbW} ${vbH}`);
+              clone.setAttribute("width", vbW);
+              clone.setAttribute("height", vbH);
+            }
+
+            // Add a background rect matching the viewBox exactly
+            const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            const bgColor = computed2.getPropertyValue("--bg-secondary").trim() || "#1a1a2e";
+            bg.setAttribute("x", vbX);
+            bg.setAttribute("y", vbY);
+            bg.setAttribute("width", vbW);
+            bg.setAttribute("height", vbH);
+            bg.setAttribute("fill", bgColor);
+            clone.insertBefore(bg, clone.firstChild);
+
+            return new XMLSerializer().serializeToString(clone);
+          },
+
+          /** Trigger a file download in the browser. */
+          _download(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          },
+
+          /** Export the SVG inside `container` as an .svg file. */
+          exportSvg(container, filename = "dag.svg") {
+            const svgStr = this._buildSvgString(container);
+            if (!svgStr) return;
+            this._download(
+              new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }),
+              filename,
+            );
+          },
+
+          /** Export the SVG inside `container` as a high-resolution .png file. */
+          exportPng(container, filename = "dag.png", scale = 2) {
+            const svgStr = this._buildSvgString(container);
+            if (!svgStr) return;
+
+            const img = new Image();
+            const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.naturalWidth * scale;
+              canvas.height = img.naturalHeight * scale;
+              const ctx = canvas.getContext("2d");
+              ctx.scale(scale, scale);
+              ctx.drawImage(img, 0, 0);
+              URL.revokeObjectURL(url);
+              canvas.toBlob((blob) => {
+                if (blob) this._download(blob, filename);
+              }, "image/png");
+            };
+            img.src = url;
+          },
+
+          /**
+           * Render an export dropdown button. Returns an HTML string.
+           * `containerId` is the id of the element that holds the SVG.
+           * `filenameBase` is used for the downloaded file (without extension).
+           */
+          button(containerId, filenameBase = "dag") {
+            const id = `export-${containerId}`;
+            return `<div class="dag-export-wrap" id="${id}">
+              <button class="btn-icon" title="Export diagram" onclick="document.getElementById('${id}').classList.toggle('open')">&#x2913;</button>
+              <div class="dag-export-menu">
+                <button onclick="DagExport.exportSvg(document.getElementById('${containerId}'), '${filenameBase}.svg'); document.getElementById('${id}').classList.remove('open');">&#128462; Export SVG</button>
+                <button onclick="DagExport.exportPng(document.getElementById('${containerId}'), '${filenameBase}.png', 2); document.getElementById('${id}').classList.remove('open');">&#128248; Export PNG (2×)</button>
+                <button onclick="DagExport.exportPng(document.getElementById('${containerId}'), '${filenameBase}@4x.png', 4); document.getElementById('${id}').classList.remove('open');">&#128248; Export PNG (4×)</button>
+              </div>
+            </div>`;
+          },
+
+          /** Close any open export menus when clicking elsewhere. */
+          _initClickAway() {
+            if (this._clickAwayInit) return;
+            this._clickAwayInit = true;
+            document.addEventListener("click", (e) => {
+              document.querySelectorAll(".dag-export-wrap.open").forEach((el) => {
+                if (!el.contains(e.target)) el.classList.remove("open");
+              });
+            });
+          },
+        };
+
+        // Initialize click-away handler
+        DagExport._initClickAway();
+
+        // ==========================================================================
         // View Renderers
         // ==========================================================================
 
@@ -9431,6 +9718,7 @@
               .append("div")
               .attr("class", "dag-tooltip");
             return {
+              tooltip,
               show(event, html) {
                 const rect = container.getBoundingClientRect();
                 tooltip
@@ -9799,16 +10087,19 @@
              `<div id="plan-dag-container" class="dag-container" style="height: 700px; overflow: hidden;"></div>`,
              {
                noPadding: true,
-               headerExtra: `<div class="stage-legend" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                 ${stageIds
-                   .map(
-                     (id) => `
-                   <span class="badge stage-legend-item" data-stage-id="${id}" style="background: ${stageColors[id]}20; color: ${stageColors[id]}; border: 1px solid ${stageColors[id]}40; cursor: pointer; transition: transform 0.15s ease;"
-                         onmouseenter="App.highlightPlanStage(${id})" onmouseleave="App.unhighlightPlanStage()">
-                     Stage ${id}
-                   </span>`,
-                   )
-                   .join("")}
+               headerExtra: `<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                 <div class="stage-legend" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                   ${stageIds
+                     .map(
+                       (id) => `
+                     <span class="badge stage-legend-item" data-stage-id="${id}" style="background: ${stageColors[id]}20; color: ${stageColors[id]}; border: 1px solid ${stageColors[id]}40; cursor: pointer; transition: transform 0.15s ease;"
+                           onmouseenter="App.highlightPlanStage(${id})" onmouseleave="App.unhighlightPlanStage()">
+                       Stage ${id}
+                     </span>`,
+                     )
+                     .join("")}
+                 </div>
+                 ${DagExport.button("plan-dag-container", "plan-graph")}
                </div>`,
              },
            )}
@@ -10900,6 +11191,7 @@
                                OUT<span class="link-icon">&#8594;</span>
                              </button>
                              <button class="explain-fullscreen-btn" data-pane="dag" title="Toggle fullscreen">&#x26F6;</button>
+                             ${DagExport.button("explain-dag-container", "explain-dag")}
                            </div>
                            <div class="dag-color-controls">
                              <div class="pipeline-color-menu">
@@ -11190,7 +11482,7 @@
             // Clear previous content
             container.innerHTML = "";
 
-            const { show: showTooltip, hide: hideTooltip } =
+            const { tooltip, show: showTooltip, hide: hideTooltip } =
               this.createTooltip(container);
             const { svg, g, zoom } = this.createSvgWithZoom(
               container,
@@ -11783,7 +12075,7 @@
               .attr("height", 5)
               .attr("fill", "transparent");
 
-            // Node type label
+            // Node type label + ID (combined to stay within bounds)
             node
               .append("text")
               .attr("class", "node-type-label")
@@ -11792,23 +12084,23 @@
               .attr("fill", "var(--text-primary)")
               .attr("font-size", "11px")
               .attr("font-weight", "bold")
-              .text((d) =>
-                d.type.length > 14 ? d.type.slice(0, 12) + ".." : d.type,
-              );
-
-            // Node ID (smaller, lower opacity)
-            node
-              .append("text")
-              .attr("class", "node-id-label")
-              .attr("dy", -4)
-              .attr("text-anchor", "start")
-              .attr("fill", "var(--text-muted)")
-              .attr("font-size", "8px")
-              .attr("dx", (d) => {
-                const typeLen = Math.min(d.type.length, 14);
-                return typeLen * 3.5 + 4;
-              })
-              .text((d) => `#${d.id}`);
+              .each(function (d) {
+                const el = d3.select(this);
+                const idStr = `#${d.id}`;
+                const maxChars = 18; // fits comfortably in 120px
+                const maxTypeChars = maxChars - idStr.length - 1;
+                const typeTrunc =
+                  d.type.length > maxTypeChars
+                    ? d.type.slice(0, maxTypeChars - 2) + ".."
+                    : d.type;
+                el.append("tspan").text(typeTrunc + " ");
+                el.append("tspan")
+                  .attr("class", "node-id-label")
+                  .attr("fill", "var(--text-muted)")
+                  .attr("font-size", "8px")
+                  .attr("font-weight", "normal")
+                  .text(idStr);
+              });
 
             // Node details (filter, join type, etc.)
             node
@@ -12886,7 +13178,7 @@
              <p class="view-subtitle">${stages.length} stages in query execution DAG</p>
            </div>
 
-           ${Utils.card("Stage DAG", `<div id="dag-container" class="dag-container"></div>`, { mb: true, noPadding: true })}
+           ${Utils.card("Stage DAG", `<div id="dag-container" class="dag-container"></div>`, { mb: true, noPadding: true, headerExtra: DagExport.button("dag-container", "stage-dag") })}
 
            ${Utils.card(
              "Stage Details",
@@ -18162,6 +18454,7 @@
             if (!this.model) return;
             const querySummary = document.getElementById("query-summary");
             querySummary.classList.remove("hidden");
+            document.getElementById("header-sql-hover").classList.remove("hidden");
 
             const q = this.model.query;
 
@@ -18283,6 +18576,7 @@
             document.getElementById("sidebar").classList.add("hidden");
             document.getElementById("content-area").classList.add("hidden");
             document.getElementById("query-summary").classList.add("hidden");
+            document.getElementById("header-sql-hover").classList.add("hidden");
             DetailPanel.hide();
             document.getElementById("file-input").value = "";
             document.getElementById("header-file-input").value = "";
@@ -18310,10 +18604,13 @@
 
             // Hide single-query header in compare view
             const qs = document.getElementById("query-summary");
+            const sqlBtn = document.getElementById("header-sql-hover");
             if (viewName === "compare") {
               qs.classList.add("hidden");
+              sqlBtn.classList.add("hidden");
             } else if (this.model) {
               qs.classList.remove("hidden");
+              sqlBtn.classList.remove("hidden");
             }
 
             // Hide detail panel on view switch
@@ -19060,6 +19357,7 @@
         // Expose globals for onclick handlers and command palette
         window.App = App;
         window.Utils = Utils;
+        window.DagExport = DagExport;
         window.PIVOT_DIMENSIONS = PIVOT_DIMENSIONS;
         window.PivotEngine = PivotEngine;
         window.PivotRenderer = PivotRenderer;
