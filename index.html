@@ -611,6 +611,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        width: 100%;
         height: 100%;
         padding: 40px;
       }
@@ -1534,6 +1535,7 @@
         position: relative;
         display: inline-flex;
       }
+
 
       .dag-export-menu {
         display: none;
@@ -2731,14 +2733,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         padding: 0;
-        background: var(--bg-primary);
+        background: var(--bg-secondary);
         border: 1px solid var(--border-color);
         border-radius: 4px;
         font-size: 14px;
-        color: var(--text-secondary);
+        color: var(--text-primary);
         cursor: pointer;
         transition: all 0.15s;
         user-select: none;
@@ -4785,7 +4787,7 @@
         <div id="upload-screen" class="upload-screen">
           <div class="upload-zone" id="upload-zone">
             <div class="upload-zone-icon">📊</div>
-            <div class="upload-zone-title">Upload Metrics File</div>
+            <div class="upload-zone-title">Load Metrics File</div>
             <div class="upload-zone-subtitle">
               Drag and drop a <code>.presto_metrics.json</code> file here
             </div>
