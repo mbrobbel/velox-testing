@@ -7073,10 +7073,7 @@
                       opEntry.spilledBytes += op.metrics.spilledBytes || 0;
                       opEntry.blockedWallNanos +=
                         op.metrics.blockedWallNanos || 0;
-                      opEntry.totalDrivers = Math.max(
-                        opEntry.totalDrivers,
-                        op.totalDrivers || 0,
-                      );
+                      opEntry.totalDrivers += op.totalDrivers || 0;
                       opEntry.peakTotalMemoryBytes = Math.max(
                         opEntry.peakTotalMemoryBytes,
                         op.metrics.peakTotalMemoryBytes || 0,
@@ -7407,6 +7404,7 @@
                 peakMemoryBytes:
                   +m.peakTotalMemoryBytes || +m.peakUserMemoryBytes || 0,
                 spilledBytes: +m.spilledBytes || 0,
+                totalDrivers: op.totalDrivers || 0,
               };
 
               // Add runtime stats to fact
@@ -7738,6 +7736,15 @@
             abbr: "Spill",
             format: (v) => Utils.formatBytes(v),
             hue: 5,
+            agg: "sum",
+          },
+          {
+            id: "totalDrivers",
+            label: "Drivers",
+            abbr: "Drv",
+            format: (v) => Utils.formatNumber(v),
+            formatPlain: (v) => Utils.formatNumberPlain(v),
+            hue: 320,
             agg: "sum",
           },
         ];
@@ -11208,6 +11215,7 @@
                                  <option value="input-bytes">Input Bytes</option>
                                  <option value="skew">Worker Skew</option>
                                  <option value="workers">Worker Count</option>
+                                 <option value="drivers">Drivers</option>
                                </select>
                                <select id="dag-agg-mode" style="display:none">
                                  <option value="sum" selected>Sum</option>
@@ -11571,6 +11579,18 @@
 
             // SVG stays at container size; zoom/pan handles overflow
 
+            // Compute per-node driver counts from raw operators
+            const driversByNode = new Map();
+            if (operatorsByNode) {
+              operatorsByNode.forEach((ops, nodeId) => {
+                let totalDrivers = 0;
+                ops.forEach((op) => {
+                  totalDrivers += op.totalDrivers || 0;
+                });
+                driversByNode.set(nodeId, totalDrivers);
+              });
+            }
+
             // Compute per-node metrics for coloring (sum values for data attributes)
             const nodeMetrics = new Map();
             if (timingByNode && operatorInfoByNode) {
@@ -11670,6 +11690,7 @@
                   el.dataset.inputBytes = metrics["input-bytes"];
                   el.dataset.skew = metrics.skew;
                   el.dataset.workers = metrics.workers;
+                  el.dataset.drivers = driversByNode.get(nodeId) || 0;
                 }
               });
             }
@@ -11681,6 +11702,7 @@
               y: nodePositions.get(n.id)?.y || layoutHeight / 2,
               details: getNodeDetails(n),
               colorMetrics: nodeMetrics.get(n.id) || {},
+              totalDrivers: driversByNode.get(n.id) || 0,
             }));
 
             // Create a map for quick node lookup by id
@@ -12034,6 +12056,7 @@
               .attr("data-input-bytes", (d) => d.colorMetrics["input-bytes"] || 0)
               .attr("data-skew", (d) => d.colorMetrics.skew || 0)
               .attr("data-workers", (d) => d.colorMetrics.workers || 0)
+              .attr("data-drivers", (d) => d.totalDrivers || 0)
               .attr("cursor", "pointer")
               .attr("transform", (d) => `translate(${d.x},${d.y})`);
 
@@ -12117,6 +12140,17 @@
                 return det.length > 20 ? det.slice(0, 18) + ".." : det;
               });
 
+            // Driver count per node
+            node
+              .filter((d) => d.totalDrivers > 0)
+              .append("text")
+              .attr("class", "node-drivers-label")
+              .attr("dy", 22)
+              .attr("text-anchor", "middle")
+              .attr("fill", "var(--text-secondary)")
+              .attr("font-size", "8px")
+              .text((d) => `∥${d.totalDrivers}`);
+
             // Add custom tooltip events for nodes
             node
               .on("mouseenter", (event, d) => {
@@ -12136,6 +12170,7 @@
                   if (m["output-rows"]) html += `<div${hl(["output-rows", "output-bytes"])}><span class="dag-tooltip-label">Output:</span> ${Utils.formatNumberPlain(m["output-rows"])} rows, ${Utils.formatBytesPlain(m["output-bytes"])}</div>`;
                   if (m["input-rows"]) html += `<div${hl(["input-rows", "input-bytes"])}><span class="dag-tooltip-label">Input:</span> ${Utils.formatNumberPlain(m["input-rows"])} rows, ${Utils.formatBytesPlain(m["input-bytes"])}</div>`;
                   if (m.workers > 0) html += `<div${hl(["workers", "skew"])}><span class="dag-tooltip-label">Workers:</span> ${m.workers}${m.skew > 1.1 ? ` (skew: ${m.skew.toFixed(1)}x)` : ""}</div>`;
+                  if (d.totalDrivers > 0) html += `<div><span class="dag-tooltip-label">Drivers:</span> ${d.totalDrivers}</div>`;
                   html += `</div>`;
                 }
                 // Show runtime stats in tooltip with min/avg/max/sum/count from raw data
@@ -12251,6 +12286,7 @@
               "input-bytes": { h: 240, s: 70 },
               skew: { h: 0, s: 80 },
               workers: { h: 145, s: 70 },
+              drivers: { h: 320, s: 70 },
             };
 
             const rsUnitColors = { NANO: { h: 300, s: 70 }, BYTE: { h: 50, s: 70 }, NONE: { h: 100, s: 60 } };
@@ -12279,7 +12315,7 @@
               if (mode.includes("rows"))
                 return Utils.formatNumberPlain(value);
               if (mode === "skew") return value.toFixed(1) + "x";
-              if (mode === "workers") return String(Math.round(value));
+              if (mode === "workers" || mode === "drivers") return String(Math.round(value));
               if (mode.startsWith("rs:")) {
                 const unit = allRuntimeStats.get(mode.slice(3));
                 if (unit === "NANO") return Utils.formatDuration(value);
@@ -12337,7 +12373,7 @@
                       const stats = runtimeStatsByNode.get(nodeId);
                       if (stats && stats[rsN]) value = stats[rsN][metricAgg] ?? stats[rsN].sum ?? 0;
                     } else {
-                      const attrMap = { duration: "duration", blocked: "blocked", "output-rows": "outputRows", "output-bytes": "outputBytes", "input-rows": "inputRows", "input-bytes": "inputBytes", skew: "skew", workers: "workers" };
+                      const attrMap = { duration: "duration", blocked: "blocked", "output-rows": "outputRows", "output-bytes": "outputBytes", "input-rows": "inputRows", "input-bytes": "inputBytes", skew: "skew", workers: "workers", drivers: "drivers" };
                       value = parseFloat(el.dataset[attrMap[metricMode]] || "0") || 0;
                     }
                     const formatted = value > 0 ? formatMetricValue(value, metricMode) : "";
@@ -12378,6 +12414,7 @@
                     el.select(".node-type-label").attr("fill", "var(--text-primary)");
                     el.select(".node-id-label").attr("fill", "var(--text-muted)");
                     el.select(".node-detail-label").attr("fill", "var(--text-secondary)");
+                    el.select(".node-drivers-label").attr("fill", "var(--text-secondary)");
                   });
                   if (legendEl) legendEl.style.display = "none";
                   updateTreeMetricLabels("none");
@@ -12448,6 +12485,7 @@
                     el.select(".node-type-label").attr("fill", "var(--text-primary)");
                     el.select(".node-id-label").attr("fill", "var(--text-muted)");
                     el.select(".node-detail-label").attr("fill", "var(--text-secondary)");
+                    el.select(".node-drivers-label").attr("fill", "var(--text-secondary)");
                     return;
                   }
 
@@ -12479,10 +12517,12 @@
                       el.select(".node-type-label").attr("fill", "#fff");
                       el.select(".node-id-label").attr("fill", "rgba(255,255,255,0.7)");
                       el.select(".node-detail-label").attr("fill", "rgba(255,255,255,0.85)");
+                      el.select(".node-drivers-label").attr("fill", "rgba(255,255,255,0.7)");
                     } else {
                       el.select(".node-type-label").attr("fill", "var(--text-primary)");
                       el.select(".node-id-label").attr("fill", "var(--text-muted)");
                       el.select(".node-detail-label").attr("fill", "var(--text-secondary)");
+                      el.select(".node-drivers-label").attr("fill", "var(--text-secondary)");
                     }
                   } else {
                     // In light mode, switch to white text on darker backgrounds
@@ -12491,10 +12531,12 @@
                       el.select(".node-type-label").attr("fill", "#fff");
                       el.select(".node-id-label").attr("fill", "rgba(255,255,255,0.7)");
                       el.select(".node-detail-label").attr("fill", "rgba(255,255,255,0.85)");
+                      el.select(".node-drivers-label").attr("fill", "rgba(255,255,255,0.7)");
                     } else {
                       el.select(".node-type-label").attr("fill", "var(--text-primary)");
                       el.select(".node-id-label").attr("fill", "var(--text-muted)");
                       el.select(".node-detail-label").attr("fill", "var(--text-secondary)");
+                      el.select(".node-drivers-label").attr("fill", "var(--text-secondary)");
                     }
                   }
                 });
