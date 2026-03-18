@@ -2715,10 +2715,60 @@
         border: 1px solid var(--border-color);
       }
 
-      .explain-dag-pane #explain-dag-container {
+      .explain-dag-pane #explain-dag-container,
+      .worker-dag-view #worker-dag-container {
         flex: 1;
         overflow: hidden;
         position: relative;
+      }
+
+      .worker-dag-view {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .worker-dag-toolbar {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        gap: 12px;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+        background: var(--bg-card);
+        flex-wrap: wrap;
+      }
+
+      .worker-dag-toolbar label {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .worker-dag-toolbar select {
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
+
+      .worker-dag-toolbar .worker-hint {
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 2px;
+      }
+
+      .worker-hint-unique {
+        background: hsla(320, 70%, 50%, 0.2);
+        color: hsl(320, 70%, 65%);
+      }
+
+      .worker-dag-info {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-left: auto;
       }
 
       .explain-main-area {
@@ -3082,6 +3132,19 @@
         height: 100%;
         margin: calc(-1 * var(--panel-gap));
         padding: 0;
+        overflow: hidden;
+      }
+
+      /* Worker DAG view fills the entire content area */
+      #view-worker-dag.active {
+        position: relative;
+        height: 100%;
+        margin: calc(-1 * var(--panel-gap));
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .app-content:has(#view-worker-dag.active) {
         overflow: hidden;
       }
 
@@ -4825,6 +4888,10 @@
               <span class="nav-item-icon">📝</span>
               <span>Explain</span>
             </div>
+            <div class="nav-item" data-view="worker-dag">
+              <span class="nav-item-icon">&#x2225;</span>
+              <span>Worker DAG</span>
+            </div>
             <div class="nav-item" data-view="stages">
               <span class="nav-item-icon">🔀</span>
               <span>Stages</span>
@@ -4876,6 +4943,11 @@
 
           <!-- Explain View -->
           <div id="view-explain" class="view">
+            <!-- Populated by JavaScript -->
+          </div>
+
+          <!-- Worker DAG View -->
+          <div id="view-worker-dag" class="view">
             <!-- Populated by JavaScript -->
           </div>
 
@@ -6408,12 +6480,17 @@
            * @param {Object} model - Normalized model from ModelBuilder
            * @returns {{ operatorsByNode, operatorInfoByNode, workersByNode, pipelinesByNode, timingByNode, stageColors }}
            */
-          deriveExplainData(model) {
+          deriveExplainData(model, { workerFilter = null } = {}) {
             const stageColors = this.stageColors(model.stages);
 
             // ── Group operators by normalized plan node ID ──
             const operatorsByNode = new Map();
             model.operators.forEach((op) => {
+              // Filter by worker if specified
+              if (workerFilter) {
+                const task = model.tasks.get(op.taskId);
+                if (!task || task.workerHost !== workerFilter) return;
+              }
               const rawNodeId = op.planNodeId;
               if (!rawNodeId) return;
               const nodeId = Utils.normalizePlanNodeId(rawNodeId);
@@ -6810,6 +6887,7 @@
               pipelinesByNode,
               timingByNode,
               stageColors,
+              isFiltered: !!workerFilter,
             };
           },
 
@@ -11480,17 +11558,26 @@
             });
           },
 
-          renderExplainDag(model, stageColors, explainData = {}) {
-            const container = document.getElementById("explain-dag-container");
+          renderExplainDag(model, stageColors, explainData = {}, {
+            containerId = "explain-dag-container",
+            colorSelectId = "dag-node-color-mode",
+            aggSelectId = "dag-agg-mode",
+            legendId = "dag-color-legend",
+            legendMinId = "dag-legend-min",
+            legendMaxId = "dag-legend-max",
+            legendGradientId = "dag-legend-gradient",
+            initialTransform = null,
+          } = {}) {
+            const container = document.getElementById(containerId);
             if (!container || typeof d3 === "undefined") return;
 
-            const { timingByNode, operatorInfoByNode, operatorsByNode } = explainData;
+            const { timingByNode, operatorInfoByNode, operatorsByNode, isFiltered } = explainData;
 
             const width = container.clientWidth || 500;
             const height = container.clientHeight || 600;
 
-            // Clear previous content
-            container.innerHTML = "";
+            // Mark old children for removal after new content is built
+            const oldChildren = [...container.children];
 
             const { tooltip, show: showTooltip, hide: hideTooltip } =
               this.createTooltip(container);
@@ -11499,6 +11586,9 @@
               width,
               height,
             );
+
+            // Remove old content now that new SVG exists
+            oldChildren.forEach((el) => el.remove());
 
             // Helper to get operator details for display
             const getNodeDetails = (n) => {
@@ -11555,16 +11645,55 @@
               return columns.map((c) => `${c.name}: ${c.type}`).join("\n");
             };
 
+            // Compute per-node output metrics from filtered operator data
+            // using the same deduplication logic as aggregatePlanNodeMetrics
+            const filteredNodeMetrics = new Map();
+            if (operatorsByNode) {
+              const counted = new Set();
+              const seenTaskPlanNode = new Set();
+              operatorsByNode.forEach((ops, nodeId) => {
+                ops.forEach((op) => {
+                  const rawPlanNodeId = op.planNodeId;
+                  if (!rawPlanNodeId) return;
+                  const planNodeId = Utils.normalizePlanNodeId(rawPlanNodeId);
+                  const isExchangeConsumer =
+                    op.type.includes("LocalExchange") ||
+                    op.type.includes("LocalMerge") ||
+                    op.type.includes("Exchange");
+                  if (isExchangeConsumer) {
+                    const taskPlanKey = `${op.taskId}:${planNodeId}`;
+                    if (seenTaskPlanNode.has(taskPlanKey)) return;
+                    seenTaskPlanNode.add(taskPlanKey);
+                  }
+                  const countKey = `${op.taskId}:${op.pipelineId}:${planNodeId}`;
+                  if (counted.has(countKey)) return;
+                  counted.add(countKey);
+
+                  if (!filteredNodeMetrics.has(planNodeId)) {
+                    filteredNodeMetrics.set(planNodeId, { outputRows: 0, outputBytes: 0, outputBatches: 0 });
+                  }
+                  const m = filteredNodeMetrics.get(planNodeId);
+                  m.outputRows += op.metrics.outputPositions || 0;
+                  m.outputBytes += op.metrics.outputBytes || 0;
+                  m.outputBatches += op.metrics.getOutputCalls || 0;
+                });
+              });
+            }
+
             // Create links data with metrics and columns
-            const links = model.planEdges.map((e) => ({
-              source: e.source,
-              target: e.target,
-              type: e.type,
-              rows: e.rows || 0,
-              bytes: e.bytes || 0,
-              batches: e.batches || 0,
-              columns: e.columns || [],
-            }));
+            const hasFilteredMetrics = filteredNodeMetrics.size > 0;
+            const links = model.planEdges.map((e) => {
+              const filtered = filteredNodeMetrics.get(e.source);
+              return {
+                source: e.source,
+                target: e.target,
+                type: e.type,
+                rows: hasFilteredMetrics ? (filtered?.outputRows || 0) : (e.rows || 0),
+                bytes: hasFilteredMetrics ? (filtered?.outputBytes || 0) : (e.bytes || 0),
+                batches: hasFilteredMetrics ? (filtered?.outputBatches || 0) : (e.batches || 0),
+                columns: e.columns || [],
+              };
+            });
 
             // Compute hierarchical layout positions with more vertical spacing for details
             const nodePositions = Views.computeHierarchicalLayout(
@@ -11703,6 +11832,7 @@
               details: getNodeDetails(n),
               colorMetrics: nodeMetrics.get(n.id) || {},
               totalDrivers: driversByNode.get(n.id) || 0,
+              inactive: isFiltered && (!operatorsByNode || !operatorsByNode.has(n.id)),
             }));
 
             // Create a map for quick node lookup by id
@@ -11899,6 +12029,7 @@
             };
 
             // Draw links as paths (curved)
+            const isEdgeInactive = (d) => d.sourceNode.inactive || d.targetNode.inactive;
             const link = g
               .append("g")
               .selectAll("path")
@@ -11912,6 +12043,7 @@
               .attr("stroke-dasharray", (d) =>
                 d.type === "exchange" ? "5,5" : "none",
               )
+              .attr("opacity", (d) => isEdgeInactive(d) ? 0.15 : 1)
               .attr("marker-end", (d) => `url(#arrow-explain-${d.type})`)
               .attr("d", generateEdgePath);
 
@@ -11922,6 +12054,7 @@
               .data(resolvedLinks)
               .join("g")
               .attr("class", "edge-label")
+              .attr("opacity", (d) => isEdgeInactive(d) ? 0.15 : 1)
               .attr("cursor", "pointer")
               .attr("transform", (d) => {
                 const mid = getEdgeMidpoint(d);
@@ -12057,7 +12190,9 @@
               .attr("data-skew", (d) => d.colorMetrics.skew || 0)
               .attr("data-workers", (d) => d.colorMetrics.workers || 0)
               .attr("data-drivers", (d) => d.totalDrivers || 0)
+              .attr("data-inactive", (d) => d.inactive ? "true" : null)
               .attr("cursor", "pointer")
+              .attr("opacity", (d) => d.inactive ? 0.2 : 1)
               .attr("transform", (d) => `translate(${d.x},${d.y})`);
 
             // Clip path for metric bars (so they respect the rounded corners)
@@ -12161,7 +12296,7 @@
                 }
                 // Show metrics in tooltip (highlight selected color metric)
                 const m = d.colorMetrics;
-                const colorMode = document.getElementById("dag-node-color-mode")?.value || "none";
+                const colorMode = document.getElementById(colorSelectId)?.value || "none";
                 if (m && (m.duration || m.blocked || m["output-rows"] || m["input-rows"])) {
                   html += `<div class="dag-tooltip-section">`;
                   const hl = (modes) => modes.includes(colorMode) ? ' class="dag-tooltip-highlight"' : '';
@@ -12228,30 +12363,34 @@
                 }
               });
 
-            // Initial zoom to fit - zoom in more and focus towards the root (top)
+            // Initial zoom: restore saved transform or auto-fit
             setTimeout(() => {
-              const bounds = g.node().getBBox();
-              if (bounds.width === 0 || bounds.height === 0) return;
-              const fullWidth = bounds.width;
-              const fullHeight = bounds.height;
-              const midX = bounds.x + fullWidth / 2;
-              // Focus more towards the top (root) - use 30% from top instead of center
-              const focusY = bounds.y + fullHeight * 0.3;
-              // Zoom in more
-              const baseScale =
-                0.85 / Math.max(fullWidth / width, fullHeight / height);
-              const scale = Math.min(2.2, Math.max(1.0, baseScale * 1.9));
-              const translate = [
-                width / 2 - scale * midX,
-                height / 2 - scale * focusY,
-              ];
+              if (initialTransform) {
+                svg.call(zoom.transform, initialTransform);
+              } else {
+                const bounds = g.node().getBBox();
+                if (bounds.width === 0 || bounds.height === 0) return;
+                const fullWidth = bounds.width;
+                const fullHeight = bounds.height;
+                const midX = bounds.x + fullWidth / 2;
+                // Focus more towards the top (root) - use 30% from top instead of center
+                const focusY = bounds.y + fullHeight * 0.3;
+                // Zoom in more
+                const baseScale =
+                  0.85 / Math.max(fullWidth / width, fullHeight / height);
+                const scale = Math.min(2.2, Math.max(1.0, baseScale * 1.9));
+                const translate = [
+                  width / 2 - scale * midX,
+                  height / 2 - scale * focusY,
+                ];
 
-              svg.call(
-                zoom.transform,
-                d3.zoomIdentity
-                  .translate(translate[0], translate[1])
-                  .scale(scale),
-              );
+                svg.call(
+                  zoom.transform,
+                  d3.zoomIdentity
+                    .translate(translate[0], translate[1])
+                    .scale(scale),
+                );
+              }
             }, 50);
 
             // Click SVG background to clear highlights in click mode
@@ -12325,20 +12464,16 @@
               return String(value);
             };
 
-            const legendEl = document.getElementById("dag-color-legend");
-            const legendGradient = document.getElementById(
-              "dag-legend-gradient",
-            );
-            const legendMin = document.getElementById("dag-legend-min");
-            const legendMax = document.getElementById("dag-legend-max");
+            const legendEl = document.getElementById(legendId);
+            const legendGradient = document.getElementById(legendGradientId);
+            const legendMin = document.getElementById(legendMinId);
+            const legendMax = document.getElementById(legendMaxId);
 
-            const dagColorSelect = document.getElementById(
-              "dag-node-color-mode",
-            );
-            const dagAggSelect = document.getElementById("dag-agg-mode");
+            const dagColorSelect = document.getElementById(colorSelectId);
+            const dagAggSelect = document.getElementById(aggSelectId);
             if (dagColorSelect) {
-              // Populate runtime stats options dynamically
-              if (allRuntimeStats.size > 0) {
+              // Populate runtime stats options dynamically (only once)
+              if (allRuntimeStats.size > 0 && !dagColorSelect.querySelector("optgroup")) {
                 const optgroup = document.createElement("optgroup");
                 optgroup.label = "Runtime Stats";
                 [...allRuntimeStats.keys()].sort().forEach((name) => {
@@ -12545,15 +12680,196 @@
                 updateTreeMetricLabels(mode, agg, minVal, maxVal);
               };
 
+              // Replace selects to remove stale listeners from previous renders
+              const freshColorSelect = dagColorSelect.cloneNode(true);
+              dagColorSelect.parentNode.replaceChild(freshColorSelect, dagColorSelect);
+              let freshAggSelect = dagAggSelect;
+              if (dagAggSelect) {
+                freshAggSelect = dagAggSelect.cloneNode(true);
+                dagAggSelect.parentNode.replaceChild(freshAggSelect, dagAggSelect);
+              }
+
               const triggerUpdate = () => {
                 updateDagNodeColors(
-                  dagColorSelect.value,
-                  dagAggSelect ? dagAggSelect.value : "sum",
+                  freshColorSelect.value,
+                  freshAggSelect ? freshAggSelect.value : "sum",
                 );
               };
-              dagColorSelect.addEventListener("change", triggerUpdate);
-              if (dagAggSelect) dagAggSelect.addEventListener("change", triggerUpdate);
+              freshColorSelect.addEventListener("change", triggerUpdate);
+              if (freshAggSelect) freshAggSelect.addEventListener("change", triggerUpdate);
             }
+          },
+
+          renderWorkerDag(model, container) {
+            if (!container) return;
+
+            // Compute per-worker plan fingerprints to detect differences
+            const workerFingerprints = new Map();
+            const workerHosts = new Set();
+            model.operators.forEach((op) => {
+              const task = model.tasks.get(op.taskId);
+              if (!task || !task.workerHost) return;
+              const host = task.workerHost;
+              workerHosts.add(host);
+              if (!workerFingerprints.has(host)) {
+                workerFingerprints.set(host, new Set());
+              }
+              const nodeId = Utils.normalizePlanNodeId(op.planNodeId || "");
+              workerFingerprints.get(host).add(`${nodeId}:${op.type}`);
+            });
+
+            // Convert fingerprint sets to sorted strings for comparison
+            const fingerprintStrings = new Map();
+            workerFingerprints.forEach((fpSet, host) => {
+              fingerprintStrings.set(host, [...fpSet].sort().join("|"));
+            });
+
+            // Group workers by fingerprint
+            const fingerprintGroups = new Map();
+            fingerprintStrings.forEach((fp, host) => {
+              if (!fingerprintGroups.has(fp)) {
+                fingerprintGroups.set(fp, []);
+              }
+              fingerprintGroups.get(fp).push(host);
+            });
+
+            const sortedWorkers = [...workerHosts].sort();
+            const hasVariation = fingerprintGroups.size > 1;
+
+            // Find the majority fingerprint
+            let majorityFp = "";
+            let majorityCount = 0;
+            fingerprintGroups.forEach((hosts, fp) => {
+              if (hosts.length > majorityCount) {
+                majorityCount = hosts.length;
+                majorityFp = fp;
+              }
+            });
+
+            // Build worker options with hints
+            const workerOptions = sortedWorkers.map((host) => {
+              const fp = fingerprintStrings.get(host);
+              const isUnique = fp !== majorityFp;
+              return { host, isUnique };
+            });
+
+            const workerSelectId = "worker-dag-select";
+            const dagContainerId = "worker-dag-container";
+            const colorSelectId = "worker-dag-color-mode";
+            const aggSelectId = "worker-dag-agg-mode";
+            const legendId = "worker-dag-color-legend";
+            const legendMinId = "worker-dag-legend-min";
+            const legendMaxId = "worker-dag-legend-max";
+            const legendGradientId = "worker-dag-legend-gradient";
+
+            const infoText = hasVariation
+              ? `${fingerprintGroups.size} distinct plans across ${sortedWorkers.length} workers`
+              : `All ${sortedWorkers.length} workers share the same plan`;
+
+            container.innerHTML = `
+              <div class="worker-dag-view">
+                <div class="worker-dag-toolbar">
+                  <label for="${workerSelectId}">Worker:</label>
+                  <select id="${workerSelectId}">
+                    <option value="">All workers</option>
+                    ${workerOptions.map((w) =>
+                      `<option value="${Utils.escapeHtml(w.host)}">${Utils.escapeHtml(w.host)}${w.isUnique ? " \u2022" : ""}</option>`
+                    ).join("")}
+                  </select>
+                  ${DagExport.button(dagContainerId, "worker-dag")}
+                  <div class="dag-color-controls">
+                    <div class="pipeline-color-menu">
+                      <label for="${colorSelectId}">Color:</label>
+                      <select id="${colorSelectId}">
+                        <option value="none" selected>None</option>
+                        <option value="duration">Wall Time</option>
+                        <option value="blocked">Blocked Time</option>
+                        <option value="output-rows">Output Rows</option>
+                        <option value="output-bytes">Output Bytes</option>
+                        <option value="input-rows">Input Rows</option>
+                        <option value="input-bytes">Input Bytes</option>
+                        <option value="skew">Worker Skew</option>
+                        <option value="workers">Worker Count</option>
+                        <option value="drivers">Drivers</option>
+                      </select>
+                      <select id="${aggSelectId}" style="display:none">
+                        <option value="sum" selected>Sum</option>
+                        <option value="max">Max</option>
+                        <option value="avg">Avg</option>
+                        <option value="min">Min</option>
+                        <option value="count">Count</option>
+                      </select>
+                    </div>
+                    <div class="dag-color-legend" id="${legendId}" style="display: none;">
+                      <span class="dag-legend-min" id="${legendMinId}"></span>
+                      <div class="dag-legend-gradient" id="${legendGradientId}"></div>
+                      <span class="dag-legend-max" id="${legendMaxId}"></span>
+                    </div>
+                  </div>
+                  <span class="worker-dag-info">${infoText}</span>
+                </div>
+                <div id="${dagContainerId}"></div>
+              </div>
+            `;
+
+            let savedTransform = null;
+
+            const renderDagForWorker = (workerHost) => {
+              // Preserve current zoom transform, color/agg selections
+              const dagContainer = document.getElementById(dagContainerId);
+              const existingSvg = dagContainer?.querySelector("svg");
+              if (existingSvg) {
+                savedTransform = d3.zoomTransform(existingSvg);
+              }
+
+              const colorSelect = document.getElementById(colorSelectId);
+              const aggSelect = document.getElementById(aggSelectId);
+              const savedColor = colorSelect?.value || "none";
+              const savedAgg = aggSelect?.value || "sum";
+
+              const filter = workerHost || null;
+              const {
+                operatorsByNode,
+                operatorInfoByNode,
+                timingByNode,
+                stageColors,
+                isFiltered,
+              } = Derived.deriveExplainData(model, { workerFilter: filter });
+
+              this.renderExplainDag(model, stageColors, {
+                timingByNode,
+                operatorInfoByNode,
+                operatorsByNode,
+                isFiltered,
+              }, {
+                containerId: dagContainerId,
+                colorSelectId,
+                aggSelectId,
+                legendId,
+                legendMinId,
+                legendMaxId,
+                legendGradientId,
+                initialTransform: savedTransform,
+              });
+
+              // Restore color/agg selections and re-apply
+              const newColorSelect = document.getElementById(colorSelectId);
+              const newAggSelect = document.getElementById(aggSelectId);
+              if (newColorSelect) {
+                newColorSelect.value = savedColor;
+                if (newAggSelect) newAggSelect.value = savedAgg;
+                newColorSelect.dispatchEvent(new Event("change"));
+              }
+            };
+
+            // Initial render with all workers
+            renderDagForWorker("");
+
+            // Re-render on worker change
+            document.getElementById(workerSelectId)
+              .addEventListener("change", (e) => {
+                renderDagForWorker(e.target.value);
+              });
           },
 
           getPlanNodeDetails(node) {
@@ -18465,21 +18781,19 @@
               const validViews = [
                 "overview",
                 "explain",
+                "worker-dag",
                 "stages",
                 "operators",
+                "execution",
                 "pipeline",
                 "pipeline-graph",
                 "pivot",
                 "compare",
               ];
-              const defaultView =
-                this.currentView && this.currentView !== "compare"
-                  ? this.currentView
-                  : "explain";
               const targetView =
-                urlView && urlView !== "compare" && validViews.includes(urlView)
+                urlView && validViews.includes(urlView)
                   ? urlView
-                  : defaultView;
+                  : this.currentView || "explain";
               this.switchView(targetView);
 
               this.updateHeader();
@@ -18684,6 +18998,9 @@
                 break;
               case "explain":
                 Views.renderExplain(this.model, container);
+                break;
+              case "worker-dag":
+                Views.renderWorkerDag(this.model, container);
                 break;
               case "stages":
                 Views.renderStages(this.model, container);
