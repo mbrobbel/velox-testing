@@ -4904,6 +4904,10 @@
               <span class="nav-item-icon">⚡</span>
               <span>Execution</span>
             </div>
+            <div class="nav-item" data-view="operator-timeline">
+              <span class="nav-item-icon">&#x23F1;</span>
+              <span>Operator Timeline</span>
+            </div>
             <div class="nav-item" data-view="pipeline-graph">
               <span class="nav-item-icon">🔗</span>
               <span>Pipeline Graph</span>
@@ -4963,6 +4967,11 @@
 
           <!-- Execution View -->
           <div id="view-execution" class="view">
+            <!-- Populated by JavaScript -->
+          </div>
+
+          <!-- Operator Timeline View -->
+          <div id="view-operator-timeline" class="view">
             <!-- Populated by JavaScript -->
           </div>
 
@@ -7507,6 +7516,67 @@
 
             model._pivotFacts = facts;
             return facts;
+          },
+
+          deriveOperatorTimelineData(model) {
+            const queryStartMs = model.queryTiming?.startMs || 0;
+            const queryDurationMs = model.queryTiming?.durationMs || 1;
+
+            const workers = Array.from(model.workers.values()).sort((a, b) =>
+              a.host.localeCompare(b.host),
+            );
+
+            const points = [];
+            const operatorTypeSet = new Set();
+
+            model.tasks.forEach((task) => {
+              const rawPipelines = task.stats?.pipelines || [];
+              rawPipelines.forEach((rawPip) => {
+                const pipelineEndMs = rawPip.lastEndTimeInMillis || 0;
+                if (!pipelineEndMs) return;
+                const relativeEndSec = (pipelineEndMs - queryStartMs) / 1000;
+
+                (rawPip.operatorSummaries || []).forEach((op) => {
+                  const opType = op.operatorType;
+                  operatorTypeSet.add(opType);
+                  const wallNanos =
+                    Utils.parseTimeToNanos(op.addInputWall) +
+                    Utils.parseTimeToNanos(op.getOutputWall) +
+                    Utils.parseTimeToNanos(op.finishWall) +
+                    Utils.parseTimeToNanos(op.blockedWall);
+                  const activeNanos =
+                    Utils.parseTimeToNanos(op.addInputWall) +
+                    Utils.parseTimeToNanos(op.getOutputWall) +
+                    Utils.parseTimeToNanos(op.finishWall);
+                  points.push({
+                    workerHost: task.workerHost,
+                    endTimeSec: relativeEndSec,
+                    operatorType: opType,
+                    stageId: task.stageId,
+                    pipelineId: rawPip.pipelineId,
+                    operatorId: op.operatorId,
+                    planNodeId: op.planNodeId,
+                    totalDrivers: op.totalDrivers || 0,
+                    inputPositions: op.inputPositions || 0,
+                    outputPositions: op.outputPositions || 0,
+                    inputBytes: op.inputDataSizeInBytes || 0,
+                    outputBytes: op.outputDataSizeInBytes || 0,
+                    wallNanos,
+                    activeNanos,
+                    blockedNanos: Utils.parseTimeToNanos(op.blockedWall),
+                    peakMemoryBytes: op.peakTotalMemoryReservationInBytes || 0,
+                  });
+                });
+              });
+            });
+
+            const operatorTypes = Array.from(operatorTypeSet).sort();
+            return {
+              points,
+              workers,
+              operatorTypes,
+              queryDurationSec: queryDurationMs / 1000,
+            };
           },
         };
 
@@ -14024,6 +14094,268 @@
           },
 
           /**
+           * Render the Operator Timeline view - scatter plot of operator end times per worker.
+           */
+          renderOperatorTimeline(model, container) {
+            const { points, workers, operatorTypes, queryDurationSec } =
+              Derived.deriveOperatorTimelineData(model);
+
+            if (!points.length) {
+              container.innerHTML = `<div class="view-header"><h1 class="view-title">Operator Timeline</h1></div>
+                <p style="padding:1rem;color:var(--text-secondary)">No operator timing data available.</p>`;
+              return;
+            }
+
+            // Color palette for operator types
+            const palette = [
+              "#4285f4", "#ea4335", "#a8c756", "#34a853",
+              "#1b6b3a", "#9e9e9e", "#f4a6a0", "#f9a0c0",
+              "#9c27b0", "#757575", "#ff9800", "#795548",
+              "#e91e63", "#3f51b5", "#00bcd4", "#607d8b",
+              "#8bc34a", "#ff5722", "#009688", "#673ab7",
+              "#cddc39", "#ffc107", "#03a9f4", "#2196f3",
+            ];
+            const typeColor = new Map();
+            operatorTypes.forEach((t, i) => {
+              typeColor.set(t, palette[i % palette.length]);
+            });
+
+            // Layout — compact: one fixed-height row per worker
+            const margin = { top: 10, right: 20, bottom: 50, left: 140 };
+            const legendWidth = 220;
+            const availW = (container.clientWidth || 900);
+            const availH = (container.clientHeight || 600) - 50;
+            const plotWidth = availW - margin.left - margin.right - legendWidth;
+            const rowHeight = Math.max(18, Math.min(28, (availH - margin.top - margin.bottom) / workers.length));
+            const plotHeight = workers.length * rowHeight;
+            const dotRadius = Math.max(4, Math.min(7, rowHeight / 3));
+
+            // Group points by (worker, endTime)
+            const groupKey = (p) => `${p.workerHost}\0${p.endTimeSec.toFixed(3)}`;
+            const groups = new Map();
+            points.forEach((p) => {
+              const k = groupKey(p);
+              if (!groups.has(k)) groups.set(k, []);
+              groups.get(k).push(p);
+            });
+
+            container.innerHTML = `<div class="view-header"><h1 class="view-title">Operator Timeline</h1>
+              <span style="color:var(--text-muted);font-size:var(--font-size-xs);margin-left:8px">${Utils.escapeHtml(model.query?.id || "")}</span></div>`;
+            const chartDiv = document.createElement("div");
+            chartDiv.style.cssText = "position:relative;overflow:hidden;flex:1;min-height:0;";
+            container.appendChild(chartDiv);
+
+            // Clean up any previous operator-timeline tooltip
+            d3.selectAll(".op-timeline-tooltip").remove();
+
+            // Tooltip appended to document.body so it's never clipped
+            const tooltip = d3.select(document.body).append("div")
+              .attr("class", "dag-tooltip op-timeline-tooltip")
+              .style("position", "fixed")
+              .style("pointer-events", "none")
+              .style("z-index", "10000")
+              .style("max-width", "none")
+              .style("padding", "8px 10px");
+            const positionTooltip = (event) => {
+              const node = tooltip.node();
+              const gap = 12;
+              const vw = window.innerWidth;
+              const vh = window.innerHeight;
+              const tw = node.offsetWidth;
+              const th = node.offsetHeight;
+              let x = event.clientX + gap;
+              let y = event.clientY + gap;
+              if (x + tw > vw - 4) x = event.clientX - tw - gap;
+              if (y + th > vh - 4) y = event.clientY - th - gap;
+              if (x < 4) x = 4;
+              if (y < 4) y = 4;
+              tooltip.style("left", x + "px").style("top", y + "px");
+            };
+            const showTooltip = (event, html) => {
+              tooltip.html(html).classed("visible", true);
+              positionTooltip(event);
+            };
+            const moveTooltip = (event) => positionTooltip(event);
+            const hideTooltip = () => { tooltip.classed("visible", false); };
+
+            const svgW = availW;
+            const svgH = margin.top + plotHeight + margin.bottom;
+            const svg = d3.select(chartDiv).append("svg")
+              .attr("width", "100%")
+              .attr("height", "100%")
+              .attr("viewBox", `0 0 ${svgW} ${svgH}`)
+              .attr("preserveAspectRatio", "xMidYMid meet");
+
+            const workerIndex = new Map();
+            workers.forEach((w, i) => workerIndex.set(w.host, i));
+
+            const maxTime = Math.max(queryDurationSec, ...points.map((p) => p.endTimeSec));
+            const xScale = d3.scaleLinear().domain([0, maxTime * 1.02]).range([0, plotWidth]);
+
+            // Background
+            svg.append("rect")
+              .attr("x", margin.left).attr("y", margin.top)
+              .attr("width", plotWidth).attr("height", plotHeight)
+              .attr("fill", "var(--bg-secondary)").attr("rx", 4);
+
+            // Worker rows
+            workers.forEach((w, i) => {
+              const y = margin.top + i * rowHeight;
+              if (i % 2 === 1) {
+                svg.append("rect")
+                  .attr("x", margin.left).attr("y", y)
+                  .attr("width", plotWidth).attr("height", rowHeight)
+                  .attr("fill", "var(--tint-05)");
+              }
+              svg.append("line")
+                .attr("x1", margin.left).attr("x2", margin.left + plotWidth)
+                .attr("y1", y + rowHeight).attr("y2", y + rowHeight)
+                .attr("stroke", "var(--border-color)").attr("stroke-width", 0.5);
+              svg.append("text")
+                .attr("x", margin.left - 8)
+                .attr("y", y + rowHeight / 2)
+                .attr("text-anchor", "end").attr("dominant-baseline", "central")
+                .attr("fill", "var(--text-secondary)").attr("font-size", "11px")
+                .text(w.host);
+            });
+
+            // X-axis
+            xScale.ticks(8).forEach((t) => {
+              const x = margin.left + xScale(t);
+              svg.append("line")
+                .attr("x1", x).attr("x2", x)
+                .attr("y1", margin.top).attr("y2", margin.top + plotHeight)
+                .attr("stroke", "var(--border-color)").attr("stroke-width", 0.5).attr("opacity", 0.4);
+              svg.append("text")
+                .attr("x", x).attr("y", margin.top + plotHeight + 16)
+                .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "11px")
+                .text(t.toFixed(1));
+            });
+            svg.append("text")
+              .attr("x", margin.left + plotWidth / 2).attr("y", margin.top + plotHeight + 40)
+              .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "12px")
+              .text("End time (s) relative to session start");
+            svg.append("text")
+              .attr("x", -(margin.top + plotHeight / 2)).attr("y", 14)
+              .attr("transform", "rotate(-90)").attr("text-anchor", "middle")
+              .attr("fill", "var(--text-secondary)").attr("font-size", "12px")
+              .text("Worker (Presto nodeId)");
+
+            // Plot grouped dots — one pie dot per (worker, time)
+            groups.forEach((group) => {
+              const p0 = group[0];
+              const wIdx = workerIndex.get(p0.workerHost);
+              if (wIdx == null) return;
+              const cx = margin.left + xScale(p0.endTimeSec);
+              const cy = margin.top + wIdx * rowHeight + rowHeight / 2;
+              const n = group.length;
+
+              // Count operator types in this group
+              const typeCounts = new Map();
+              group.forEach((p) => typeCounts.set(p.operatorType, (typeCounts.get(p.operatorType) || 0) + 1));
+              const sortedTypes = [...typeCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+              // Draw pie dot (single-color when one type)
+              if (sortedTypes.length === 1) {
+                svg.append("circle")
+                  .attr("cx", cx).attr("cy", cy).attr("r", dotRadius)
+                  .attr("fill", typeColor.get(sortedTypes[0][0]))
+                  .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.5);
+              } else {
+                const pie = d3.pie().value((d) => d[1]).sort(null);
+                const arc = d3.arc().innerRadius(0).outerRadius(dotRadius);
+                const gDot = svg.append("g").attr("transform", `translate(${cx},${cy})`);
+                pie(sortedTypes).forEach((slice) => {
+                  gDot.append("path")
+                    .attr("d", arc(slice))
+                    .attr("fill", typeColor.get(slice.data[0]))
+                    .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.3);
+                });
+              }
+
+              // Hit area for tooltip
+              svg.append("circle")
+                .attr("cx", cx).attr("cy", cy).attr("r", Math.max(dotRadius + 2, 8))
+                .attr("fill", "transparent").attr("cursor", "pointer")
+                .on("mouseover", (event) => {
+                  // Aggregate totals
+                  let totalInput = 0, totalOutput = 0, totalInputBytes = 0, totalOutputBytes = 0;
+                  let totalWall = 0, totalActive = 0, totalBlocked = 0, totalPeakMem = 0;
+                  group.forEach((p) => {
+                    totalInput += p.inputPositions;
+                    totalOutput += p.outputPositions;
+                    totalInputBytes += p.inputBytes;
+                    totalOutputBytes += p.outputBytes;
+                    totalWall += p.wallNanos;
+                    totalActive += p.activeNanos;
+                    totalBlocked += p.blockedNanos;
+                    totalPeakMem = Math.max(totalPeakMem, p.peakMemoryBytes);
+                  });
+
+                  // Per-operator rows
+                  const opRows = group.map((p) => {
+                    const color = typeColor.get(p.operatorType);
+                    return `<tr>
+                      <td style="padding:2px 6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};vertical-align:middle"></span></td>
+                      <td style="padding:2px 6px">${Utils.escapeHtml(p.operatorType)}</td>
+                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.inputPositions)} rows</td>
+                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.outputPositions)} rows</td>
+                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatDuration(p.activeNanos)}</td>
+                    </tr>`;
+                  }).join("");
+
+                  const tbl = "border-collapse:collapse;font-size:10px;white-space:nowrap";
+                  const lbl = "color:var(--text-muted);padding:1px 8px 1px 0";
+                  const sec = "margin-top:4px;padding-top:4px;border-top:1px solid var(--border-color)";
+                  showTooltip(event,
+                    `<div style="font-weight:600;color:var(--accent-primary);margin-bottom:2px">${Utils.escapeHtml(p0.workerHost)}</div>
+                     <table style="${tbl}">
+                       <tr><td style="${lbl}">End time</td><td>${p0.endTimeSec.toFixed(3)}s</td></tr>
+                       <tr><td style="${lbl}">Stage</td><td>${p0.stageId}</td></tr>
+                       <tr><td style="${lbl}">Pipeline</td><td>${p0.pipelineId}</td></tr>
+                     </table>
+                     <div style="${sec}">
+                       <table style="${tbl}">
+                         <tr><td style="${lbl}">Wall time</td><td>${Utils.formatDuration(totalWall)}</td></tr>
+                         <tr><td style="${lbl}">Active</td><td>${Utils.formatDuration(totalActive)}</td></tr>
+                         <tr><td style="${lbl}">Blocked</td><td>${Utils.formatDuration(totalBlocked)}</td></tr>
+                         <tr><td style="${lbl}">Peak memory</td><td>${Utils.formatBytes(totalPeakMem)}</td></tr>
+                         <tr><td style="${lbl}">Input</td><td>${Utils.formatNumber(totalInput)} rows (${Utils.formatBytes(totalInputBytes)})</td></tr>
+                         <tr><td style="${lbl}">Output</td><td>${Utils.formatNumber(totalOutput)} rows (${Utils.formatBytes(totalOutputBytes)})</td></tr>
+                       </table>
+                     </div>
+                     <div style="${sec}">
+                       <div style="color:var(--text-muted);font-size:10px;margin-bottom:2px">${n} operator${n > 1 ? "s" : ""}</div>
+                       <table style="${tbl}">
+                         <tr style="color:var(--text-muted)">
+                           <th></th><th style="text-align:left;padding:1px 6px">Type</th><th style="padding:1px 6px">Input</th><th style="padding:1px 6px">Output</th><th style="padding:1px 6px">Active</th>
+                         </tr>
+                         ${opRows}
+                       </table>
+                     </div>`,
+                  );
+                })
+                .on("mousemove", (event) => moveTooltip(event))
+                .on("mouseout", () => hideTooltip());
+            });
+
+            // Legend
+            const legendX = margin.left + plotWidth + 20;
+            let legendY = margin.top;
+            operatorTypes.forEach((type) => {
+              svg.append("circle")
+                .attr("cx", legendX + 6).attr("cy", legendY + 6).attr("r", 6)
+                .attr("fill", typeColor.get(type));
+              svg.append("text")
+                .attr("x", legendX + 18).attr("y", legendY + 6)
+                .attr("dominant-baseline", "central")
+                .attr("fill", "var(--text-primary)").attr("font-size", "11px")
+                .text(type);
+              legendY += 20;
+            });
+          },
+
+          /**
            * Render the Execution view - multiple execution-oriented visualizations
            */
           renderExecution(model, container) {
@@ -18515,6 +18847,8 @@
               "explain",
               "stages",
               "operators",
+              "execution",
+              "operator-timeline",
               "pipeline",
               "pipeline-graph",
               "pivot",
@@ -18978,6 +19312,9 @@
           },
 
           renderCurrentView() {
+            // Clean up body-appended tooltips from operator timeline
+            d3.selectAll(".op-timeline-tooltip").remove();
+
             const container = document.getElementById(
               `view-${this.currentView}`,
             );
@@ -19016,6 +19353,9 @@
                 break;
               case "execution":
                 Views.renderExecution(this.model, container);
+                break;
+              case "operator-timeline":
+                Views.renderOperatorTimeline(this.model, container);
                 break;
               case "pipeline-graph":
                 Views.renderPipelineGraph(this.model, container);
