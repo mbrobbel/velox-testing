@@ -14190,7 +14190,14 @@
             workers.forEach((w, i) => workerIndex.set(w.host, i));
 
             const maxTime = Math.max(queryDurationSec, ...points.map((p) => p.endTimeSec));
-            const xScale = d3.scaleLinear().domain([0, maxTime * 1.02]).range([0, plotWidth]);
+            const xDomain = [0, maxTime * 1.02];
+            const xScale0 = d3.scaleLinear().domain(xDomain).range([0, plotWidth]); // reference
+            const xScale = d3.scaleLinear().domain(xDomain).range([0, plotWidth]); // mutable
+
+            // Clip path so dots/grid don't overflow the plot area
+            const clipId = "op-timeline-clip";
+            svg.append("defs").append("clipPath").attr("id", clipId)
+              .append("rect").attr("width", plotWidth).attr("height", plotHeight + margin.bottom);
 
             // Background
             svg.append("rect")
@@ -14198,7 +14205,7 @@
               .attr("width", plotWidth).attr("height", plotHeight)
               .attr("fill", "var(--bg-secondary)").attr("rx", 4);
 
-            // Worker rows
+            // Worker rows (static y elements)
             workers.forEach((w, i) => {
               const y = margin.top + i * rowHeight;
               if (i % 2 === 1) {
@@ -14219,125 +14226,195 @@
                 .text(w.host);
             });
 
-            // X-axis
-            xScale.ticks(8).forEach((t) => {
-              const x = margin.left + xScale(t);
-              svg.append("line")
-                .attr("x1", x).attr("x2", x)
-                .attr("y1", margin.top).attr("y2", margin.top + plotHeight)
-                .attr("stroke", "var(--border-color)").attr("stroke-width", 0.5).attr("opacity", 0.4);
-              svg.append("text")
-                .attr("x", x).attr("y", margin.top + plotHeight + 16)
-                .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "11px")
-                .text(t.toFixed(1));
-            });
-            svg.append("text")
-              .attr("x", margin.left + plotWidth / 2).attr("y", margin.top + plotHeight + 40)
-              .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "12px")
-              .text("End time (s) relative to session start");
+            // Y-axis label (static)
             svg.append("text")
               .attr("x", -(margin.top + plotHeight / 2)).attr("y", 14)
               .attr("transform", "rotate(-90)").attr("text-anchor", "middle")
               .attr("fill", "var(--text-secondary)").attr("font-size", "12px")
               .text("Worker (Presto nodeId)");
 
-            // Plot grouped dots — one pie dot per (worker, time)
+            // X-axis label (static)
+            svg.append("text")
+              .attr("x", margin.left + plotWidth / 2).attr("y", margin.top + plotHeight + 40)
+              .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "12px")
+              .text("End time (s) relative to session start");
+
+            // Dynamic layers: x-grid, x-ticks, dots — these redraw on zoom
+            const gGrid = svg.append("g").attr("clip-path", `url(#${clipId})`).attr("transform", `translate(${margin.left},${margin.top})`);
+            const gXTicks = svg.append("g");
+            const gDots = svg.append("g").attr("clip-path", `url(#${clipId})`).attr("transform", `translate(${margin.left},${margin.top})`);
+            const gHit = svg.append("g").attr("clip-path", `url(#${clipId})`).attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Tooltip builder (shared between draws)
+            const tbl = "border-collapse:collapse;font-size:10px;white-space:nowrap";
+            const lbl = "color:var(--text-muted);padding:1px 8px 1px 0";
+            const sec = "margin-top:4px;padding-top:4px;border-top:1px solid var(--border-color)";
+
+            function buildTooltipHtml(group) {
+              const p0 = group[0];
+              const n = group.length;
+              let totalInput = 0, totalOutput = 0, totalInputBytes = 0, totalOutputBytes = 0;
+              let totalWall = 0, totalActive = 0, totalBlocked = 0, totalPeakMem = 0;
+              group.forEach((p) => {
+                totalInput += p.inputPositions; totalOutput += p.outputPositions;
+                totalInputBytes += p.inputBytes; totalOutputBytes += p.outputBytes;
+                totalWall += p.wallNanos; totalActive += p.activeNanos;
+                totalBlocked += p.blockedNanos;
+                totalPeakMem = Math.max(totalPeakMem, p.peakMemoryBytes);
+              });
+              const opRows = group.map((p) => {
+                const color = typeColor.get(p.operatorType);
+                return `<tr>
+                  <td style="padding:2px 6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};vertical-align:middle"></span></td>
+                  <td style="padding:2px 6px">${Utils.escapeHtml(p.operatorType)}</td>
+                  <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.inputPositions)} rows</td>
+                  <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.outputPositions)} rows</td>
+                  <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatDuration(p.activeNanos)}</td>
+                </tr>`;
+              }).join("");
+              return `<div style="font-weight:600;color:var(--accent-primary);margin-bottom:2px">${Utils.escapeHtml(p0.workerHost)}</div>
+                <table style="${tbl}">
+                  <tr><td style="${lbl}">End time</td><td>${p0.endTimeSec.toFixed(3)}s</td></tr>
+                  <tr><td style="${lbl}">Stage</td><td>${p0.stageId}</td></tr>
+                  <tr><td style="${lbl}">Pipeline</td><td>${p0.pipelineId}</td></tr>
+                </table>
+                <div style="${sec}">
+                  <table style="${tbl}">
+                    <tr><td style="${lbl}">Wall time</td><td>${Utils.formatDuration(totalWall)}</td></tr>
+                    <tr><td style="${lbl}">Active</td><td>${Utils.formatDuration(totalActive)}</td></tr>
+                    <tr><td style="${lbl}">Blocked</td><td>${Utils.formatDuration(totalBlocked)}</td></tr>
+                    <tr><td style="${lbl}">Peak memory</td><td>${Utils.formatBytes(totalPeakMem)}</td></tr>
+                    <tr><td style="${lbl}">Input</td><td>${Utils.formatNumber(totalInput)} rows (${Utils.formatBytes(totalInputBytes)})</td></tr>
+                    <tr><td style="${lbl}">Output</td><td>${Utils.formatNumber(totalOutput)} rows (${Utils.formatBytes(totalOutputBytes)})</td></tr>
+                  </table>
+                </div>
+                <div style="${sec}">
+                  <div style="color:var(--text-muted);font-size:10px;margin-bottom:2px">${n} operator${n > 1 ? "s" : ""}</div>
+                  <table style="${tbl}">
+                    <tr style="color:var(--text-muted)">
+                      <th></th><th style="text-align:left;padding:1px 6px">Type</th><th style="padding:1px 6px">Input</th><th style="padding:1px 6px">Output</th><th style="padding:1px 6px">Active</th>
+                    </tr>
+                    ${opRows}
+                  </table>
+                </div>`;
+            }
+
+            // Pre-compute per-group data for rendering
+            const groupData = [];
             groups.forEach((group) => {
               const p0 = group[0];
               const wIdx = workerIndex.get(p0.workerHost);
               if (wIdx == null) return;
-              const cx = margin.left + xScale(p0.endTimeSec);
-              const cy = margin.top + wIdx * rowHeight + rowHeight / 2;
-              const n = group.length;
-
-              // Count operator types in this group
               const typeCounts = new Map();
               group.forEach((p) => typeCounts.set(p.operatorType, (typeCounts.get(p.operatorType) || 0) + 1));
               const sortedTypes = [...typeCounts.entries()].sort((a, b) => b[1] - a[1]);
-
-              // Draw pie dot (single-color when one type)
-              if (sortedTypes.length === 1) {
-                svg.append("circle")
-                  .attr("cx", cx).attr("cy", cy).attr("r", dotRadius)
-                  .attr("fill", typeColor.get(sortedTypes[0][0]))
-                  .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.5);
-              } else {
-                const pie = d3.pie().value((d) => d[1]).sort(null);
-                const arc = d3.arc().innerRadius(0).outerRadius(dotRadius);
-                const gDot = svg.append("g").attr("transform", `translate(${cx},${cy})`);
-                pie(sortedTypes).forEach((slice) => {
-                  gDot.append("path")
-                    .attr("d", arc(slice))
-                    .attr("fill", typeColor.get(slice.data[0]))
-                    .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.3);
-                });
-              }
-
-              // Hit area for tooltip
-              svg.append("circle")
-                .attr("cx", cx).attr("cy", cy).attr("r", Math.max(dotRadius + 2, 8))
-                .attr("fill", "transparent").attr("cursor", "pointer")
-                .on("mouseover", (event) => {
-                  // Aggregate totals
-                  let totalInput = 0, totalOutput = 0, totalInputBytes = 0, totalOutputBytes = 0;
-                  let totalWall = 0, totalActive = 0, totalBlocked = 0, totalPeakMem = 0;
-                  group.forEach((p) => {
-                    totalInput += p.inputPositions;
-                    totalOutput += p.outputPositions;
-                    totalInputBytes += p.inputBytes;
-                    totalOutputBytes += p.outputBytes;
-                    totalWall += p.wallNanos;
-                    totalActive += p.activeNanos;
-                    totalBlocked += p.blockedNanos;
-                    totalPeakMem = Math.max(totalPeakMem, p.peakMemoryBytes);
-                  });
-
-                  // Per-operator rows
-                  const opRows = group.map((p) => {
-                    const color = typeColor.get(p.operatorType);
-                    return `<tr>
-                      <td style="padding:2px 6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};vertical-align:middle"></span></td>
-                      <td style="padding:2px 6px">${Utils.escapeHtml(p.operatorType)}</td>
-                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.inputPositions)} rows</td>
-                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatNumber(p.outputPositions)} rows</td>
-                      <td style="padding:2px 6px;text-align:right;white-space:nowrap">${Utils.formatDuration(p.activeNanos)}</td>
-                    </tr>`;
-                  }).join("");
-
-                  const tbl = "border-collapse:collapse;font-size:10px;white-space:nowrap";
-                  const lbl = "color:var(--text-muted);padding:1px 8px 1px 0";
-                  const sec = "margin-top:4px;padding-top:4px;border-top:1px solid var(--border-color)";
-                  showTooltip(event,
-                    `<div style="font-weight:600;color:var(--accent-primary);margin-bottom:2px">${Utils.escapeHtml(p0.workerHost)}</div>
-                     <table style="${tbl}">
-                       <tr><td style="${lbl}">End time</td><td>${p0.endTimeSec.toFixed(3)}s</td></tr>
-                       <tr><td style="${lbl}">Stage</td><td>${p0.stageId}</td></tr>
-                       <tr><td style="${lbl}">Pipeline</td><td>${p0.pipelineId}</td></tr>
-                     </table>
-                     <div style="${sec}">
-                       <table style="${tbl}">
-                         <tr><td style="${lbl}">Wall time</td><td>${Utils.formatDuration(totalWall)}</td></tr>
-                         <tr><td style="${lbl}">Active</td><td>${Utils.formatDuration(totalActive)}</td></tr>
-                         <tr><td style="${lbl}">Blocked</td><td>${Utils.formatDuration(totalBlocked)}</td></tr>
-                         <tr><td style="${lbl}">Peak memory</td><td>${Utils.formatBytes(totalPeakMem)}</td></tr>
-                         <tr><td style="${lbl}">Input</td><td>${Utils.formatNumber(totalInput)} rows (${Utils.formatBytes(totalInputBytes)})</td></tr>
-                         <tr><td style="${lbl}">Output</td><td>${Utils.formatNumber(totalOutput)} rows (${Utils.formatBytes(totalOutputBytes)})</td></tr>
-                       </table>
-                     </div>
-                     <div style="${sec}">
-                       <div style="color:var(--text-muted);font-size:10px;margin-bottom:2px">${n} operator${n > 1 ? "s" : ""}</div>
-                       <table style="${tbl}">
-                         <tr style="color:var(--text-muted)">
-                           <th></th><th style="text-align:left;padding:1px 6px">Type</th><th style="padding:1px 6px">Input</th><th style="padding:1px 6px">Output</th><th style="padding:1px 6px">Active</th>
-                         </tr>
-                         ${opRows}
-                       </table>
-                     </div>`,
-                  );
-                })
-                .on("mousemove", (event) => moveTooltip(event))
-                .on("mouseout", () => hideTooltip());
+              groupData.push({ group, p0, wIdx, sortedTypes });
             });
+
+            const pie = d3.pie().value((d) => d[1]).sort(null);
+            const arc = d3.arc().innerRadius(0).outerRadius(dotRadius);
+
+            function draw() {
+              // X grid
+              gGrid.selectAll("*").remove();
+              const ticks = xScale.ticks(8);
+              ticks.forEach((t) => {
+                const x = xScale(t);
+                gGrid.append("line")
+                  .attr("x1", x).attr("x2", x)
+                  .attr("y1", 0).attr("y2", plotHeight)
+                  .attr("stroke", "var(--border-color)").attr("stroke-width", 0.5).attr("opacity", 0.4);
+              });
+
+              // X tick labels
+              gXTicks.selectAll("*").remove();
+              ticks.forEach((t) => {
+                const x = margin.left + xScale(t);
+                gXTicks.append("text")
+                  .attr("x", x).attr("y", margin.top + plotHeight + 16)
+                  .attr("text-anchor", "middle").attr("fill", "var(--text-secondary)").attr("font-size", "11px")
+                  .text(t.toFixed(1));
+              });
+
+              // Dots
+              gDots.selectAll("*").remove();
+              gHit.selectAll("*").remove();
+              groupData.forEach(({ group, p0, wIdx, sortedTypes }) => {
+                const cx = xScale(p0.endTimeSec);
+                const cy = wIdx * rowHeight + rowHeight / 2;
+
+                if (sortedTypes.length === 1) {
+                  gDots.append("circle")
+                    .attr("cx", cx).attr("cy", cy).attr("r", dotRadius)
+                    .attr("fill", typeColor.get(sortedTypes[0][0]))
+                    .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.5);
+                } else {
+                  const gPie = gDots.append("g").attr("transform", `translate(${cx},${cy})`);
+                  pie(sortedTypes).forEach((slice) => {
+                    gPie.append("path")
+                      .attr("d", arc(slice))
+                      .attr("fill", typeColor.get(slice.data[0]))
+                      .attr("stroke", "var(--bg-primary)").attr("stroke-width", 0.3);
+                  });
+                }
+
+                // Hit area
+                gHit.append("circle")
+                  .attr("cx", cx).attr("cy", cy).attr("r", Math.max(dotRadius + 2, 8))
+                  .attr("fill", "transparent").attr("cursor", "pointer")
+                  .on("mouseover", (event) => showTooltip(event, buildTooltipHtml(group)))
+                  .on("mousemove", (event) => moveTooltip(event))
+                  .on("mouseout", () => hideTooltip());
+              });
+            }
+
+            draw();
+
+            // X-zoom: scroll to zoom horizontally, shift+scroll or horizontal scroll to pan
+            const zoom = d3.zoom()
+              .scaleExtent([1, 50])
+              .translateExtent([[0, 0], [plotWidth, plotHeight]])
+              .extent([[0, 0], [plotWidth, plotHeight]]);
+
+            // Reset zoom button
+            const resetBtn = document.createElement("button");
+            resetBtn.textContent = "Reset zoom";
+            resetBtn.style.cssText = "display:none;position:absolute;top:8px;right:" + (legendWidth + 28) + "px;padding:3px 10px;font-size:11px;cursor:pointer;border:1px solid var(--border-color);border-radius:var(--border-radius-sm);background:var(--bg-card);color:var(--text-secondary);z-index:2;";
+            resetBtn.addEventListener("mouseenter", () => { resetBtn.style.color = "var(--text-primary)"; resetBtn.style.borderColor = "var(--text-secondary)"; });
+            resetBtn.addEventListener("mouseleave", () => { resetBtn.style.color = "var(--text-secondary)"; resetBtn.style.borderColor = "var(--border-color)"; });
+            chartDiv.appendChild(resetBtn);
+
+            const updateResetBtn = (t) => {
+              resetBtn.style.display = (t.k > 1.001 || Math.abs(t.x) > 0.5) ? "block" : "none";
+            };
+
+            zoom.on("zoom", (event) => {
+              const t = event.transform;
+              xScale.domain(t.rescaleX(xScale0).domain());
+              draw();
+              updateResetBtn(t);
+            });
+
+            resetBtn.addEventListener("click", () => {
+              svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+            });
+
+            svg.call(zoom)
+              .on("wheel.zoom", (event) => {
+                event.preventDefault();
+                const t = d3.zoomTransform(svg.node());
+                if (event.ctrlKey || event.metaKey) {
+                  const [mx] = d3.pointer(event);
+                  const factor = Math.pow(2, -event.deltaY * 0.01);
+                  const newK = Math.max(1, Math.min(50, t.k * factor));
+                  const px = mx - margin.left;
+                  const newX = px - (px - t.x) * (newK / t.k);
+                  svg.call(zoom.transform, d3.zoomIdentity.translate(newX, 0).scale(newK));
+                } else {
+                  const dx = -event.deltaX || -event.deltaY;
+                  svg.call(zoom.translateBy, dx / t.k, 0);
+                }
+              });
 
             // Legend
             const legendX = margin.left + plotWidth + 20;
