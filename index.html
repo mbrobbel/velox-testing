@@ -359,6 +359,38 @@
         flex-shrink: 0;
       }
 
+      .menu-toggle {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--border-radius-sm);
+        background: rgba(0, 0, 0, 0.18);
+        color: var(--header-text);
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background var(--transition-fast);
+      }
+
+      .menu-toggle:hover,
+      .menu-toggle:focus-visible {
+        background: rgba(0, 0, 0, 0.32);
+        outline: 2px solid rgba(255, 255, 255, 0.8);
+        outline-offset: 2px;
+      }
+
+      .menu-toggle-line {
+        width: 15px;
+        height: 2px;
+        border-radius: 2px;
+        background: currentColor;
+      }
+
       .app-logo {
         font-size: var(--font-size-lg);
         font-weight: 600;
@@ -571,6 +603,10 @@
       }
 
       .app-sidebar:hover {
+        transform: translateX(0);
+      }
+
+      .app-sidebar.is-open {
         transform: translateX(0);
       }
 
@@ -4796,6 +4832,18 @@
     <div class="app">
       <!-- Header -->
       <header class="app-header">
+        <button
+          id="menu-toggle"
+          class="menu-toggle"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-controls="sidebar"
+          aria-expanded="false"
+        >
+          <span class="menu-toggle-line"></span>
+          <span class="menu-toggle-line"></span>
+          <span class="menu-toggle-line"></span>
+        </button>
         <div class="app-logo">
           <div class="app-logo-icon"></div>
           <span>Presto Metrics Viewer</span>
@@ -18945,6 +18993,17 @@
             const fileInput = document.getElementById("file-input");
             const headerFileInput =
               document.getElementById("header-file-input");
+            const menuToggle = document.getElementById("menu-toggle");
+            const sidebar = document.getElementById("sidebar");
+
+            menuToggle.addEventListener("click", () => {
+              const isOpen = sidebar.classList.toggle("is-open");
+              menuToggle.setAttribute("aria-expanded", String(isOpen));
+              menuToggle.setAttribute(
+                "aria-label",
+                isOpen ? "Close navigation menu" : "Open navigation menu",
+              );
+            });
 
             uploadZone.addEventListener("click", () => fileInput.click());
 
@@ -18981,6 +19040,9 @@
               .forEach((item) => {
                 item.addEventListener("click", () => {
                   this.switchView(item.dataset.view);
+                  sidebar.classList.remove("is-open");
+                  menuToggle.setAttribute("aria-expanded", "false");
+                  menuToggle.setAttribute("aria-label", "Open navigation menu");
                 });
               });
 
